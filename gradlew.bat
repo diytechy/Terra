@@ -24,7 +24,15 @@
 @rem ##########################################################################
 
 @rem Set local scope for the variables with windows NT shell
-if "%OS%"=="Windows_NT" setlocal
+if "%OS%"=="Windows_NT" (
+	setlocal
+	if "%CMDCMDLINE%"=="%~0" (
+		set LocalLaunch=1
+	) else (
+		set LocalLaunch=0
+	)
+)
+
 
 set DIRNAME=%~dp0
 if "%DIRNAME%"=="" set DIRNAME=.
@@ -86,9 +94,17 @@ rem the _cmd.exe /c_ return code!
 set EXIT_CODE=%ERRORLEVEL%
 if %EXIT_CODE% equ 0 set EXIT_CODE=1
 if not ""=="%GRADLE_EXIT_CONSOLE%" exit %EXIT_CODE%
+if %LocalLaunch%==1 (
+	echo Failure
+	pause
+)
 exit /b %EXIT_CODE%
 
 :mainEnd
+if %LocalLaunch%==1 (
+	echo Success
+	pause
+)
 if "%OS%"=="Windows_NT" endlocal
 
 :omega
