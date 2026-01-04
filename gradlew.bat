@@ -26,11 +26,15 @@
 @rem Set local scope for the variables with windows NT shell
 if "%OS%"=="Windows_NT" (
 	setlocal
+	echo Determining window latch...
+	pause
 	if "%CMDCMDLINE%"=="%~0" (
 		set LocalLaunch=1
 	) else (
 		set LocalLaunch=0
 	)
+	echo Latch configured.
+	pause
 )
 
 
