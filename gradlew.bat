@@ -16,6 +16,7 @@
 @rem SPDX-License-Identifier: Apache-2.0
 @rem
 
+
 @if "%DEBUG%"=="" @echo off
 @rem ##########################################################################
 @rem
@@ -26,7 +27,8 @@
 @rem Set local scope for the variables with windows NT shell
 if "%OS%"=="Windows_NT" (
 	setlocal
-	if "%CMDCMDLINE%"=="%~0" (
+	echo %cmdcmdline% | findstr /i "\"\"" >nul
+	if %errorlevel%==0 (
 		set LocalLaunch=1
 	) else (
 		set LocalLaunch=0
