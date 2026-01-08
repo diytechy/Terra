@@ -58,9 +58,9 @@ fun Project.configureDistribution() {
                     URL("https://github.com/PolyhedralDev/Tartarus/releases/download/" + Versions.Terra.tartarusConfig + "/Tartarus.zip")
                 val defaultPackUrl =
                     URL("https://github.com/PolyhedralDev/DefaultMetapack/releases/download/" + Versions.Terra.defaultConfig + "/default.zip")
-                //downloadPack(overworldPackUrl, project)
-                //downloadPack(reimagENDPackUrl, project)
-                //downloadPack(tartarusPackUrl, project)
+                downloadPack(overworldPackUrl, project)
+                downloadPack(reimagENDPackUrl, project)
+                downloadPack(tartarusPackUrl, project)
                 downloadPack(defaultPackUrl, project, true)
             } catch (_: Exception) {
             }
