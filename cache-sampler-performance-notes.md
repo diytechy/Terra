@@ -2,12 +2,14 @@
 
 ## Summary
 
-The `CacheSampler` (`type: CACHE`) has drastically poor performance due to a
-catastrophic hash collision bug in the cache key types, compounded by several
-secondary issues.
+The original `CacheSampler` (`type: CACHE`) had drastically poor performance due to
+a catastrophic hash collision bug in the cache key types, autoboxing overhead from
+Caffeine's generics-based API, and unnecessary complexity. All issues have been
+resolved by replacing the Caffeine-based implementation with a direct-mapped primitive
+cache.
 
 
-## Issue 1: Catastrophic Hash Collisions (CRITICAL — FIXED)
+## Issue 1: Catastrophic Hash Collisions (FIXED)
 
 ### The Bug
 
@@ -29,134 +31,96 @@ For all integer-valued doubles (which world coordinates are), the lower 32 bits 
 16.0 -> 0x4030000000000000 -> (int) = 0
 ```
 
-The distinguishing information is entirely in the upper 32 bits, which were discarded.
+For a 16x16 chunk with a constant seed, **all 256 coordinate pairs hashed to the
+same single bucket**, degrading every lookup from O(1) to O(n).
 
-### Impact
+### Fix
 
-For a 16x16 chunk with a constant seed, **all 256 coordinate pairs hash to the same
-single bucket**. This degrades every cache lookup from O(1) to O(n), where n is the
-number of cached entries. The cache becomes a linear scan that adds overhead on top of
-the noise computation it was meant to avoid.
-
-### Fix Applied
-
-Changed both key types to use `Double.hashCode(x)` which computes
-`Long.hashCode(Double.doubleToLongBits(x))` — XORing the upper and lower 32 bits
-together. This is a JVM-standard pattern with negligible cost (one XOR + one unsigned
-shift per double component).
-
-Before: 256 coordinate pairs -> 1 unique hash
-After:  256 coordinate pairs -> 248 unique hashes
-
-### Computational cost of hashing
-
-`Double.hashCode(double)` internally does:
-1. `Double.doubleToLongBits(x)` — JVM intrinsic, just reinterprets bits (free)
-2. `(int)(bits ^ (bits >>> 32))` — one XOR, one shift
-
-This is about as cheap as a hash can get. More sophisticated hash functions
-(MurmurHash3, xxHash) provide marginally better distribution but are unnecessary
-here since the input coordinates are already well-distributed once the full 64 bits
-are used.
-
-### Files changed
-
-- `common/api/src/main/java/com/dfsek/terra/api/util/cache/DoubleSeededVector2Key.java`
-- `common/api/src/main/java/com/dfsek/terra/api/util/cache/DoubleSeededVector3Key.java`
+The key types were updated to use `Double.hashCode(x)` (XORs upper and lower 32
+bits). The CacheSampler itself was replaced entirely (see below), but the key types
+remain fixed for any other code that may use them.
 
 
-## Issue 2: Autoboxing Overhead (NOT YET FIXED)
+## Issue 2: Autoboxing Overhead (FIXED)
 
-### The Problem
+Caffeine's `LoadingCache<Key, Double>` requires boxed `Double`, causing an object
+allocation on every cache miss and unboxing on every hit. This cannot be avoided
+within Caffeine's generics-based API. Resolved by replacing Caffeine entirely.
 
-`LoadingCache<DoubleSeededVector2Key, Double>` uses boxed `Double`, not primitive
-`double`. Every cache miss boxes the computed value (`double` -> `Double` object
-allocation), and every hit unboxes it. With millions of evaluations per chunk
-generation, this creates significant GC pressure.
 
-### Why it can't be fixed within Caffeine
+## Issue 3: Single Shared Executor (FIXED — no longer applicable)
 
-Caffeine uses Java generics (`Cache<K, V>`), which require object types. There is no
-`Cache<K, double>` variant. This is a fundamental limitation of Caffeine's API and
-Java's type erasure. No configuration change can avoid the boxing.
+`CacheUtils.CACHE_EXECUTOR` was a single `newSingleThreadExecutor()` shared across
+all CacheSampler instances. No longer relevant since the new implementation has no
+async maintenance.
 
-### Recommended fix: Replace Caffeine with a direct-mapped primitive cache
 
-For this specific use case (fixed-size, thread-local, coordinate-keyed noise cache),
-Caffeine is overkill. A direct-mapped cache using parallel primitive arrays would
-eliminate all overhead:
+## Issue 4: 3D Initial Capacity (FIXED)
 
+The old 3D cache allocated `initialCapacity(981504)` per thread via Caffeine. The
+new implementation uses 131,072 slots (~3 MB per thread), a clean power-of-2 size.
+
+
+## New Implementation: Direct-Mapped Primitive Cache
+
+`CacheSampler` now uses parallel primitive arrays (`double[]`, `long[]`) in inner
+classes (`DirectCache2D`, `DirectCache3D`), one per thread via `ThreadLocal`.
+
+### Design
+
+- **No autoboxing**: all storage is primitive arrays
+- **No object allocation** after initial construction
+- **O(1) guaranteed**: no collision chains; hash conflicts simply overwrite
+- **No eviction bookkeeping**: no frequency sketches, access tracking, or async tasks
+- **Zero-initialization guard**: when all key components (x, z, seed) are zero —
+  matching array defaults — the cache is bypassed via a bitwise OR check:
+  `(doubleToRawLongBits(x) | doubleToRawLongBits(z) | seed) == 0L`
+
+### Hash Function
+
+The hash is designed so that **all 256 coordinates within a single 16x16 chunk map
+to distinct slots**, guaranteeing zero within-chunk collisions for integer coordinates.
+
+**2D** (4096 slots = 2^12, covers 16 chunks):
 ```java
-// Conceptual design for 2D:
-public class DirectSamplerCache2D {
-    private final int mask;          // capacity - 1 (capacity must be power of 2)
-    private final double[] keyX;
-    private final double[] keyZ;
-    private final long[] keySeed;
-    private final double[] values;
-    private final boolean[] occupied;
-
-    public double getOrCompute(Sampler sampler, long seed, double x, double z) {
-        int hash = Double.hashCode(x);
-        hash = 31 * hash + Double.hashCode(z);
-        hash = 31 * hash + Long.hashCode(seed);
-        int index = hash & mask;
-
-        if (occupied[index]
-            && keyX[index] == x
-            && keyZ[index] == z
-            && keySeed[index] == seed) {
-            return values[index];  // Cache hit - no boxing
-        }
-
-        double value = sampler.getSample(seed, x, z);
-        keyX[index] = x;
-        keyZ[index] = z;
-        keySeed[index] = seed;
-        values[index] = value;
-        occupied[index] = true;
-        return value;  // No boxing
-    }
-}
+int lo = ((int) x & 0xF) | (((int) z & 0xF) << 4);  // bits 0-7: unique within chunk
+int hi = ((int) x >> 4) ^ ((int) z >> 4) ^ (int) seed; // bits 8-11: chunk identity
+int index = (lo | (hi << 8)) & 0xFFF;
 ```
 
-Benefits over Caffeine for this use case:
-- Zero autoboxing (all primitive arrays)
-- Zero object allocation after construction
-- O(1) guaranteed (no collision chains — conflicts simply overwrite)
-- No frequency sketch / access tracking overhead
-- Cache-line friendly memory layout
-- Thread-safe when used with ThreadLocal (which CacheSampler already does)
+**3D** (131072 slots = 2^17, covers one full chunk column):
+```java
+int index = ((int) x & 0xF)              // bits 0-3: chunk-local x
+          | (((int) z & 0xF) << 4)       // bits 4-7: chunk-local z
+          | (((int) y & 0x1FF) << 8);    // bits 8-16: y (9 bits, 512 block range)
+index &= 0x1FFFF;
+```
 
-Trade-off: Hash conflicts evict the previous entry (like a CPU L1 cache) rather
-than maintaining multiple entries per bucket. For noise evaluation with spatial
-locality (chunk generation iterates coordinates sequentially), this works well.
-The hit rate depends on access patterns, but the elimination of all overhead makes
-even a lower hit rate worthwhile.
+The lower 8 bits (x and z) are preserved by any mask >= 0xFF, so the within-chunk
+guarantee holds for any table size >= 256.
 
+### Memory Footprint
 
-## Issue 3: Single Shared Executor (minor)
+| Cache | Slots | Arrays | Per thread |
+|-------|-------|--------|------------|
+| 2D    | 4,096 | 3 x double[] + 1 x long[] = 4 arrays | ~131 KB |
+| 3D    | 131,072 | 4 x double[] + 1 x long[] = 5 arrays | ~3 MB |
 
-`CacheUtils.CACHE_EXECUTOR` is a single `Executors.newSingleThreadExecutor()` shared
-across ALL CacheSampler instances and all threads. Caffeine uses this for async
-maintenance (eviction, cleanup). With many cache instances, all maintenance is
-serialized through this one thread.
+### Trade-offs
 
-This becomes moot if Caffeine is replaced with a direct-mapped cache (which needs
-no async maintenance).
+Hash conflicts evict the previous entry (like a CPU L1 cache) rather than storing
+both. For chunk generation's sequential spatial access pattern, this works well —
+recently-computed nearby coordinates are what you want cached, and that's what
+naturally stays.
 
-
-## Issue 4: 3D Initial Capacity (minor)
-
-The 3D cache allocates `initialCapacity(981504)` per thread. This is a large upfront
-allocation even if most entries go unused. A direct-mapped cache with a power-of-2
-capacity (e.g., 65536 or 131072) would use predictable, bounded memory.
+For non-integer coordinates (e.g., after frequency scaling), the integer truncation
+in the hash means different fractional values with the same integer part collide.
+The key comparison catches mismatches (a miss, not a wrong result), so correctness
+is preserved; only hit rate is affected.
 
 
-## Key Source Files
+## Files Changed
 
-- `CacheSampler.java` — The cache wrapper sampler
-- `DoubleSeededVector2Key.java` — 2D cache key (hashCode FIXED)
-- `DoubleSeededVector3Key.java` — 3D cache key (hashCode FIXED)
-- `CacheUtils.java` — Shared single-thread executor
-- `CacheSamplerTemplate.java` — YAML config template for CACHE type
+- `CacheSampler.java` — Replaced Caffeine with direct-mapped primitive cache
+- `DoubleSeededVector2Key.java` — Fixed hashCode (retained for other potential users)
+- `DoubleSeededVector3Key.java` — Fixed hashCode (retained for other potential users)

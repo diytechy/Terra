@@ -1,78 +1,113 @@
 package com.dfsek.terra.addons.noise.config.sampler;
 
 import com.dfsek.seismic.type.sampler.Sampler;
-import com.github.benmanes.caffeine.cache.Caffeine;
-import com.github.benmanes.caffeine.cache.LoadingCache;
-import com.github.benmanes.caffeine.cache.Scheduler;
-import org.jetbrains.annotations.ApiStatus.Experimental;
-
-import com.dfsek.terra.api.util.cache.DoubleSeededVector2Key;
-import com.dfsek.terra.api.util.cache.DoubleSeededVector3Key;
-import com.dfsek.terra.api.util.generic.pair.Pair;
-import com.dfsek.terra.api.util.generic.pair.Pair.Mutable;
-
-import static com.dfsek.terra.api.util.cache.CacheUtils.CACHE_EXECUTOR;
 
 
-@Experimental
+/**
+ * A direct-mapped, thread-local cache wrapper for a {@link Sampler}.
+ * <p>
+ * Uses parallel primitive arrays to avoid autoboxing and object allocation.
+ * The hash function is designed so that all 256 coordinates within a single
+ * 16x16 chunk map to distinct slots, guaranteeing zero within-chunk collisions
+ * for integer coordinates.
+ * <p>
+ * 2D cache: 4096 slots (16 chunks, ~131 KB per thread).
+ * 3D cache: 131072 slots (~3 MB per thread).
+ */
 public class CacheSampler implements Sampler {
 
+    private static final int CACHE_2D_BITS = 12;
+    private static final int CACHE_2D_SIZE = 1 << CACHE_2D_BITS;
+    private static final int CACHE_2D_MASK = CACHE_2D_SIZE - 1;
+
+    private static final int CACHE_3D_BITS = 17;
+    private static final int CACHE_3D_SIZE = 1 << CACHE_3D_BITS;
+    private static final int CACHE_3D_MASK = CACHE_3D_SIZE - 1;
+
     private final Sampler sampler;
-    private final ThreadLocal<Mutable<DoubleSeededVector2Key, LoadingCache<DoubleSeededVector2Key, Double>>> cache2D;
-    private final ThreadLocal<Mutable<DoubleSeededVector3Key, LoadingCache<DoubleSeededVector3Key, Double>>> cache3D;
+    private final ThreadLocal<DirectCache2D> cache2D;
+    private final ThreadLocal<DirectCache3D> cache3D;
 
     public CacheSampler(Sampler sampler, int dimensions) {
         this.sampler = sampler;
         if(dimensions == 2) {
-            this.cache2D = ThreadLocal.withInitial(() -> {
-                LoadingCache<DoubleSeededVector2Key, Double> cache = Caffeine
-                    .newBuilder()
-                    .executor(CACHE_EXECUTOR)
-                    .scheduler(Scheduler.systemScheduler())
-                    .initialCapacity(256)
-                    .maximumSize(256)
-                    .build(this::sampleNoise);
-                return Pair.of(new DoubleSeededVector2Key(0, 0, 0), cache).mutable();
-            });
+            this.cache2D = ThreadLocal.withInitial(DirectCache2D::new);
             this.cache3D = null;
         } else {
-            this.cache3D = ThreadLocal.withInitial(() -> {
-                LoadingCache<DoubleSeededVector3Key, Double> cache = Caffeine
-                    .newBuilder()
-                    .executor(CACHE_EXECUTOR)
-                    .scheduler(Scheduler.systemScheduler())
-                    .initialCapacity(981504)
-                    .maximumSize(981504)
-                    .build(this::sampleNoise);
-                return Pair.of(new DoubleSeededVector3Key(0, 0, 0, 0), cache).mutable();
-            });
+            this.cache3D = ThreadLocal.withInitial(DirectCache3D::new);
             this.cache2D = null;
         }
     }
 
-    private Double sampleNoise(DoubleSeededVector2Key vec) {
-        this.cache2D.get().setLeft(new DoubleSeededVector2Key(0, 0, 0));
-        return this.sampler.getSample(vec.seed, vec.x, vec.z);
-    }
-
-    private Double sampleNoise(DoubleSeededVector3Key vec) {
-        this.cache3D.get().setLeft(new DoubleSeededVector3Key(0, 0, 0, 0));
-        return this.sampler.getSample(vec.seed, vec.x, vec.y, vec.z);
-    }
-
     @Override
     public double getSample(long seed, double x, double y) {
-        Mutable<DoubleSeededVector2Key, LoadingCache<DoubleSeededVector2Key, Double>> cachePair = cache2D.get();
-        DoubleSeededVector2Key mutableKey = cachePair.getLeft();
-        mutableKey.set(x, y, seed);
-        return cachePair.getRight().get(mutableKey);
+        // Skip cache when all key components are zero to guard against
+        // false hits on zero-initialized slots.
+        if((Double.doubleToRawLongBits(x) | Double.doubleToRawLongBits(y) | seed) == 0L) {
+            return sampler.getSample(seed, x, y);
+        }
+
+        DirectCache2D cache = cache2D.get();
+
+        // Bits 0-3: chunk-local x, bits 4-7: chunk-local z — guarantees
+        // zero collisions within a single 16x16 chunk for integer coordinates.
+        // Bits 8-11: chunk identity spread for larger table utilization.
+        int lo = ((int) x & 0xF) | (((int) y & 0xF) << 4);
+        int hi = ((int) x >> 4) ^ ((int) y >> 4) ^ (int) seed;
+        int index = (lo | (hi << 8)) & CACHE_2D_MASK;
+
+        if(cache.keyX[index] == x && cache.keyZ[index] == y && cache.keySeed[index] == seed) {
+            return cache.values[index];
+        }
+
+        double value = sampler.getSample(seed, x, y);
+        cache.keyX[index] = x;
+        cache.keyZ[index] = y;
+        cache.keySeed[index] = seed;
+        cache.values[index] = value;
+        return value;
     }
 
     @Override
     public double getSample(long seed, double x, double y, double z) {
-        Mutable<DoubleSeededVector3Key, LoadingCache<DoubleSeededVector3Key, Double>> cachePair = cache3D.get();
-        DoubleSeededVector3Key mutableKey = cachePair.getLeft();
-        mutableKey.set(x, y, z, seed);
-        return cachePair.getRight().get(mutableKey);
+        // Skip cache when all key components are zero to guard against
+        // false hits on zero-initialized slots.
+        if((Double.doubleToRawLongBits(x) | Double.doubleToRawLongBits(y) | Double.doubleToRawLongBits(z) | seed) == 0L) {
+            return sampler.getSample(seed, x, y, z);
+        }
+
+        DirectCache3D cache = cache3D.get();
+
+        // Bits 0-3: chunk-local x, bits 4-7: chunk-local z — guarantees
+        // zero collisions within a 16x16 column for integer coordinates.
+        // Bits 8-16: y coordinate (9 bits, covers height range of 512 blocks).
+        int index = (((int) x & 0xF) | (((int) z & 0xF) << 4) | (((int) y & 0x1FF) << 8)) & CACHE_3D_MASK;
+
+        if(cache.keyX[index] == x && cache.keyY[index] == y && cache.keyZ[index] == z && cache.keySeed[index] == seed) {
+            return cache.values[index];
+        }
+
+        double value = sampler.getSample(seed, x, y, z);
+        cache.keyX[index] = x;
+        cache.keyY[index] = y;
+        cache.keyZ[index] = z;
+        cache.keySeed[index] = seed;
+        cache.values[index] = value;
+        return value;
+    }
+
+    private static final class DirectCache2D {
+        final double[] keyX = new double[CACHE_2D_SIZE];
+        final double[] keyZ = new double[CACHE_2D_SIZE];
+        final long[] keySeed = new long[CACHE_2D_SIZE];
+        final double[] values = new double[CACHE_2D_SIZE];
+    }
+
+    private static final class DirectCache3D {
+        final double[] keyX = new double[CACHE_3D_SIZE];
+        final double[] keyY = new double[CACHE_3D_SIZE];
+        final double[] keyZ = new double[CACHE_3D_SIZE];
+        final long[] keySeed = new long[CACHE_3D_SIZE];
+        final double[] values = new double[CACHE_3D_SIZE];
     }
 }
