@@ -9,24 +9,49 @@ import org.gradle.kotlin.dsl.repositories
 fun Project.configureDependencies() {
     val testImplementation by configurations.getting
     val compileOnly by configurations.getting
-    
+
     val api by configurations.getting
     val implementation by configurations.getting
-    
+
     val shaded by configurations.creating
-    
+
     @Suppress("UNUSED_VARIABLE")
     val shadedApi by configurations.creating {
         shaded.extendsFrom(this)
         api.extendsFrom(this)
     }
-    
+
     @Suppress("UNUSED_VARIABLE")
     val shadedImplementation by configurations.creating {
         shaded.extendsFrom(this)
         implementation.extendsFrom(this)
     }
-    
+
+    val gprUser = project.findProperty("gpr.user") as String? ?: System.getenv("GITHUB_ACTOR") ?: ""
+    val gprKey = project.findProperty("gpr.key") as String? ?: System.getenv("GITHUB_TOKEN") ?: ""
+
+    if (gprUser.isBlank() || gprKey.isBlank()) {
+        logger.warn("""
+            |
+            |========================================================================
+            |  WARNING: GitHub Packages credentials are not configured.
+            |  The DendryTerra dependency requires a GitHub Personal Access Token.
+            |
+            |  To configure credentials, add the following to:
+            |    ${System.getProperty("user.home")}/.gradle/gradle.properties
+            |
+            |    gpr.user=YOUR_GITHUB_USERNAME
+            |    gpr.key=YOUR_GITHUB_TOKEN
+            |
+            |  The token needs the 'read:packages' scope. Generate one at:
+            |    https://github.com/settings/tokens/new?scopes=read:packages
+            |
+            |  Or run: setup_github_packages.bat
+            |========================================================================
+            |
+        """.trimMargin())
+    }
+
     repositories {
         mavenCentral()
         gradlePluginPortal()
@@ -59,6 +84,13 @@ fun Project.configureDependencies() {
         }
         maven("https://repo.onarandombox.com/multiverse-releases") {
             name = "onarandombox"
+        }
+        maven("https://maven.pkg.github.com/diytechy/DendryTerra") {
+            name = "DendryTerra"
+            credentials {
+                username = gprUser
+                password = gprKey
+            }
         }
     }
     
