@@ -21,7 +21,7 @@ includeImmediateChildren(file("platforms"), "platform")
 includeImmediateChildren(file("platforms/bukkit/nms"), "Bukkit NMS")
 
 include(":platforms:bukkit:common")
-include(":platforms:minestom:example")
+// include(":platforms:minestom:example") // disabled — minestom requires Java 25
 
 pluginManagement {
     repositories {

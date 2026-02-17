@@ -22,8 +22,8 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build
-        run: chmod +x ./gradlew && ./gradlew build -x test
+      - name: Fix gradlew permissions
+        run: chmod +x ./gradlew
 
       - name: Publish core modules
         run: |
