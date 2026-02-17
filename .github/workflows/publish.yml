@@ -1,0 +1,92 @@
+name: Publish to Repsy
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build
+        run: chmod +x ./gradlew && ./gradlew build -x test
+
+      - name: Publish core modules
+        run: |
+          ./gradlew \
+            :common:api:publishMavenJavaPublicationToRepsyRepository \
+            :common:implementation:base:publishMavenJavaPublicationToRepsyRepository \
+            :common:implementation:bootstrap-addon-loader:publishMavenJavaPublicationToRepsyRepository
+        env:
+          REPSY_USERNAME: ${{ secrets.REPSY_USERNAME }}
+          REPSY_PASSWORD: ${{ secrets.REPSY_PASSWORD }}
+
+      - name: Publish addon loaders
+        run: |
+          ./gradlew \
+            :common:addons:api-addon-loader:publishMavenJavaPublicationToRepsyRepository \
+            :common:addons:manifest-addon-loader:publishMavenJavaPublicationToRepsyRepository
+        env:
+          REPSY_USERNAME: ${{ secrets.REPSY_USERNAME }}
+          REPSY_PASSWORD: ${{ secrets.REPSY_PASSWORD }}
+
+      - name: Publish biome providers and core addons
+        run: |
+          ./gradlew \
+            :common:addons:biome-provider-extrusion:publishMavenJavaPublicationToRepsyRepository \
+            :common:addons:biome-provider-image:publishMavenJavaPublicationToRepsyRepository \
+            :common:addons:biome-provider-pipeline:publishMavenJavaPublicationToRepsyRepository \
+            :common:addons:biome-provider-single:publishMavenJavaPublicationToRepsyRepository \
+            :common:addons:biome-query-api:publishMavenJavaPublicationToRepsyRepository \
+            :common:addons:chunk-generator-noise-3d:publishMavenJavaPublicationToRepsyRepository \
+            :common:addons:language-yaml:publishMavenJavaPublicationToRepsyRepository \
+            :common:addons:library-image:publishMavenJavaPublicationToRepsyRepository \
+            :common:addons:pipeline-image:publishMavenJavaPublicationToRepsyRepository
+        env:
+          REPSY_USERNAME: ${{ secrets.REPSY_USERNAME }}
+          REPSY_PASSWORD: ${{ secrets.REPSY_PASSWORD }}
+
+      - name: Publish config and structure addons
+        run: |
+          ./gradlew \
+            :common:addons:command-addons:publishMavenJavaPublicationToRepsyRepository \
+            :common:addons:command-packs:publishMavenJavaPublicationToRepsyRepository \
+            :common:addons:command-profiler:publishMavenJavaPublicationToRepsyRepository \
+            :common:addons:command-structures:publishMavenJavaPublicationToRepsyRepository \
+            :common:addons:config-biome:publishMavenJavaPublicationToRepsyRepository \
+            :common:addons:config-distributors:publishMavenJavaPublicationToRepsyRepository \
+            :common:addons:config-feature:publishMavenJavaPublicationToRepsyRepository \
+            :common:addons:config-flora:publishMavenJavaPublicationToRepsyRepository \
+            :common:addons:config-locators:publishMavenJavaPublicationToRepsyRepository \
+            :common:addons:config-noise-function:publishMavenJavaPublicationToRepsyRepository \
+            :common:addons:config-number-predicate:publishMavenJavaPublicationToRepsyRepository \
+            :common:addons:config-ore:publishMavenJavaPublicationToRepsyRepository \
+            :common:addons:config-palette:publishMavenJavaPublicationToRepsyRepository \
+            :common:addons:config-structure:publishMavenJavaPublicationToRepsyRepository \
+            :common:addons:generation-stage-feature:publishMavenJavaPublicationToRepsyRepository \
+            :common:addons:generation-stage-structure:publishMavenJavaPublicationToRepsyRepository \
+            :common:addons:locator-slant-noise-3d:publishMavenJavaPublicationToRepsyRepository \
+            :common:addons:palette-block-shortcut:publishMavenJavaPublicationToRepsyRepository \
+            :common:addons:structure-block-shortcut:publishMavenJavaPublicationToRepsyRepository \
+            :common:addons:structure-mutator:publishMavenJavaPublicationToRepsyRepository \
+            :common:addons:structure-sponge-loader:publishMavenJavaPublicationToRepsyRepository \
+            :common:addons:structure-terrascript-loader:publishMavenJavaPublicationToRepsyRepository \
+            :common:addons:terrascript-function-check-noise-3d:publishMavenJavaPublicationToRepsyRepository \
+            :common:addons:terrascript-function-sampler:publishMavenJavaPublicationToRepsyRepository
+        env:
+          REPSY_USERNAME: ${{ secrets.REPSY_USERNAME }}
+          REPSY_PASSWORD: ${{ secrets.REPSY_PASSWORD }}
