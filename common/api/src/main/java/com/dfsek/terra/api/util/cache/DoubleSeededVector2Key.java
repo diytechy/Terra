@@ -28,8 +28,8 @@ public class DoubleSeededVector2Key {
 
     @Override
     public int hashCode() {
-        int code = (int) Double.doubleToLongBits(x);
-        code = 31 * code + (int) Double.doubleToLongBits(z);
-        return 31 * code + (Long.hashCode(seed));
+        int code = Double.hashCode(x);
+        code = 31 * code + Double.hashCode(z);
+        return 31 * code + Long.hashCode(seed);
     }
 }

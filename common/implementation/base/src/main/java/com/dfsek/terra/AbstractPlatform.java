@@ -159,6 +159,9 @@ public abstract class AbstractPlatform implements Platform {
         }
         LOADED.set(true);
 
+        // Configure logging early, before Seismic is initialized
+        com.dfsek.terra.logging.LoggingConfig.configure();
+
         logger.info("Initializing Terra...");
 
         try(InputStream stream = getClass().getResourceAsStream("/config.yml")) {

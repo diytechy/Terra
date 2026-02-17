@@ -14,12 +14,16 @@ public class CacheSamplerTemplate extends SamplerTemplate<CacheSampler> {
     @Default
     private Sampler sampler;
 
+    @Value("int")
+    @Default
+    private boolean intCoordinates = false;
+
     public CacheSamplerTemplate() {
 
     }
 
     @Override
     public Sampler get() {
-        return new CacheSampler(sampler, getDimensions());
+        return new CacheSampler(sampler, getDimensions(), intCoordinates);
     }
 }
