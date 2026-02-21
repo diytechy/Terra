@@ -154,6 +154,15 @@ has already been computed.
 the compiled chunk object so that when a chunk is revisited (e.g., during decoration
 after initial generation), the noise doesn't need to be recomputed from scratch.
 
+**Threading:** This cache is **shared across all server chunk-generation threads**.
+It uses a Caffeine concurrent cache (`Caffeine.newBuilder().maximumSize(...).build()`).
+When two threads request the same chunk simultaneously, Caffeine ensures only one
+`Sampler3D` is constructed — the second thread blocks until the first finishes building
+it, then both receive the same instance. This means synchronization waits can occur at
+this layer, but only when two threads happen to need the same chunk at the same time.
+Once a `Sampler3D` is constructed, it is immutable and can be read concurrently by
+any number of threads without contention.
+
 **Configuration** (in `config.yml`):
 ```yaml
 cache:
@@ -165,6 +174,26 @@ cache:
 Increase `cache.sampler` if you have enough memory and want to keep more chunks'
 noise grids cached. Each entry holds a precomputed noise grid for one chunk column.
 
+**Memory per cached chunk** (for a standard world, height range -64 to 319 = 384 blocks):
+
+Each `Sampler3D` contains:
+- `ChunkInterpolator`: a `Interpolator3[4][96][4]` grid (96 = 384 / 4). Each of the
+  1,536 `Interpolator3` objects holds 8 doubles (two bilinear `Interpolator` objects
+  with 4 corner values each) plus Java object overhead. Total: **~144 KB**.
+- `ElevationInterpolator`: a `double[18][18]` grid = 324 doubles. Total: **~2.6 KB**.
+- Combined per entry: **~150 KB**.
+
+At the default `cache.sampler: 1024`, the full chunk cache at capacity uses roughly
+**~150 MB** of heap. This scales linearly with world height range — a 256-block range
+gives ~100 KB per chunk (~100 MB for 1024 entries).
+
+| cache.sampler | Entries | Memory (384-block world) | Memory (256-block world) |
+|---------------|---------|--------------------------|--------------------------|
+| 256           | 256     | ~38 MB                   | ~25 MB                   |
+| 512           | 512     | ~75 MB                   | ~50 MB                   |
+| 1024 (default)| 1024    | ~150 MB                  | ~100 MB                  |
+| 2048          | 2048    | ~300 MB                  | ~200 MB                  |
+
 ### 3.2 CacheSampler — Per-Evaluation Result Cache (Explicit)
 
 **What it caches:** Individual `getSample(seed, x, z)` return values.
@@ -175,6 +204,12 @@ in your YAML configuration.
 **What it does:** Stores the result of each evaluation keyed by (seed, x, z) or
 (seed, x, y, z). If the same coordinates are queried again, the cached result is
 returned without recomputing the noise.
+
+**Threading:** Unlike SamplerProvider, this cache is **per-thread** via `ThreadLocal`.
+Each server chunk-generation thread gets its own independent cache arrays. There is
+zero contention, zero synchronization, and zero cross-thread sharing. The trade-off is
+that cached results computed by one thread are invisible to all other threads — each
+thread builds up its own cache from scratch.
 
 **This is the cache you use to prevent redundant calculations** when the same sampler
 is evaluated at the same coordinates from multiple call sites.
