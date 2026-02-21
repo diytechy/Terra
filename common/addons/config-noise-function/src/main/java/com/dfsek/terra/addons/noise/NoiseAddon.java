@@ -156,6 +156,7 @@ public class NoiseAddon implements AddonInitializer {
 
                 Map<String, DimensionApplicableSampler> packSamplers = new LinkedHashMap<>();
                 Map<String, FunctionTemplate> packFunctions = new LinkedHashMap<>();
+                event.getPack().getContext().put(new PackSamplerContext(packSamplers, packFunctions));
                 noiseRegistry.register(addon.key("EXPRESSION"),
                     () -> new ExpressionFunctionTemplate(packSamplers, packFunctions, expressionParseOptions));
                 noiseRegistry.register(addon.key("EXPRESSION_NORMALIZER"),
