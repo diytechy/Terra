@@ -28,6 +28,7 @@ fun Project.configureDependencies() {
     }
 
     repositories {
+        mavenLocal()
         mavenCentral()
         gradlePluginPortal()
         maven("https://maven.solo-studios.ca/releases") {
