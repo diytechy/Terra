@@ -49,10 +49,43 @@ public class ChunkInterpolator {
 
         double[][][] noiseStorage = new double[5][5][size + 1];
 
-        int maxBlendAndChunk = 17 + 2 * maxBlend;
+        // Option 5: Pre-scan the 5x5 center grid to compute the local max blend for this chunk.
+        // This allows allocating a smaller columns array when high-blend outlier biomes are absent
+        // from this chunk, avoiding the memory overhead of the global maximum.
+        @SuppressWarnings("unchecked")
+        Column<Biome>[] centerColumns = new Column[25];
+        int localMaxBlend = 0;
+        for(int x = 0; x < 5; x++) {
+            int scaledX = x << 2;
+            int absoluteX = xOrigin + scaledX;
+            for(int z = 0; z < 5; z++) {
+                int scaledZ = z << 2;
+                int absoluteZ = zOrigin + scaledZ;
+                Column<Biome> col = provider.getColumn(absoluteX, absoluteZ, seed, min, max);
+                centerColumns[x * 5 + z] = col;
+                for(int y = 0; y < size; y++) {
+                    int scaledY = (y << 2) + min;
+                    BiomeNoiseProperties props = col.get(scaledY).getContext().get(noisePropertiesKey);
+                    int localBlend = props.blendDistance() * props.blendStep();
+                    if(localBlend > localMaxBlend) localMaxBlend = localBlend;
+                }
+            }
+        }
+
+        int localMaxBlendAndChunk = 17 + 2 * localMaxBlend;
 
         @SuppressWarnings("unchecked")
-        Column<Biome>[] columns = new Column[maxBlendAndChunk * maxBlendAndChunk];
+        Column<Biome>[] columns = new Column[localMaxBlendAndChunk * localMaxBlendAndChunk];
+
+        // Pre-populate center columns into the main columns array at their correct offsets.
+        for(int x = 0; x < 5; x++) {
+            int scaledX = x << 2;
+            for(int z = 0; z < 5; z++) {
+                int scaledZ = z << 2;
+                int index = (scaledX + localMaxBlend) + localMaxBlendAndChunk * (scaledZ + localMaxBlend);
+                columns[index] = centerColumns[x * 5 + z];
+            }
+        }
 
         for(int x = 0; x < 5; x++) {
             int scaledX = x << 2;
@@ -61,13 +94,7 @@ public class ChunkInterpolator {
                 int scaledZ = z << 2;
                 int absoluteZ = zOrigin + scaledZ;
 
-                int index = (scaledX + maxBlend) + maxBlendAndChunk * (scaledZ + maxBlend);
-                Column<Biome> biomeColumn = columns[index];
-
-                if(biomeColumn == null) {
-                    biomeColumn = provider.getColumn(absoluteX, absoluteZ, seed, min, max);
-                    columns[index] = biomeColumn;
-                }
+                Column<Biome> biomeColumn = centerColumns[x * 5 + z];
 
                 for(int y = 0; y < size; y++) {
                     int scaledY = (y << 2) + min;
@@ -78,33 +105,63 @@ public class ChunkInterpolator {
                     int step = generationSettings.blendStep();
                     int blend = generationSettings.blendDistance();
 
-                    double runningNoise = 0;
-                    double runningDiv = 0;
+                    double noise;
 
-                    for(int xi = -blend; xi <= blend; xi++) {
-                        for(int zi = -blend; zi <= blend; zi++) {
-                            int blendX = (xi * step);
-                            int blendZ = (zi * step);
+                    if(blend == 0) {
+                        // Option 4: blend disabled for this biome - evaluate center sample directly.
+                        noise = generationSettings.noiseHolder().getNoise(generationSettings.base(), absoluteX, scaledY, absoluteZ, seed);
+                    } else {
+                        // Option 4: Single-pass fetch + homogeneity check.
+                        // Fetch all blend columns (lazily cached for subsequent y-levels) while
+                        // simultaneously checking whether all neighbors share the center biome.
+                        // If homogeneous, one noise evaluation replaces the full blend loop.
+                        Biome centerBiome = biomeColumn.get(scaledY);
+                        boolean homogeneous = true;
 
-                            int localIndex = (scaledX + maxBlend + blendX) + maxBlendAndChunk * (scaledZ + maxBlend + blendZ);
-                            Column<Biome> column = columns[localIndex];
+                        for(int xi = -blend; xi <= blend; xi++) {
+                            for(int zi = -blend; zi <= blend; zi++) {
+                                int blendX = xi * step;
+                                int blendZ = zi * step;
+                                int localIndex = (scaledX + localMaxBlend + blendX) + localMaxBlendAndChunk * (scaledZ + localMaxBlend + blendZ);
+                                if(columns[localIndex] == null) {
+                                    columns[localIndex] = provider.getColumn(absoluteX + blendX, absoluteZ + blendZ, seed, min, max);
+                                }
+                                // Track homogeneity but do NOT break early — remaining null columns
+                                // must still be fetched for future y-level iterations.
+                                if(homogeneous && columns[localIndex].get(scaledY) != centerBiome) {
+                                    homogeneous = false;
+                                }
+                            }
+                        }
 
-                            if(column == null) {
-                                column = provider.getColumn(absoluteX + blendX, absoluteZ + blendZ, seed, min, max);
-                                columns[localIndex] = column;
+                        if(homogeneous) {
+                            // All neighbors are the same biome: blending is a weighted average of
+                            // identical values, so the result equals the center sample directly.
+                            noise = generationSettings.noiseHolder().getNoise(generationSettings.base(), absoluteX, scaledY, absoluteZ, seed);
+                        } else {
+                            // Heterogeneous blend zone: all columns already fetched above,
+                            // evaluate noise for each and compute weighted average.
+                            double runningNoise = 0;
+                            double runningDiv = 0;
+
+                            for(int xi = -blend; xi <= blend; xi++) {
+                                for(int zi = -blend; zi <= blend; zi++) {
+                                    int blendX = xi * step;
+                                    int blendZ = zi * step;
+                                    int localIndex = (scaledX + localMaxBlend + blendX) + localMaxBlendAndChunk * (scaledZ + localMaxBlend + blendZ);
+                                    BiomeNoiseProperties properties = columns[localIndex]
+                                        .get(scaledY)
+                                        .getContext()
+                                        .get(noisePropertiesKey);
+                                    double sample = properties.noiseHolder().getNoise(properties.base(), absoluteX, scaledY, absoluteZ, seed);
+                                    runningNoise += sample * properties.blendWeight();
+                                    runningDiv += properties.blendWeight();
+                                }
                             }
 
-                            BiomeNoiseProperties properties = column
-                                .get(scaledY)
-                                .getContext()
-                                .get(noisePropertiesKey);
-                            double sample = properties.noiseHolder().getNoise(properties.base(), absoluteX, scaledY, absoluteZ, seed);
-                            runningNoise += sample * properties.blendWeight();
-                            runningDiv += properties.blendWeight();
+                            noise = runningNoise / runningDiv;
                         }
                     }
-
-                    double noise = runningNoise / runningDiv;
 
                     noiseStorage[x][z][y] = noise;
                     if(y == size - 1) {
