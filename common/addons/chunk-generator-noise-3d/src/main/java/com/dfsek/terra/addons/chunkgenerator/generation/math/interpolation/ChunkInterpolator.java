@@ -34,7 +34,8 @@ public class ChunkInterpolator {
      * @param max
      */
     public ChunkInterpolator(long seed, int chunkX, int chunkZ, BiomeProvider provider, int min, int max,
-                             PropertyKey<BiomeNoiseProperties> noisePropertiesKey, int maxBlend) {
+                             PropertyKey<BiomeNoiseProperties> noisePropertiesKey, int maxBlend,
+                             int blendMinY, int blendMaxY) {
         this.min = min;
         this.max = max;
 
@@ -107,8 +108,9 @@ public class ChunkInterpolator {
 
                     double noise;
 
-                    if(blend == 0) {
-                        // Option 4: blend disabled for this biome - evaluate center sample directly.
+                    if(blend == 0 || scaledY < blendMinY || scaledY > blendMaxY) {
+                        // Blend disabled: either the biome has blendDistance=0, or this Y level is
+                        // outside the pack-configured blend range. Use center sample directly.
                         noise = generationSettings.noiseHolder().getNoise(generationSettings.base(), absoluteX, scaledY, absoluteZ, seed);
                     } else {
                         // Option 4: Single-pass fetch + homogeneity check.

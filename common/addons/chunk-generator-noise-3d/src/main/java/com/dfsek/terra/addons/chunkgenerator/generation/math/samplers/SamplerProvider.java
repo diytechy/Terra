@@ -32,8 +32,11 @@ public class SamplerProvider {
     private final int elevationSmooth;
     private final PropertyKey<BiomeNoiseProperties> noisePropertiesKey;
     private final int maxBlend;
+    private final int blendMinY;
+    private final int blendMaxY;
 
-    public SamplerProvider(Platform platform, int elevationSmooth, PropertyKey<BiomeNoiseProperties> noisePropertiesKey, int maxBlend) {
+    public SamplerProvider(Platform platform, int elevationSmooth, PropertyKey<BiomeNoiseProperties> noisePropertiesKey,
+                           int maxBlend, int blendMinY, int blendMaxY) {
         cache = Caffeine
             .newBuilder()
             .maximumSize(platform.getTerraConfig().getSamplerCache())
@@ -41,6 +44,8 @@ public class SamplerProvider {
         this.elevationSmooth = elevationSmooth;
         this.noisePropertiesKey = noisePropertiesKey;
         this.maxBlend = maxBlend;
+        this.blendMinY = blendMinY;
+        this.blendMaxY = blendMaxY;
     }
 
     public Sampler3D get(int x, int z, WorldProperties world, BiomeProvider provider) {
@@ -52,7 +57,7 @@ public class SamplerProvider {
     public Sampler3D getChunk(int cx, int cz, WorldProperties world, BiomeProvider provider) {
         WorldContext context = new WorldContext(cx, cz, world.getSeed(), world.getMinHeight(), world.getMaxHeight());
         return cache.get(context, c -> new Sampler3D(c.cx, c.cz, c.seed, c.minHeight, c.maxHeight, provider,
-            elevationSmooth, noisePropertiesKey, maxBlend));
+            elevationSmooth, noisePropertiesKey, maxBlend, blendMinY, blendMaxY));
     }
 
     private record WorldContext(int cx, int cz, long seed, int minHeight, int maxHeight) {

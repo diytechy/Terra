@@ -51,7 +51,8 @@ public class NoiseChunkGenerator3D implements ChunkGenerator {
                                  int carverVerticalResolution,
                                  PropertyKey<BiomeNoiseProperties> noisePropertiesKey,
                                  PropertyKey<BiomePaletteInfo> paletteInfoPropertyKey,
-                                 SlantCalculationMethod slantCalculationMethod, boolean useSlantPalettes) {
+                                 SlantCalculationMethod slantCalculationMethod, boolean useSlantPalettes,
+                                 int blendMinY, int blendMaxY) {
         this.platform = platform;
         this.air = platform.getWorldHandle().air();
         this.carverHorizontalResolution = carverHorizontalResolution;
@@ -68,7 +69,7 @@ public class NoiseChunkGenerator3D implements ChunkGenerator {
             .max()
             .orElse(0);
 
-        this.samplerCache = new SamplerProvider(platform, elevationBlend, noisePropertiesKey, maxBlend);
+        this.samplerCache = new SamplerProvider(platform, elevationBlend, noisePropertiesKey, maxBlend, blendMinY, blendMaxY);
     }
 
     private Palette paletteAt(int x, int y, int z, Sampler3D sampler, BiomePaletteInfo paletteInfo, int depth) {

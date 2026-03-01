@@ -37,6 +37,16 @@ public class NoiseChunkGeneratorPackConfigTemplate implements ConfigTemplate, Pr
     @Default
     private @Meta List<@Meta String> noBlendTags = new ArrayList<>();
 
+    // Y-range outside which blending is skipped and the center biome sample is used directly.
+    // Integer.MIN_VALUE / Integer.MAX_VALUE means no limit (blending over the full world height).
+    @Value("blend.terrain.y-range.min")
+    @Default
+    private @Meta int blendMinY = Integer.MIN_VALUE;
+
+    @Value("blend.terrain.y-range.max")
+    @Default
+    private @Meta int blendMaxY = Integer.MAX_VALUE;
+
     @Value("carving.resolution.horizontal")
     @Default
     private @Meta int horizontalRes = 4;
@@ -91,5 +101,13 @@ public class NoiseChunkGeneratorPackConfigTemplate implements ConfigTemplate, Pr
 
     public List<String> getNoBlendTags() {
         return noBlendTags;
+    }
+
+    public int getBlendMinY() {
+        return blendMinY;
+    }
+
+    public int getBlendMaxY() {
+        return blendMaxY;
     }
 }

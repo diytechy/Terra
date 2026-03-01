@@ -21,9 +21,9 @@ public class Sampler3D {
     private final ElevationInterpolator elevationInterpolator;
 
     public Sampler3D(int x, int z, long seed, int minHeight, int maxHeight, BiomeProvider provider, int elevationSmooth,
-                     PropertyKey<BiomeNoiseProperties> noisePropertiesKey, int maxBlend) {
+                     PropertyKey<BiomeNoiseProperties> noisePropertiesKey, int maxBlend, int blendMinY, int blendMaxY) {
         this.interpolator = new ChunkInterpolator(seed, x, z, provider,
-            minHeight, maxHeight, noisePropertiesKey, maxBlend);
+            minHeight, maxHeight, noisePropertiesKey, maxBlend, blendMinY, blendMaxY);
         this.elevationInterpolator = new ElevationInterpolator(seed, x, z, provider, elevationSmooth, noisePropertiesKey);
     }
 
