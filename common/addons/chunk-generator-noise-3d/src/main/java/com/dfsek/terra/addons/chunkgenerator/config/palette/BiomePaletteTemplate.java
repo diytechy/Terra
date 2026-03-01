@@ -7,6 +7,8 @@
 
 package com.dfsek.terra.addons.chunkgenerator.config.palette;
 
+import com.dfsek.seismic.type.sampler.Sampler;
+
 import com.dfsek.tectonic.api.config.template.annotations.Default;
 import com.dfsek.tectonic.api.config.template.annotations.Description;
 import com.dfsek.tectonic.api.config.template.annotations.Value;
@@ -27,6 +29,8 @@ import com.dfsek.terra.api.world.chunk.generation.util.Palette;
 
 
 public class BiomePaletteTemplate implements ObjectTemplate<BiomePaletteInfo> {
+    private static final Sampler NO_SEA_LEVEL_SAMPLER = Sampler.zero();
+
     private final Platform platform;
     private final SlantCalculationMethod slantCalculationMethod;
     @Value("slant")
@@ -44,6 +48,10 @@ public class BiomePaletteTemplate implements ObjectTemplate<BiomePaletteInfo> {
     @Description("Sea level in this biome. Defaults to zero")
     @Default
     private @Meta int seaLevel = 0;
+    @Value("ocean.sampler")
+    @Description("Optional 2D noise sampler for sea level. When set, overrides ocean.level and is evaluated once per column.")
+    @Default
+    private @Meta Sampler seaLevelSampler = NO_SEA_LEVEL_SAMPLER;
     @Value("ocean.palette")
     @Description("The palette to use for the ocean in this biome. Defaults to a blank palette.")
     @Default
@@ -65,6 +73,6 @@ public class BiomePaletteTemplate implements ObjectTemplate<BiomePaletteInfo> {
     @Override
     public BiomePaletteInfo get() {
         return new BiomePaletteInfo(PaletteHolder.of(palettes), SlantHolder.of(slantLayers, slantDepth, slantCalculationMethod),
-            oceanPalette, seaLevel, updatePalette);
+            oceanPalette, seaLevel, seaLevelSampler == NO_SEA_LEVEL_SAMPLER ? null : seaLevelSampler, updatePalette);
     }
 }

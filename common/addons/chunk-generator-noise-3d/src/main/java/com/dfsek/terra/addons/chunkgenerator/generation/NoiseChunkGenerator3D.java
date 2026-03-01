@@ -8,6 +8,8 @@
 package com.dfsek.terra.addons.chunkgenerator.generation;
 
 
+import com.dfsek.seismic.type.sampler.Sampler;
+
 import org.jetbrains.annotations.NotNull;
 
 import com.dfsek.terra.addons.chunkgenerator.config.noise.BiomeNoiseProperties;
@@ -113,12 +115,21 @@ public class NoiseChunkGenerator3D implements ChunkGenerator {
 
                 BlockState data;
                 Column<Biome> biomeColumn = biomeProvider.getColumn(cx, cz, world);
+                Biome lastSeaBiome = null;
+                int computedSea = 0;
                 for(int y = world.getMaxHeight() - 1; y >= world.getMinHeight(); y--) {
                     Biome biome = biomeColumn.get(y);
 
                     BiomePaletteInfo paletteInfo = biome.getContext().get(paletteInfoPropertyKey);
 
-                    int sea = paletteInfo.seaLevel();
+                    if(biome != lastSeaBiome) {
+                        Sampler slSampler = paletteInfo.seaLevelSampler();
+                        computedSea = slSampler != null
+                            ? (int) Math.round(slSampler.getSample(seed, cx, cz))
+                            : paletteInfo.seaLevel();
+                        lastSeaBiome = biome;
+                    }
+                    int sea = computedSea;
                     Palette seaPalette = paletteInfo.ocean();
 
                     if(sampler.sample(x, y, z) > 0) {
@@ -154,6 +165,11 @@ public class NoiseChunkGenerator3D implements ChunkGenerator {
         int fdX = Math.floorMod(x, 16);
         int fdZ = Math.floorMod(z, 16);
 
+        Sampler slSampler = paletteInfo.seaLevelSampler();
+        int sea = slSampler != null
+            ? (int) Math.round(slSampler.getSample(world.getSeed(), x, z))
+            : paletteInfo.seaLevel();
+
         Palette palette = paletteAt(fdX, y, fdZ, sampler, paletteInfo, 0);
         double noise = sampler.sample(fdX, y, fdZ);
         if(noise > 0) {
@@ -163,8 +179,8 @@ public class NoiseChunkGenerator3D implements ChunkGenerator {
                 else level = 0;
             }
             return palette.get(level, x, y, z, world.getSeed());
-        } else if(y <= paletteInfo.seaLevel()) {
-            return paletteInfo.ocean().get(paletteInfo.seaLevel() - y, x, y, z, world.getSeed());
+        } else if(y <= sea) {
+            return paletteInfo.ocean().get(sea - y, x, y, z, world.getSeed());
         } else return air;
     }
 
