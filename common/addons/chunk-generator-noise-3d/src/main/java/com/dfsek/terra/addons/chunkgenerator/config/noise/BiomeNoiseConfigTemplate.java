@@ -22,19 +22,27 @@ public class BiomeNoiseConfigTemplate implements ObjectTemplate<BiomeNoiseProper
 
     @Value("terrain.blend.distance")
     @Default
-    private @Meta int blendDistance = 3;
+    private @Meta int blendDistance;
 
     @Value("terrain.blend.weight")
     @Default
-    private @Meta double blendWeight = 1;
+    private @Meta double blendWeight;
 
     @Value("terrain.blend.step")
     @Default
-    private @Meta int blendStep = 4;
+    private @Meta int blendStep;
 
     @Value("terrain.blend.weight-2d")
     @Default
-    private @Meta double elevationWeight = 1;
+    private @Meta double elevationWeight;
+
+    public BiomeNoiseConfigTemplate(int defaultBlendDistance, int defaultBlendStep,
+                                    double defaultBlendWeight, double defaultElevationWeight) {
+        this.blendDistance   = defaultBlendDistance;
+        this.blendStep       = defaultBlendStep;
+        this.blendWeight     = defaultBlendWeight;
+        this.elevationWeight = defaultElevationWeight;
+    }
 
     @Override
     public BiomeNoiseProperties get() {

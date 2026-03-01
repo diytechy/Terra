@@ -7,6 +7,8 @@
 
 package com.dfsek.terra.addons.chunkgenerator;
 
+import java.util.List;
+
 import com.dfsek.terra.addons.chunkgenerator.config.NoiseChunkGeneratorPackConfigTemplate;
 import com.dfsek.terra.addons.chunkgenerator.config.noise.BiomeNoiseConfigTemplate;
 import com.dfsek.terra.addons.chunkgenerator.config.noise.BiomeNoiseProperties;
@@ -73,12 +75,30 @@ public class NoiseChunkGenerator3DAddon implements AddonInitializer {
                     NoiseChunkGeneratorPackConfigTemplate config = event.getPack().getContext().get(
                         NoiseChunkGeneratorPackConfigTemplate.class);
 
-                    event.getLoadedObject(Biome.class).getContext().put(paletteInfoPropertyKey,
+                    Biome biome = event.getLoadedObject(Biome.class);
+
+                    biome.getContext().put(paletteInfoPropertyKey,
                         event.load(new BiomePaletteTemplate(platform,
                                 config.getSlantCalculationMethod()))
                             .get());
-                    event.getLoadedObject(Biome.class).getContext().put(noisePropertiesPropertyKey,
-                        event.load(new BiomeNoiseConfigTemplate()).get());
+
+                    BiomeNoiseProperties props = event.load(new BiomeNoiseConfigTemplate(
+                        config.getDefaultBlendDistance(),
+                        config.getDefaultBlendStep(),
+                        config.getDefaultBlendWeight(),
+                        config.getDefaultElevationWeight()
+                    )).get();
+
+                    List<String> noBlendTags = config.getNoBlendTags();
+                    if(!noBlendTags.isEmpty() && biome.getTags().stream().anyMatch(noBlendTags::contains)) {
+                        props = new BiomeNoiseProperties(
+                            props.base(), props.elevation(), props.carving(),
+                            0, props.blendStep(), props.blendWeight(), props.elevationWeight(),
+                            props.noiseHolder()
+                        );
+                    }
+
+                    biome.getContext().put(noisePropertiesPropertyKey, props);
                 }
             })
             .failThrough();
