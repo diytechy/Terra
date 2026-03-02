@@ -8,9 +8,12 @@
 package com.dfsek.terra.addons.chunkgenerator.generation;
 
 
+import java.util.List;
+
 import com.dfsek.seismic.type.sampler.Sampler;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import com.dfsek.terra.addons.chunkgenerator.config.noise.BiomeNoiseProperties;
 import com.dfsek.terra.addons.chunkgenerator.generation.math.SlantCalculationMethod;
@@ -49,12 +52,19 @@ public class NoiseChunkGenerator3D implements ChunkGenerator {
 
     private final boolean useSlantPalettes;
 
+    private final @Nullable Sampler minDensitySampler;
+    private final boolean minDensitySmooth;
+    private final double minDensitySmoothK;
+    private final List<String> minDensitySkipTags;
+
     public NoiseChunkGenerator3D(ConfigPack pack, Platform platform, int elevationBlend, int carverHorizontalResolution,
                                  int carverVerticalResolution,
                                  PropertyKey<BiomeNoiseProperties> noisePropertiesKey,
                                  PropertyKey<BiomePaletteInfo> paletteInfoPropertyKey,
                                  SlantCalculationMethod slantCalculationMethod, boolean useSlantPalettes,
-                                 int blendMinY, int blendMaxY) {
+                                 int blendMinY, int blendMaxY,
+                                 @Nullable Sampler minDensitySampler, boolean minDensitySmooth,
+                                 double minDensitySmoothK, List<String> minDensitySkipTags) {
         this.platform = platform;
         this.air = platform.getWorldHandle().air();
         this.carverHorizontalResolution = carverHorizontalResolution;
@@ -63,6 +73,10 @@ public class NoiseChunkGenerator3D implements ChunkGenerator {
         this.noisePropertiesKey = noisePropertiesKey;
         this.slantCalculationMethod = slantCalculationMethod;
         this.useSlantPalettes = useSlantPalettes;
+        this.minDensitySampler = minDensitySampler;
+        this.minDensitySmooth = minDensitySmooth;
+        this.minDensitySmoothK = minDensitySmoothK;
+        this.minDensitySkipTags = minDensitySkipTags;
         int maxBlend = pack
             .getBiomeProvider()
             .stream()
@@ -72,6 +86,12 @@ public class NoiseChunkGenerator3D implements ChunkGenerator {
             .orElse(0);
 
         this.samplerCache = new SamplerProvider(platform, elevationBlend, noisePropertiesKey, maxBlend, blendMinY, blendMaxY);
+    }
+
+    private static double smoothMax(double a, double b, double k) {
+        double ka = k * a, kb = k * b;
+        double m = Math.max(ka, kb);
+        return (m + Math.log(Math.exp(ka - m) + Math.exp(kb - m))) / k;
     }
 
     private Palette paletteAt(int x, int y, int z, Sampler3D sampler, BiomePaletteInfo paletteInfo, int depth) {
@@ -117,6 +137,8 @@ public class NoiseChunkGenerator3D implements ChunkGenerator {
                 Column<Biome> biomeColumn = biomeProvider.getColumn(cx, cz, world);
                 Biome lastSeaBiome = null;
                 int computedSea = 0;
+                Biome lastMinDensityBiome = null;
+                boolean skipMinDensity = false;
                 for(int y = world.getMaxHeight() - 1; y >= world.getMinHeight(); y--) {
                     Biome biome = biomeColumn.get(y);
 
@@ -132,7 +154,23 @@ public class NoiseChunkGenerator3D implements ChunkGenerator {
                     int sea = computedSea;
                     Palette seaPalette = paletteInfo.ocean();
 
-                    if(sampler.sample(x, y, z) > 0) {
+                    double density = sampler.sample(x, y, z);
+
+                    if(minDensitySampler != null) {
+                        if(biome != lastMinDensityBiome) {
+                            skipMinDensity = !minDensitySkipTags.isEmpty()
+                                && biome.getTags().stream().anyMatch(minDensitySkipTags::contains);
+                            lastMinDensityBiome = biome;
+                        }
+                        if(!skipMinDensity) {
+                            double floor = minDensitySampler.getSample(seed, cx, y, cz);
+                            density = minDensitySmooth
+                                ? smoothMax(density, floor, minDensitySmoothK)
+                                : Math.max(density, floor);
+                        }
+                    }
+
+                    if(density > 0) {
                         if(carver.sample(x, y, z) <= 0) {
                             data = paletteAt(x, y, z, sampler, paletteInfo, paletteLevel)
                                 .get(paletteLevel, cx, y, cz, seed);
@@ -172,6 +210,16 @@ public class NoiseChunkGenerator3D implements ChunkGenerator {
 
         Palette palette = paletteAt(fdX, y, fdZ, sampler, paletteInfo, 0);
         double noise = sampler.sample(fdX, y, fdZ);
+        if(minDensitySampler != null) {
+            boolean skip = !minDensitySkipTags.isEmpty()
+                && biome.getTags().stream().anyMatch(minDensitySkipTags::contains);
+            if(!skip) {
+                double floor = minDensitySampler.getSample(world.getSeed(), x, y, z);
+                noise = minDensitySmooth
+                    ? smoothMax(noise, floor, minDensitySmoothK)
+                    : Math.max(noise, floor);
+            }
+        }
         if(noise > 0) {
             int level = 0;
             for(int yi = world.getMaxHeight() - 1; yi > y; yi--) {

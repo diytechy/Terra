@@ -1,0 +1,12 @@
+It's block-resolution, not grid-resolution. Unlike the 3D blend which samples on a coarse 4-block grid (blendStep), the elevation blend samples a (2×smooth+1)² neighborhood for every individual block position (-1 to 16 in both x and z, i.e. 18×18 = 324 positions). With smooth=4 that's a 9×9 kernel of biome lookups per block.
+
+It uses getBaseBiome() not getColumn(). This is a 2D surface-level biome lookup, not a 3D column scan. It doesn't account for vertically-stacked biomes — it always looks up the biome at the surface/base layer.
+
+It uses the biome's elevation() sampler — that's terrain.sampler-2d from BiomeNoiseConfigTemplate. This is a separate sampler from the 3D terrain.sampler. The two blend systems are completely independent:
+
+System	Sampler used	Grid resolution	Radius config
+ChunkInterpolator	terrain.sampler (3D)	4-block steps	blend.terrain.defaults.distance × step
+ElevationInterpolator	terrain.sampler-2d (2D)	1-block steps	blend.terrain.elevation
+It already has the homogeneity optimization — the same check skips the weighted average when all neighbors in the kernel are the same biome, same as Option 4 we implemented for ChunkInterpolator.
+
+So to directly answer your question: if you set terrain.sampler-2d to something with smooth spatial variation and gave it a large blend.terrain.elevation radius, you could reduce or eliminate the need for 3D blending between biomes that differ only in base height. But there's a practical catch — ElevationInterpolator only looks up biomes at the surface (2D), while ChunkInterpolator has full 3D biome column awareness. For packs with vertically-stacked biomes (caves below surface), the elevation blend can't substitute for the 3D blend at all.

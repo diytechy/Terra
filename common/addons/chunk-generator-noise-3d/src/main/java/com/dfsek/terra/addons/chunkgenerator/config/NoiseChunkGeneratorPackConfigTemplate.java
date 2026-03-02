@@ -1,5 +1,7 @@
 package com.dfsek.terra.addons.chunkgenerator.config;
 
+import com.dfsek.seismic.type.sampler.Sampler;
+
 import com.dfsek.tectonic.api.config.template.ConfigTemplate;
 import com.dfsek.tectonic.api.config.template.annotations.Default;
 import com.dfsek.tectonic.api.config.template.annotations.Value;
@@ -7,12 +9,16 @@ import com.dfsek.tectonic.api.config.template.annotations.Value;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.jetbrains.annotations.Nullable;
+
 import com.dfsek.terra.addons.chunkgenerator.generation.math.SlantCalculationMethod;
 import com.dfsek.terra.api.config.meta.Meta;
 import com.dfsek.terra.api.properties.Properties;
 
 
 public class NoiseChunkGeneratorPackConfigTemplate implements ConfigTemplate, Properties {
+    private static final Sampler NO_MIN_DENSITY_SAMPLER = Sampler.zero();
+
     @Value("blend.terrain.elevation")
     @Default
     private @Meta int elevationBlend = 4;
@@ -46,6 +52,22 @@ public class NoiseChunkGeneratorPackConfigTemplate implements ConfigTemplate, Pr
     @Value("blend.terrain.y-range.max")
     @Default
     private @Meta int blendMaxY = Integer.MAX_VALUE;
+
+    @Value("terrain.min-density.sampler")
+    @Default
+    private @Meta Sampler minDensitySampler = NO_MIN_DENSITY_SAMPLER;
+
+    @Value("terrain.min-density.smooth")
+    @Default
+    private @Meta boolean minDensitySmooth = false;
+
+    @Value("terrain.min-density.smooth-k")
+    @Default
+    private @Meta double minDensitySmoothK = 1.0;
+
+    @Value("terrain.min-density.skip-tags")
+    @Default
+    private @Meta List<@Meta String> minDensitySkipTags = new ArrayList<>();
 
     @Value("carving.resolution.horizontal")
     @Default
@@ -109,5 +131,21 @@ public class NoiseChunkGeneratorPackConfigTemplate implements ConfigTemplate, Pr
 
     public int getBlendMaxY() {
         return blendMaxY;
+    }
+
+    public @Nullable Sampler getMinDensitySampler() {
+        return minDensitySampler == NO_MIN_DENSITY_SAMPLER ? null : minDensitySampler;
+    }
+
+    public boolean isMinDensitySmooth() {
+        return minDensitySmooth;
+    }
+
+    public double getMinDensitySmoothK() {
+        return minDensitySmoothK;
+    }
+
+    public List<String> getMinDensitySkipTags() {
+        return minDensitySkipTags;
     }
 }
