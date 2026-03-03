@@ -164,9 +164,14 @@ public class NoiseChunkGenerator3D implements ChunkGenerator {
                         }
                         if(!skipMinDensity) {
                             double floor = minDensitySampler.getSample(seed, cx, y, cz);
-                            density = minDensitySmooth
-                                ? smoothMax(density, floor, minDensitySmoothK)
-                                : Math.max(density, floor);
+                            if(minDensitySmooth) {
+                                double gap = Math.abs(density - floor);
+                                density = gap > 4.0 / minDensitySmoothK
+                                    ? Math.max(density, floor)
+                                    : smoothMax(density, floor, minDensitySmoothK);
+                            } else {
+                                density = Math.max(density, floor);
+                            }
                         }
                     }
 
@@ -215,9 +220,14 @@ public class NoiseChunkGenerator3D implements ChunkGenerator {
                 && biome.getTags().stream().anyMatch(minDensitySkipTags::contains);
             if(!skip) {
                 double floor = minDensitySampler.getSample(world.getSeed(), x, y, z);
-                noise = minDensitySmooth
-                    ? smoothMax(noise, floor, minDensitySmoothK)
-                    : Math.max(noise, floor);
+                if(minDensitySmooth) {
+                    double gap = Math.abs(noise - floor);
+                    noise = gap > 4.0 / minDensitySmoothK
+                        ? Math.max(noise, floor)
+                        : smoothMax(noise, floor, minDensitySmoothK);
+                } else {
+                    noise = Math.max(noise, floor);
+                }
             }
         }
         if(noise > 0) {
