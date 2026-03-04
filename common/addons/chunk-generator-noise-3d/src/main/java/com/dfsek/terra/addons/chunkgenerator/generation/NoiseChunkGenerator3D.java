@@ -114,10 +114,13 @@ public class NoiseChunkGenerator3D implements ChunkGenerator {
         int xOrig = (chunkX << 4);
         int zOrig = (chunkZ << 4);
 
+        platform.getProfiler().push("sampler_cache");
         Sampler3D sampler = samplerCache.getChunk(chunkX, chunkZ, world, biomeProvider);
+        platform.getProfiler().pop("sampler_cache");
 
         long seed = world.getSeed();
 
+        platform.getProfiler().push("carver_init");
         LazilyEvaluatedInterpolator carver = new LazilyEvaluatedInterpolator(biomeProvider,
             chunkX,
             chunkZ,
@@ -126,6 +129,9 @@ public class NoiseChunkGenerator3D implements ChunkGenerator {
             carverHorizontalResolution,
             carverVerticalResolution,
             seed);
+        platform.getProfiler().pop("carver_init");
+
+        platform.getProfiler().push("block_placement");
         for(int x = 0; x < 16; x++) {
             for(int z = 0; z < 16; z++) {
                 int paletteLevel = 0;
@@ -195,6 +201,7 @@ public class NoiseChunkGenerator3D implements ChunkGenerator {
                 }
             }
         }
+        platform.getProfiler().pop("block_placement");
         platform.getProfiler().pop("chunk_base_3d");
     }
 
