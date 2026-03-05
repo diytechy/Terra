@@ -1,9 +1,11 @@
 package com.dfsek.terra.addons.biome.query;
 
 import java.util.Collection;
+import java.util.stream.Collectors;
 
 import com.dfsek.terra.addons.biome.query.impl.BiomeTagFlattener;
 import com.dfsek.terra.addons.biome.query.impl.BiomeTagHolder;
+import com.dfsek.terra.addons.biome.query.impl.BiomeTagSet;
 import com.dfsek.terra.addons.manifest.api.AddonInitializer;
 import com.dfsek.terra.api.Platform;
 import com.dfsek.terra.api.addon.BaseAddon;
@@ -17,6 +19,7 @@ import com.dfsek.terra.api.world.biome.Biome;
 
 public class BiomeQueryAPIAddon implements AddonInitializer {
     public static PropertyKey<BiomeTagHolder> BIOME_TAG_KEY = Context.create(BiomeTagHolder.class);
+    public static PropertyKey<BiomeTagSet> BIOME_TAG_SET_KEY = Context.create(BiomeTagSet.class);
     @Inject
     private Platform platform;
     @Inject
@@ -40,6 +43,12 @@ public class BiomeQueryAPIAddon implements AddonInitializer {
                     .toList());
 
                 biomes.forEach(biome -> biome.getContext().put(BIOME_TAG_KEY, new BiomeTagHolder(biome, flattener)));
+
+                BiomeTagSet tagSet = new BiomeTagSet(biomes
+                    .stream()
+                    .flatMap(biome -> biome.getTags().stream())
+                    .collect(Collectors.toSet()));
+                event.getPack().getContext().put(BIOME_TAG_SET_KEY, tagSet);
             })
             .global();
     }

@@ -2,9 +2,7 @@ package com.dfsek.terra.addons.biome.extrusion;
 
 import com.dfsek.tectonic.api.config.template.object.ObjectTemplate;
 
-import java.util.Set;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 import com.dfsek.terra.addons.biome.extrusion.api.Extrusion;
 import com.dfsek.terra.addons.biome.extrusion.api.ReplaceableBiome;
@@ -12,7 +10,6 @@ import com.dfsek.terra.addons.biome.extrusion.config.BiomeExtrusionTemplate;
 import com.dfsek.terra.addons.biome.extrusion.config.ReplaceableBiomeLoader;
 import com.dfsek.terra.addons.biome.extrusion.config.extrusions.ReplaceExtrusionTemplate;
 import com.dfsek.terra.addons.biome.extrusion.config.extrusions.SetExtrusionTemplate;
-import com.dfsek.terra.addons.biome.extrusion.extrusions.ReplaceExtrusion;
 import com.dfsek.terra.addons.manifest.api.AddonInitializer;
 import com.dfsek.terra.api.Platform;
 import com.dfsek.terra.api.addon.BaseAddon;
@@ -65,28 +62,6 @@ public class BiomeExtrusionAddon implements AddonInitializer {
             .then(event -> {
                 Registry<Biome> biomeRegistry = event.getPack().getRegistry(Biome.class);
                 event.getPack().applyLoader(ReplaceableBiome.class, new ReplaceableBiomeLoader(biomeRegistry));
-            })
-            .then(event -> {
-                BiomeProvider provider = event.getPack().getBiomeProvider();
-                if(provider instanceof BiomeExtrusionProvider extrusionProvider) {
-                    Set<String> allTags = event.getPack().getRegistry(Biome.class)
-                        .entries()
-                        .stream()
-                        .flatMap(biome -> biome.getTags().stream())
-                        .collect(Collectors.toSet());
-
-                    for(Extrusion extrusion : extrusionProvider.getExtrusions()) {
-                        if(extrusion instanceof ReplaceExtrusion replaceExtrusion) {
-                            String tag = replaceExtrusion.getTag();
-                            if(!allTags.contains(tag)) {
-                                throw new IllegalArgumentException(
-                                    "Extrusion references unknown biome tag '" + tag + "' in 'from' field. " +
-                                    "No biome in pack '" + event.getPack().getID() + "' defines this tag. " +
-                                    "Check your biome-provider extrusion config for 'from: " + tag + "'.");
-                            }
-                        }
-                    }
-                }
             });
     }
 }

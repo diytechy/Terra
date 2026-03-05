@@ -6,8 +6,11 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.dfsek.terra.addons.biome.extrusion.api.Extrusion;
+import com.dfsek.terra.addons.biome.extrusion.extrusions.ReplaceExtrusion;
 import com.dfsek.terra.addons.biome.extrusion.utils.ExtrusionPipeline;
 import com.dfsek.terra.addons.biome.extrusion.utils.ExtrusionPipelineFactory;
+import com.dfsek.terra.addons.biome.query.BiomeQueryAPIAddon;
+import com.dfsek.terra.addons.biome.query.impl.BiomeTagFlattener;
 import com.dfsek.terra.api.util.Column;
 import com.dfsek.terra.api.world.biome.Biome;
 import com.dfsek.terra.api.world.biome.generation.BiomeProvider;
@@ -26,9 +29,32 @@ public class BiomeExtrusionProvider implements BiomeProvider {
         this.biomes = delegate.stream().collect(Collectors.toSet());
         extrusions.forEach(e -> biomes.addAll(e.getBiomes()));
 
+        validateExtrusionTags(extrusions);
+
         this.pipeline = ExtrusionPipelineFactory.create(extrusions);
 
         this.resolution = resolution;
+    }
+
+    private void validateExtrusionTags(List<Extrusion> extrusions) {
+        BiomeTagFlattener flattener = biomes.stream()
+            .findFirst()
+            .map(biome -> biome.getContext().get(BiomeQueryAPIAddon.BIOME_TAG_KEY).getFlattener())
+            .orElse(null);
+
+        if(flattener == null) return;
+
+        for(Extrusion extrusion : extrusions) {
+            if(extrusion instanceof ReplaceExtrusion replaceExtrusion) {
+                String tag = replaceExtrusion.getTag();
+                if(!flattener.contains(tag)) {
+                    throw new IllegalArgumentException(
+                        "Extrusion references unknown biome tag '" + tag + "' in 'from' field. " +
+                        "No biome in this pack defines this tag. " +
+                        "Check your biome-provider extrusion config for 'from: " + tag + "'.");
+                }
+            }
+        }
     }
 
     public List<Extrusion> getExtrusions() {
