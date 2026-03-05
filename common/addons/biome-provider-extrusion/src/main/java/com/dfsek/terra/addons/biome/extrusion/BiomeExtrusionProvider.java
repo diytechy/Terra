@@ -17,16 +17,22 @@ public class BiomeExtrusionProvider implements BiomeProvider {
     public final ExtrusionPipeline pipeline;
     private final BiomeProvider delegate;
     private final Set<Biome> biomes;
+    private final List<Extrusion> extrusions;
     private final int resolution;
 
     public BiomeExtrusionProvider(BiomeProvider delegate, List<Extrusion> extrusions, int resolution) {
         this.delegate = delegate;
+        this.extrusions = extrusions;
         this.biomes = delegate.stream().collect(Collectors.toSet());
         extrusions.forEach(e -> biomes.addAll(e.getBiomes()));
 
         this.pipeline = ExtrusionPipelineFactory.create(extrusions);
 
         this.resolution = resolution;
+    }
+
+    public List<Extrusion> getExtrusions() {
+        return extrusions;
     }
 
     @Override

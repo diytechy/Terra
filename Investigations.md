@@ -1,0 +1,1 @@
+When I tried to run the profiler with the updates, it appears to have caused the server to crash.  Main logs at C:\MC\MINECRAFT_SERVER_TMP_4BACKUP\logs\latest_crash.log

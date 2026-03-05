@@ -14,6 +14,10 @@ public class SingleTagQuery implements Predicate<Biome> {
         this.tag = tag;
     }
 
+    public String getTag() {
+        return tag;
+    }
+
     @Override
     public boolean test(Biome biome) {
         if(tagIndex < 0) {
@@ -21,7 +25,7 @@ public class SingleTagQuery implements Predicate<Biome> {
                 .getContext()
                 .get(BiomeQueryAPIAddon.BIOME_TAG_KEY)
                 .getFlattener()
-                .index(tag);
+                .index(tag); // throws IllegalArgumentException if tag not found
         }
         return biome
             .getContext()

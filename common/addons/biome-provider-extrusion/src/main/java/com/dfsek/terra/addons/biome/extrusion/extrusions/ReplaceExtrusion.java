@@ -22,6 +22,7 @@ public class ReplaceExtrusion implements Extrusion {
     private final Sampler sampler;
     private final Range range;
     private final ProbabilityCollection<ReplaceableBiome> biomes;
+    private final String tag;
     private final Predicate<Biome> hasTag;
     private final TriStateIntCache cache;
 
@@ -29,8 +30,13 @@ public class ReplaceExtrusion implements Extrusion {
         this.sampler = sampler;
         this.range = range;
         this.biomes = biomes;
+        this.tag = tag;
         this.hasTag = BiomeQueries.has(tag);
         this.cache = new TriStateIntCache(Biome.INT_ID_COUNTER.get());
+    }
+
+    public String getTag() {
+        return tag;
     }
 
     @Override
