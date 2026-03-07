@@ -1,0 +1,65 @@
+Disabled Platforms Analysis — 2026-03-05
+=========================================
+
+Currently active: Bukkit, CLI, Allay, Merged
+Disabled (8 files): Fabric, Forge, Quilt, Sponge, Minestom, mixin-common, mixin-lifecycle, minestom-example
+
+Platform-by-platform breakdown:
+-------------------------------
+
+1. Minestom
+   Files: platforms/minestom/build.gradle.kts.disabled
+   Root Cause: Requires Java 25 (options.release = 25). Versions.kt has minestom = "2025.10.31-1.21.10".
+   Difficulty: Low — just a JDK version gate.
+   Notes: Also commented out in settings.gradle.kts line 24.
+
+2. Minestom Example
+   Files: platforms/minestom/example/build.gradle.kts.disabled
+   Root Cause: Same Java 25 requirement, depends on :platforms:minestom.
+   Difficulty: Low — follows Minestom.
+
+3. Forge
+   Files: platforms/forge/build.gradle.kts.disabled
+   Root Cause: Versions.Forge is commented out in Versions.kt (lines 58-61). Uses older "architecuryLoom"
+   (typo in variable name) and loom-vineflower plugin. References Forge for MC 1.21.11 but NeoForge replaced
+   Forge after 1.20.4 — Forge likely does not exist for this MC version.
+   Difficulty: High — Forge is likely dead for 1.21.x, would need NeoForge migration.
+
+4. Quilt
+   Files: platforms/quilt/build.gradle.kts.disabled
+   Root Cause: Versions.Quilt is commented out in Versions.kt (lines 40-43). Uses old cloud.commandframework
+   (v1 namespace) instead of org.incendo (v2). Uses older "architecuryLoom" (typo). Targets Java 17.
+   Difficulty: Medium — needs version updates, cloud v2 migration, Quilt loader update.
+
+5. Sponge
+   Files: platforms/sponge/build.gradle.kts.disabled
+   Root Cause: Versions.Sponge is commented out in Versions.kt (lines 78-82). Targets MC 1.17.1 — massively
+   outdated vs current 1.21.11. Uses different build plugin (org.spongepowered.gradle.vanilla).
+   Difficulty: High — Sponge API would need major update for 1.21.x.
+
+6. Fabric
+   Files: platforms/fabric/build.gradle.kts.disabled
+   Root Cause: Depends on :platforms:mixin-common and :platforms:mixin-lifecycle (both disabled). Version
+   constants exist in Versions.kt (Fabric.fabricAPI, Fabric.cloud, Mod.*). Build file looks relatively
+   current with architectury loom and cloud v2.
+   Difficulty: Medium — re-enable mixin modules first, then test compilation.
+
+7. mixin-common
+   Files: platforms/mixin-common/build.gradle.kts.disabled
+   Root Cause: Shared mixin module for Fabric/Forge/Quilt. No platform-specific issues in the build file
+   itself. Disabled because no downstream platform needs it currently.
+   Difficulty: Low — re-enable when Fabric or Forge is re-enabled.
+
+8. mixin-lifecycle
+   Files: platforms/mixin-lifecycle/build.gradle.kts.disabled
+   Root Cause: Lifecycle mixin module for Fabric. Depends on mixin-common. Same situation.
+   Difficulty: Low — follows mixin-common.
+
+Recommended priority order:
+----------------------------
+1. Fabric (most viable) — Version constants already exist, uses current architectury loom + cloud v2.
+   Re-enable mixin-common -> mixin-lifecycle -> fabric and test compilation.
+2. Minestom — Just needs JDK 25. Functionally ready.
+3. Quilt — Needs cloud v2 migration and updated Quilt versions. Quilt project health is uncertain.
+4. Forge — Likely dead for 1.21.x. Consider NeoForge instead (new project, different build setup).
+5. Sponge — Very outdated (1.17.1). Would need major rework.

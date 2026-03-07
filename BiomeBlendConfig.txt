@@ -1,0 +1,98 @@
+Biome Blend Configuration Reference
+=====================================
+
+Terra supports terrain blending to smooth transitions between biomes. Blend can be
+configured at the pack level (defaults for all biomes) and overridden per biome.
+
+
+Pack-Level Configuration (pack.yml)
+------------------------------------
+
+blend:
+  terrain:
+    elevation: 2          # 2D elevation blend radius
+    defaults:
+      distance: 3         # Default blend radius (in multiples of step)
+      step: 4             # Spacing between blend samples in blocks
+      weight: 1.0         # Weight in weighted average calculation
+      weight-2d: 1.0      # Weight for 2D elevation blending
+    no-blend-tags:
+      - subsurface        # Biomes with this tag get blendDistance=0 automatically
+    y-range:
+      min: -20            # Skip blend below this Y level
+      max: 270            # Skip blend above this Y level
+
+
+Per-Biome Configuration
+------------------------
+
+Override the pack defaults under terrain.blend in any biome YAML:
+
+  terrain:
+    blend:
+      distance: 3         # Blend radius (in multiples of step). 0 = disabled.
+      step: 4             # Spacing between blend samples in blocks
+      weight: 1.0         # Weight in weighted average calculation
+      weight-2d: 1.0      # Weight for 2D elevation blending
+
+
+Examples
+--------
+
+Disable blending for a specific biome (sharp edges):
+
+  id: CLIFF_BIOME
+  type: BIOME
+  terrain:
+    blend:
+      distance: 0
+
+Wider, smoother transitions than default:
+
+  id: SMOOTH_PLAINS
+  type: BIOME
+  terrain:
+    blend:
+      distance: 5
+      step: 4
+      weight: 1.5         # Higher weight = this biome's noise "wins" more in overlaps
+
+Disable blending via tags (preferred for categories of biomes):
+  - Add a tag to the biome (e.g. "subsurface")
+  - Add that tag to no-blend-tags in pack.yml
+  - All biomes with the tag will have blendDistance=0 automatically
+  - ORIGEN2 already uses this for cave biomes via the "subsurface" tag
+
+
+How Blending Works
+-------------------
+
+The ChunkInterpolator samples biome noise in a grid around each point:
+  - Actual sample radius = blendDistance * blendStep blocks
+  - e.g. distance=3, step=4 -> samples in a 24-block radius (3*4=12 in each direction)
+  - Each sample contributes to a weighted average using blendWeight
+  - Higher blendWeight means that biome's terrain has more influence in overlaps
+  - Blending is skipped entirely when blendDistance=0 or Y is outside y-range
+
+Performance note: larger blendDistance increases the number of biome column lookups
+per chunk. The interpolator optimizes by pre-scanning for the max blend distance in
+each chunk and only allocating memory for the actual radius needed.
+
+
+Key Source Files
+-----------------
+
+Pack config template:
+  common/addons/chunk-generator-noise-3d/src/main/java/.../config/NoiseChunkGeneratorPackConfigTemplate.java
+
+Biome config template:
+  common/addons/chunk-generator-noise-3d/src/main/java/.../config/noise/BiomeNoiseConfigTemplate.java
+
+Biome properties record:
+  common/addons/chunk-generator-noise-3d/src/main/java/.../config/noise/BiomeNoiseProperties.java
+
+Blend calculation:
+  common/addons/chunk-generator-noise-3d/src/main/java/.../generation/math/interpolation/ChunkInterpolator.java
+
+Addon initialization (where no-blend-tags are applied):
+  common/addons/chunk-generator-noise-3d/src/main/java/.../NoiseChunkGenerator3DAddon.java
