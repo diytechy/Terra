@@ -18,4 +18,26 @@ The advantage of a separate minecraft plugin is less complexity interacting with
 
 ############################
 
-dead_entires_review.txt
+It seems something broke in the Terra build, when generating a ew world I am seeing many structure errors:
+
+If reference needed: dead_entires_review.txt
+
+At startup, it appears Terra is reloading twice, but before commit XXX this did not occur:
+
+[09:39:30 INFO]: Loading config pack "TARTARUS:TARTARUS"
+[09:39:31 INFO]: Loading config pack "REIMAGEND:REIMAGEND"
+[09:39:31 INFO]: Loaded config pack "TARTARUS:TARTARUS" v1.0.0 by Jaddot in 1672.6169ms.
+[09:39:31 INFO]: Loaded config pack "REIMAGEND:REIMAGEND" v3.0.0 by Aureus, RogueShade in 2001.5519ms.
+[09:39:31 INFO]: DendryTerra: Registered DENDRY sampler type
+[09:39:31 INFO]: Loading config pack "OVERWORLD:OVERWORLD"
+[09:39:38 INFO]: Loaded config pack "OVERWORLD:OVERWORLD" v2.0.0 by Astrash, Sancires, Aureus, RogueShade in 8866.5549ms.
+[09:39:46 INFO]: Loading config pack "CHIMERA:CHIMERA"
+[09:39:53 INFO]: Loaded config pack "CHIMERA:CHIMERA" v2.0.1 by Astrash, Sancires, Aureus, Rearth, Belikhun, RogueShade, DIYTechy in 23729.6125ms.
+[09:39:55 INFO]: Loading meta config packs...
+[09:39:55 INFO]: Loading metapack "DEFAULT:DEFAULT"
+[09:39:55 INFO]: Linked config pack "OVERWORLD:OVERWORLD" to metapack "DEFAULT:DEFAULT".
+[09:39:55 INFO]: Linked config pack "TARTARUS:TARTARUS" to metapack "DEFAULT:DEFAULT".
+[09:39:55 INFO]: Linked config pack "REIMAGEND:REIMAGEND" to metapack "DEFAULT:DEFAULT".
+[09:39:55 INFO]: Loaded metapack "DEFAULT:DEFAULT" v1.0.0 by Jaddot, RogueShade, Aureus, Astrash, Sancires, Duplex in 38.1715ms.
+[09:39:55 INFO]: Hacking biome registry...
+
