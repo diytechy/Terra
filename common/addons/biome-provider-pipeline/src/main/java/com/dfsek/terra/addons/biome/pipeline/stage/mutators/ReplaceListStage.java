@@ -54,6 +54,11 @@ public class ReplaceListStage implements Stage {
     }
 
     @Override
+    public String toString() {
+        return "ReplaceList_" + defaultTag;
+    }
+
+    @Override
     public Iterable<PipelineBiome> getBiomes(Iterable<PipelineBiome> biomes) {
         Set<PipelineBiome> biomeSet = new HashSet<>();
 

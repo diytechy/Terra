@@ -54,4 +54,9 @@ public class SmoothStage implements Stage {
     public int maxRelativeReadDistance() {
         return 1;
     }
+
+    @Override
+    public String toString() {
+        return "Smooth";
+    }
 }

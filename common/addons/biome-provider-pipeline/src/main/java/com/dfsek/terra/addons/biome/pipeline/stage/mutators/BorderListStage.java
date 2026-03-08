@@ -85,4 +85,9 @@ public class BorderListStage implements Stage {
     public int maxRelativeReadDistance() {
         return 1;
     }
+
+    @Override
+    public String toString() {
+        return "BorderList_" + defaultReplace + "_" + border;
+    }
 }

@@ -81,7 +81,7 @@ public class BiomeChunkImpl implements BiomeChunk {
             lookupArray = tempArray;
 
             // Apply stage to working grid
-            String stageName = "stage_" + stageIndex + "_" + stage.getClass().getSimpleName();
+            String stageName = "stage_" + stageIndex + "_" + stage;
             profiler.push(stageName);
             ViewPoint viewPoint = new ViewPoint(this, gridInterval, lookupArray, size);
             for(int gridZ = 0; gridZ < gridSize; gridZ = gridZ + 1) {

@@ -45,6 +45,11 @@ public class ReplaceStage implements Stage {
     }
 
     @Override
+    public String toString() {
+        return "Replace_" + replaceableTag;
+    }
+
+    @Override
     public Iterable<PipelineBiome> getBiomes(Iterable<PipelineBiome> biomes) {
         Set<PipelineBiome> biomeSet = new HashSet<>();
         Set<PipelineBiome> reject = new HashSet<>();
