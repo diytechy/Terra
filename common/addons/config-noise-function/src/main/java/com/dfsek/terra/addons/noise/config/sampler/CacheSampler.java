@@ -71,6 +71,10 @@ public class CacheSampler implements Sampler {
     @Override
     public double getSample(long seed, double x, double y) {
         if(intCoordinates) {
+            if(intCache2D == null) {
+                return sampler.getSample(seed, x, y);
+            }
+
             int ix = saturateToInt(x);
             int iz = saturateToInt(y);
 
@@ -96,6 +100,10 @@ public class CacheSampler implements Sampler {
             cache.keySeed[index] = seed;
             cache.values[index] = value;
             return value;
+        }
+
+        if(cache2D == null) {
+            return sampler.getSample(seed, x, y);
         }
 
         // Skip cache when all key components are zero to guard against
@@ -128,6 +136,10 @@ public class CacheSampler implements Sampler {
     @Override
     public double getSample(long seed, double x, double y, double z) {
         if(intCoordinates) {
+            if(intCache3D == null) {
+                return sampler.getSample(seed, x, y, z);
+            }
+
             int ix = saturateToInt(x);
             int iy = saturateToInt(y);
             int iz = saturateToInt(z);
@@ -155,6 +167,10 @@ public class CacheSampler implements Sampler {
             cache.keySeed[index] = seed;
             cache.values[index] = value;
             return value;
+        }
+
+        if(cache3D == null) {
+            return sampler.getSample(seed, x, y, z);
         }
 
         // Skip cache when all key components are zero to guard against
