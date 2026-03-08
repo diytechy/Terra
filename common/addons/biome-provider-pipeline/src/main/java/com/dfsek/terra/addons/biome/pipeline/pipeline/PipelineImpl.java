@@ -10,6 +10,7 @@ import com.dfsek.terra.addons.biome.pipeline.api.Expander;
 import com.dfsek.terra.addons.biome.pipeline.api.Pipeline;
 import com.dfsek.terra.addons.biome.pipeline.api.Source;
 import com.dfsek.terra.addons.biome.pipeline.api.Stage;
+import com.dfsek.terra.api.profiler.Profiler;
 import com.dfsek.terra.api.util.cache.SeededVector2Key;
 
 
@@ -24,11 +25,13 @@ public class PipelineImpl implements Pipeline {
     private final int arraySize;
     private final int chunkOriginArrayIndex;
     private final int resolution;
+    private final Profiler profiler;
 
-    public PipelineImpl(Source source, List<Stage> stages, int resolution, int idealChunkArraySize) {
+    public PipelineImpl(Source source, List<Stage> stages, int resolution, int idealChunkArraySize, Profiler profiler) {
         this.source = source;
         this.stages = stages;
         this.resolution = resolution;
+        this.profiler = profiler;
         this.expanderCount = (int) stages.stream().filter(s -> s instanceof Expander).count();
 
         // Optimize for the ideal array size
@@ -88,5 +91,9 @@ public class PipelineImpl implements Pipeline {
 
     protected int getResolution() {
         return resolution;
+    }
+
+    protected Profiler getProfiler() {
+        return profiler;
     }
 }

@@ -25,6 +25,7 @@ import com.dfsek.terra.api.registry.key.StringIdentifiable;
 import com.dfsek.terra.api.util.Column;
 import com.dfsek.terra.api.util.cache.SeededVector2Key;
 import com.dfsek.terra.api.world.biome.Biome;
+import com.dfsek.terra.api.profiler.Profiler;
 import com.dfsek.terra.api.world.biome.generation.BiomeProvider;
 
 
@@ -36,8 +37,10 @@ public class PipelineBiomeProvider implements BiomeProvider {
     private final Sampler mutator;
     private final double noiseAmp;
     private final Set<Biome> biomes;
+    private final Profiler profiler;
 
-    public PipelineBiomeProvider(Pipeline pipeline, int resolution, Sampler mutator, double noiseAmp) {
+    public PipelineBiomeProvider(Pipeline pipeline, int resolution, Sampler mutator, double noiseAmp, Profiler profiler) {
+        this.profiler = profiler;
         this.resolution = resolution;
         this.mutator = mutator;
         this.noiseAmp = noiseAmp;

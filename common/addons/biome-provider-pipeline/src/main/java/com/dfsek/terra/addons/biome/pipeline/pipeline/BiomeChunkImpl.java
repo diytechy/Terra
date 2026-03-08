@@ -8,6 +8,7 @@ import com.dfsek.terra.addons.biome.pipeline.api.BiomeChunk;
 import com.dfsek.terra.addons.biome.pipeline.api.Expander;
 import com.dfsek.terra.addons.biome.pipeline.api.Stage;
 import com.dfsek.terra.addons.biome.pipeline.api.biome.PipelineBiome;
+import com.dfsek.terra.api.profiler.Profiler;
 import com.dfsek.terra.api.util.cache.SeededVector2Key;
 
 
@@ -27,6 +28,8 @@ public class BiomeChunkImpl implements BiomeChunk {
 
         this.size = pipeline.getArraySize();
 
+        Profiler profiler = pipeline.getProfiler();
+
         int expanderCount = pipeline.getExpanderCount();
         int expansionsApplied = 0;
 
@@ -41,7 +44,10 @@ public class BiomeChunkImpl implements BiomeChunk {
         int gridSize = (size / gridInterval);
         gridSize += expanderCount > 0 ? 1 : 0; // Add an extra border if expansion occurs
 
+        profiler.push("biome_pipeline_generate");
+
         // Fill working grid with initial cells
+        profiler.push("source");
         for(int gridX = 0; gridX < gridSize; gridX++) {
             for(int gridZ = 0; gridZ < gridSize; gridZ++) {
                 int xIndex = gridOrigin + gridX * gridInterval;
@@ -50,7 +56,9 @@ public class BiomeChunkImpl implements BiomeChunk {
                     zIndexToWorldCoordinate(zIndex));
             }
         }
+        profiler.pop("source");
 
+        int stageIndex = 0;
         for(Stage stage : pipeline.getStages()) {
             if(stage instanceof Expander) {
                 // Shrink working grid size, the expander will fill in null cells (as a result of shrinking the grid) during mutation
@@ -73,6 +81,8 @@ public class BiomeChunkImpl implements BiomeChunk {
             lookupArray = tempArray;
 
             // Apply stage to working grid
+            String stageName = "stage_" + stageIndex + "_" + stage.getClass().getSimpleName();
+            profiler.push(stageName);
             ViewPoint viewPoint = new ViewPoint(this, gridInterval, lookupArray, size);
             for(int gridZ = 0; gridZ < gridSize; gridZ = gridZ + 1) {
                 for(int gridX = 0; gridX < gridSize; gridX = gridX + 1) {
@@ -82,7 +92,11 @@ public class BiomeChunkImpl implements BiomeChunk {
                     biomes[(xIndex * size) + zIndex] = stage.apply(viewPoint);
                 }
             }
+            profiler.pop(stageName);
+            stageIndex++;
         }
+
+        profiler.pop("biome_pipeline_generate");
     }
 
     protected static int initialSizeToArraySize(int expanderCount, int initialSize) {

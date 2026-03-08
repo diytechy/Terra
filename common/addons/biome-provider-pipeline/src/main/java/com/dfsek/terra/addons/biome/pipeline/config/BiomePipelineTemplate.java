@@ -20,11 +20,17 @@ import com.dfsek.terra.addons.biome.pipeline.api.Source;
 import com.dfsek.terra.addons.biome.pipeline.api.Stage;
 import com.dfsek.terra.addons.biome.pipeline.pipeline.PipelineImpl;
 import com.dfsek.terra.api.config.meta.Meta;
+import com.dfsek.terra.api.profiler.Profiler;
 import com.dfsek.terra.api.world.biome.generation.BiomeProvider;
 
 
 @SuppressWarnings({ "FieldMayBeFinal", "unused" })
 public class BiomePipelineTemplate implements ObjectTemplate<BiomeProvider> {
+    private final Profiler profiler;
+
+    public BiomePipelineTemplate(Profiler profiler) {
+        this.profiler = profiler;
+    }
     @Value("resolution")
     @Default
     @Description("""
@@ -50,6 +56,7 @@ public class BiomePipelineTemplate implements ObjectTemplate<BiomeProvider> {
 
     @Override
     public BiomeProvider get() {
-        return new PipelineBiomeProvider(new PipelineImpl(source, stages, resolution, 128), resolution, blendSampler, blendAmplitude);
+        return new PipelineBiomeProvider(new PipelineImpl(source, stages, resolution, 128, profiler), resolution, blendSampler,
+            blendAmplitude, profiler);
     }
 }

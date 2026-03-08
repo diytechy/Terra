@@ -140,7 +140,9 @@ public class NoiseChunkGenerator3D implements ChunkGenerator {
                 int cz = zOrig + z;
 
                 BlockState data;
+                platform.getProfiler().push("biome_column");
                 Column<Biome> biomeColumn = biomeProvider.getColumn(cx, cz, world);
+                platform.getProfiler().pop("biome_column");
                 Biome lastSeaBiome = null;
                 int computedSea = 0;
                 Biome lastMinDensityBiome = null;

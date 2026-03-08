@@ -9,10 +9,17 @@ import java.util.List;
 import com.dfsek.terra.addons.biome.extrusion.BiomeExtrusionProvider;
 import com.dfsek.terra.addons.biome.extrusion.api.Extrusion;
 import com.dfsek.terra.api.config.meta.Meta;
+import com.dfsek.terra.api.profiler.Profiler;
 import com.dfsek.terra.api.world.biome.generation.BiomeProvider;
 
 
 public class BiomeExtrusionTemplate implements ObjectTemplate<BiomeProvider> {
+    private final Profiler profiler;
+
+    public BiomeExtrusionTemplate(Profiler profiler) {
+        this.profiler = profiler;
+    }
+
     @Value("provider")
     private @Meta BiomeProvider provider;
 
@@ -30,6 +37,6 @@ public class BiomeExtrusionTemplate implements ObjectTemplate<BiomeProvider> {
     @Override
     public BiomeProvider get() {
         int effectiveYResolution = yResolution > 0 ? yResolution : resolution;
-        return new BiomeExtrusionProvider(provider, extrusions, resolution, effectiveYResolution);
+        return new BiomeExtrusionProvider(provider, extrusions, resolution, effectiveYResolution, profiler);
     }
 }

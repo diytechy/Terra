@@ -11,6 +11,7 @@ import com.dfsek.terra.addons.biome.extrusion.utils.ExtrusionPipeline;
 import com.dfsek.terra.addons.biome.extrusion.utils.ExtrusionPipelineFactory;
 import com.dfsek.terra.addons.biome.query.BiomeQueryAPIAddon;
 import com.dfsek.terra.addons.biome.query.impl.BiomeTagFlattener;
+import com.dfsek.terra.api.profiler.Profiler;
 import com.dfsek.terra.api.util.Column;
 import com.dfsek.terra.api.world.biome.Biome;
 import com.dfsek.terra.api.world.biome.generation.BiomeProvider;
@@ -23,10 +24,13 @@ public class BiomeExtrusionProvider implements BiomeProvider {
     private final List<Extrusion> extrusions;
     private final int resolution;
     private final int yResolution;
+    final Profiler profiler;
 
-    public BiomeExtrusionProvider(BiomeProvider delegate, List<Extrusion> extrusions, int resolution, int yResolution) {
+    public BiomeExtrusionProvider(BiomeProvider delegate, List<Extrusion> extrusions, int resolution, int yResolution,
+                                  Profiler profiler) {
         this.delegate = delegate;
         this.extrusions = extrusions;
+        this.profiler = profiler;
         this.biomes = delegate.stream().collect(Collectors.toSet());
         extrusions.forEach(e -> biomes.addAll(e.getBiomes()));
 
@@ -71,7 +75,10 @@ public class BiomeExtrusionProvider implements BiomeProvider {
 
     @Override
     public Column<Biome> getColumn(int x, int z, long seed, int min, int max) {
-        return delegate.getBaseBiome(x, z, seed)
+        profiler.push("extrusion_base_biome");
+        Optional<Biome> baseBiome = delegate.getBaseBiome(x, z, seed);
+        profiler.pop("extrusion_base_biome");
+        return baseBiome
             .map(base -> (Column<Biome>) new BaseBiomeColumn(this, base, min, max, x, z, seed))
             .orElseGet(() -> BiomeProvider.super.getColumn(x, z, seed, min, max));
     }
