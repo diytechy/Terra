@@ -20,11 +20,16 @@ public class BiomeExtrusionTemplate implements ObjectTemplate<BiomeProvider> {
     @Default
     private @Meta int resolution = 4;
 
+    @Value("y-resolution")
+    @Default
+    private @Meta int yResolution = -1;
+
     @Value("extrusions")
     private @Meta List<@Meta Extrusion> extrusions;
 
     @Override
     public BiomeProvider get() {
-        return new BiomeExtrusionProvider(provider, extrusions, resolution);
+        int effectiveYResolution = yResolution > 0 ? yResolution : resolution;
+        return new BiomeExtrusionProvider(provider, extrusions, resolution, effectiveYResolution);
     }
 }

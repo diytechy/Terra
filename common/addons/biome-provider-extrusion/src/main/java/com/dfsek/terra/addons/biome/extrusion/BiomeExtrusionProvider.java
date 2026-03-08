@@ -22,8 +22,9 @@ public class BiomeExtrusionProvider implements BiomeProvider {
     private final Set<Biome> biomes;
     private final List<Extrusion> extrusions;
     private final int resolution;
+    private final int yResolution;
 
-    public BiomeExtrusionProvider(BiomeProvider delegate, List<Extrusion> extrusions, int resolution) {
+    public BiomeExtrusionProvider(BiomeProvider delegate, List<Extrusion> extrusions, int resolution, int yResolution) {
         this.delegate = delegate;
         this.extrusions = extrusions;
         this.biomes = delegate.stream().collect(Collectors.toSet());
@@ -34,6 +35,7 @@ public class BiomeExtrusionProvider implements BiomeProvider {
         this.pipeline = ExtrusionPipelineFactory.create(extrusions);
 
         this.resolution = resolution;
+        this.yResolution = yResolution;
     }
 
     private void validateExtrusionTags(List<Extrusion> extrusions) {
@@ -87,6 +89,11 @@ public class BiomeExtrusionProvider implements BiomeProvider {
     @Override
     public int resolution() {
         return resolution;
+    }
+
+    @Override
+    public int yResolution() {
+        return yResolution;
     }
 
     public BiomeProvider getDelegate() {

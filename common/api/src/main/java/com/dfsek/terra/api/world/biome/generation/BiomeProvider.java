@@ -103,4 +103,8 @@ public interface BiomeProvider {
     default int resolution() {
         return 1;
     }
+
+    default int yResolution() {
+        return resolution();
+    }
 }
