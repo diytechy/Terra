@@ -18,11 +18,18 @@ The advantage of a separate minecraft plugin is less complexity interacting with
 
 ############################
 
-It seems something broke in the Terra build, when generating a ew world I am seeing many structure errors:
+World generation is now failing but it is not clear to me why, I have tried older versions of Terra, Origen Pack, and removing the new plugin.
 
-If reference needed: dead_entires_review.txt
+Reference logs from C:\MC\MINECRAFT_SERVER_TMP_4BACKUP\logs\:
+dead_entires_review.txt
+stuck_on_chunk_gen_from_server_console.txt
 
-At startup, it appears Terra is reloading twice, but before commit XXX this did not occur:
+A few notable items:
+1. At startup, it appears Terra is reloading twice, but this did not occur from commit f864d79.
+
+2. I am seeing multiple notes around dead entries, I have not seen these before: "Dead entry in 'com.dfsek.terra.api.structure.Structure' registry"
+
+3. The first chunk never appears to complete, it is not clear to me what is holding the process.  Ex "NewChunkHolder{world=CHIMERA, chunkX=10, chunkZ=10, entityChunkFromDisk=false"
 
 [09:39:30 INFO]: Loading config pack "TARTARUS:TARTARUS"
 [09:39:31 INFO]: Loading config pack "REIMAGEND:REIMAGEND"
@@ -41,3 +48,10 @@ At startup, it appears Terra is reloading twice, but before commit XXX this did 
 [09:39:55 INFO]: Loaded metapack "DEFAULT:DEFAULT" v1.0.0 by Jaddot, RogueShade, Aureus, Astrash, Sancires, Duplex in 38.1715ms.
 [09:39:55 INFO]: Hacking biome registry...
 
+#########################
+
+Testing with the OVERWORLD, it appears to show the same error, but it finally creates the world at 67 s.  I assume this is because minecraft is trying to position strongholds in the world at instantiation, but it needs to run the biome processor to find valid placements in the world.  The issue is likely that the biome pipeline for Chimera takes much longer to run.  Does the Terra profiler contain details around the biome placement pipeline?  I'm curious if there is some timing profile on named samplers or a per stage file timing breakdown to see if there is a specific stage in the biome pipeline that is consuming a significant amount of time.
+
+##################################3
+
+I suspect now that the strongholds are just failing to place,  perhaps due to the number of extrusions or biome types of those extrusions, resulting in much larger query pattern.  Is there a way to also add into the profiler the number of biome queries since the start of the profiler?  This would make it clear if there are substantially more queries for CHIMERA which would imply increased stronghold placement failure rates.
