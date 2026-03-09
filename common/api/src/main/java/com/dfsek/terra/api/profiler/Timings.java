@@ -79,6 +79,10 @@ public class Timings {
         return timings;
     }
 
+    public Map<String, Timings> getSubItems() {
+        return Collections.unmodifiableMap(subItems);
+    }
+
     public Timings getSubItem(String id) {
         return subItems.computeIfAbsent(id, s -> new Timings());
     }
