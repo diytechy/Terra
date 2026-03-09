@@ -8,8 +8,6 @@
 package com.dfsek.terra.addons.biome.pipeline;
 
 import com.dfsek.seismic.type.sampler.Sampler;
-import com.github.benmanes.caffeine.cache.Caffeine;
-import com.github.benmanes.caffeine.cache.LoadingCache;
 
 import java.util.Comparator;
 import java.util.HashSet;
@@ -31,7 +29,10 @@ import com.dfsek.terra.api.world.biome.generation.BiomeProvider;
 
 public class PipelineBiomeProvider implements BiomeProvider {
 
-    private final LoadingCache<SeededVector2Key, BiomeChunk> biomeChunkCache;
+    private static final int CACHE_SIZE = 4;
+
+    private final Pipeline pipeline;
+    private final ThreadLocal<BiomeChunkCache> chunkCache;
     private final int chunkSize;
     private final int resolution;
     private final Sampler mutator;
@@ -41,13 +42,12 @@ public class PipelineBiomeProvider implements BiomeProvider {
 
     public PipelineBiomeProvider(Pipeline pipeline, int resolution, Sampler mutator, double noiseAmp, Profiler profiler) {
         this.profiler = profiler;
+        this.pipeline = pipeline;
         this.resolution = resolution;
         this.mutator = mutator;
         this.noiseAmp = noiseAmp;
         this.chunkSize = pipeline.getChunkSize();
-        this.biomeChunkCache = Caffeine.newBuilder()
-            .maximumSize(64)
-            .build(pipeline::generateChunk);
+        this.chunkCache = ThreadLocal.withInitial(BiomeChunkCache::new);
 
         Set<PipelineBiome> biomeSet = new HashSet<>();
         pipeline.getSource().getBiomes().forEach(biomeSet::add);
@@ -100,7 +100,8 @@ public class PipelineBiomeProvider implements BiomeProvider {
         int xInChunk = x - chunkWorldX;
         int zInChunk = z - chunkWorldZ;
 
-        return biomeChunkCache.get(new SeededVector2Key(chunkWorldX, chunkWorldZ, seed)).get(xInChunk, zInChunk).getBiome();
+        BiomeChunk chunk = chunkCache.get().get(chunkWorldX, chunkWorldZ, seed, pipeline);
+        return chunk.get(xInChunk, zInChunk).getBiome();
     }
 
     @Override
@@ -121,5 +122,38 @@ public class PipelineBiomeProvider implements BiomeProvider {
     @Override
     public int resolution() {
         return resolution;
+    }
+
+    private static final class BiomeChunkCache {
+        private final int[] keyX = new int[CACHE_SIZE];
+        private final int[] keyZ = new int[CACHE_SIZE];
+        private final long[] keySeed = new long[CACHE_SIZE];
+        private final BiomeChunk[] chunks = new BiomeChunk[CACHE_SIZE];
+        private final int[] age = new int[CACHE_SIZE];
+        private int tick;
+
+        BiomeChunk get(int chunkWorldX, int chunkWorldZ, long seed, Pipeline pipeline) {
+            // Search for existing entry
+            for(int i = 0; i < CACHE_SIZE; i++) {
+                if(chunks[i] != null && keyX[i] == chunkWorldX && keyZ[i] == chunkWorldZ && keySeed[i] == seed) {
+                    age[i] = ++tick;
+                    return chunks[i];
+                }
+            }
+
+            // Miss — evict the oldest entry
+            int oldest = 0;
+            for(int i = 1; i < CACHE_SIZE; i++) {
+                if(age[i] < age[oldest]) oldest = i;
+            }
+
+            BiomeChunk chunk = pipeline.generateChunk(new SeededVector2Key(chunkWorldX, chunkWorldZ, seed));
+            keyX[oldest] = chunkWorldX;
+            keyZ[oldest] = chunkWorldZ;
+            keySeed[oldest] = seed;
+            chunks[oldest] = chunk;
+            age[oldest] = ++tick;
+            return chunk;
+        }
     }
 }

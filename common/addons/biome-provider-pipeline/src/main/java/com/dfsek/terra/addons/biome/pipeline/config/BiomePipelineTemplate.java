@@ -56,7 +56,7 @@ public class BiomePipelineTemplate implements ObjectTemplate<BiomeProvider> {
 
     @Override
     public BiomeProvider get() {
-        return new PipelineBiomeProvider(new PipelineImpl(source, stages, resolution, 128, profiler), resolution, blendSampler,
+        return new PipelineBiomeProvider(new PipelineImpl(source, stages, resolution, 64, profiler), resolution, blendSampler,
             blendAmplitude, profiler);
     }
 }

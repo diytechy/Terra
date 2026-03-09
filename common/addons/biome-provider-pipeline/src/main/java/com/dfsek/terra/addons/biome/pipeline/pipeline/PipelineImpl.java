@@ -27,32 +27,44 @@ public class PipelineImpl implements Pipeline {
     private final int resolution;
     private final Profiler profiler;
 
-    public PipelineImpl(Source source, List<Stage> stages, int resolution, int idealChunkArraySize, Profiler profiler) {
+    public PipelineImpl(Source source, List<Stage> stages, int resolution, int maxArraySize, Profiler profiler) {
         this.source = source;
         this.stages = stages;
         this.resolution = resolution;
         this.profiler = profiler;
         this.expanderCount = (int) stages.stream().filter(s -> s instanceof Expander).count();
 
-        // Optimize for the ideal array size
-        int arraySize;
-        int chunkOriginArrayIndex;
-        int chunkSize;
-        int initialSize = 1;
+        int chunkOriginArrayIndex = BiomeChunkImpl.calculateChunkOriginArrayIndex(expanderCount, stages);
+
+        // Find the largest initialSize whose post-expansion array fits within maxArraySize
+        int bestInitialSize = 1;
+        int bestArraySize = BiomeChunkImpl.initialSizeToArraySize(expanderCount, 1);
+        int initialSize = 2;
         while(true) {
-            arraySize = BiomeChunkImpl.initialSizeToArraySize(expanderCount, initialSize);
-            chunkOriginArrayIndex = BiomeChunkImpl.calculateChunkOriginArrayIndex(expanderCount, stages);
-            chunkSize = BiomeChunkImpl.calculateChunkSize(arraySize, chunkOriginArrayIndex, expanderCount);
-            if(chunkSize > 1 && arraySize >= idealChunkArraySize) break;
+            int candidateArraySize = BiomeChunkImpl.initialSizeToArraySize(expanderCount, initialSize);
+            if(candidateArraySize > maxArraySize) break;
+            bestInitialSize = initialSize;
+            bestArraySize = candidateArraySize;
             initialSize++;
         }
 
-        this.arraySize = arraySize;
+        int chunkSize = BiomeChunkImpl.calculateChunkSize(bestArraySize, chunkOriginArrayIndex, expanderCount);
+        if(chunkSize < 1) {
+            // Stages consume more border than the max array size allows — fall back to minimum viable size
+            while(chunkSize < 1) {
+                bestInitialSize++;
+                bestArraySize = BiomeChunkImpl.initialSizeToArraySize(expanderCount, bestInitialSize);
+                chunkSize = BiomeChunkImpl.calculateChunkSize(bestArraySize, chunkOriginArrayIndex, expanderCount);
+            }
+            logger.warn("Pipeline array size {} exceeds maximum {} due to stage border requirements", bestArraySize, maxArraySize);
+        }
+
+        this.arraySize = bestArraySize;
         this.chunkOriginArrayIndex = chunkOriginArrayIndex;
         this.chunkSize = chunkSize;
 
         logger.info("Initialized a new biome pipeline:");
-        logger.info("Array size: {} (Target: {})", arraySize, idealChunkArraySize);
+        logger.info("Array size: {} (Max: {})", bestArraySize, maxArraySize);
         logger.info("Internal array origin: {}", chunkOriginArrayIndex);
         logger.info("Chunk size: {}", chunkSize);
         logger.info("Expander count: {}", expanderCount);
