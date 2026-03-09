@@ -1,0 +1,1350 @@
+
+Grep "@Inject.*Platform|Platform.*platform" (in c:\Projects\Terra\common\addons\chunk-generator-noise-3d\src\main\java)
+35 lines of output
+Grep "@Inject" (in c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java)
+8 lines of output
+Grep "BiomePaletteTemplate" (in c:\Projects\Terra\common\addons\chunk-generator-noise-3d\src\main\java\com\dfsek\terra\addons\chunkgenerator)
+15 lines of output
+Now I have a clear picture of the architecture. Let me implement the profiling instrumentation. I'll add timing at two levels:
+
+Chunk generator: wrap getColumn() to show biome provider cost
+Pipeline internals: per-stage timing in BiomeChunkImpl on cache miss
+Extrusion: timing around delegate + extrusion in getBiome
+I'll thread the Profiler through constructors following the existing BiomePaletteTemplate(Platform) pattern.
+
+Update Todos
+
+Add biome_column profiler timing in NoiseChunkGenerator3D
+
+Thread Profiler through PipelineBiomeProvider → PipelineImpl → BiomeChunkImpl
+
+Add per-stage profiler timing in BiomeChunkImpl constructor
+
+Thread Profiler through BiomeExtrusionProvider and add extrusion timing
+
+Verify the project builds successfully
+Starting with the chunk generator — the simplest and most immediately useful change.
+
+Edit c:\Projects\Terra\common\addons\chunk-generator-noise-3d\src\main\java\com\dfsek\terra\addons\chunkgenerator\generation\NoiseChunkGenerator3D.java
+Edit failed
+Already read it above. Let me re-read and edit.
+
+Read c:\Projects\Terra\common\addons\chunk-generator-noise-3d\src\main\java\com\dfsek\terra\addons\chunkgenerator\generation\NoiseChunkGenerator3D.java (lines 135-149)
+Edit c:\Projects\Terra\common\addons\chunk-generator-noise-3d\src\main\java\com\dfsek\terra\addons\chunkgenerator\generation\NoiseChunkGenerator3D.java
+Added 2 lines
+Update Todos
+
+Add biome_column profiler timing in NoiseChunkGenerator3D
+
+Thread Profiler through PipelineBiomeProvider → PipelineImpl → BiomeChunkImpl
+
+Add per-stage profiler timing in BiomeChunkImpl constructor
+
+Thread Profiler through BiomeExtrusionProvider and add extrusion timing
+
+Verify the project builds successfully
+Now threading the Profiler through the pipeline classes. I'll modify them in dependency order: addon → template → provider → pipeline impl → chunk impl.
+
+Read c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\BiomePipelineAddon.java (lines 61-65)
+Edit c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\BiomePipelineAddon.java
+Modified
+Expected — I need to add the constructor to BiomePipelineTemplate now. Let me update the template, then continue down the chain.
+
+Read c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\config\BiomePipelineTemplate.java
+Edit c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\config\BiomePipelineTemplate.java
+Added 6 lines
+Now pass the profiler through to PipelineBiomeProvider and PipelineImpl:
+
+Edit c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\config\BiomePipelineTemplate.java
+Added 1 line
+Now update PipelineBiomeProvider to accept and store the Profiler:
+
+Read c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\PipelineBiomeProvider.java
+Edit c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\PipelineBiomeProvider.java
+Added 3 lines
+Now update PipelineImpl to accept and store the Profiler:
+
+Read c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\pipeline\PipelineImpl.java
+Edit c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\pipeline\PipelineImpl.java
+Added 3 lines
+That warning is expected — the profiler field will be used once I add the timing in BiomeChunkImpl. Let me add the accessor and update generateChunk:
+
+Edit c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\pipeline\PipelineImpl.java
+Added 4 lines
+Now add the per-stage profiling in BiomeChunkImpl:
+
+Update Todos
+
+Add biome_column profiler timing in NoiseChunkGenerator3D
+
+Thread Profiler through PipelineBiomeProvider → PipelineImpl → BiomeChunkImpl
+
+Add per-stage profiler timing in BiomeChunkImpl constructor
+
+Thread Profiler through BiomeExtrusionProvider and add extrusion timing
+
+Verify the project builds successfully
+Read c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\pipeline\BiomeChunkImpl.java (lines 2-91)
+Edit c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\pipeline\BiomeChunkImpl.java
+Added 1 line
+Now add the profiler timing around the source fill and stage loop:
+
+Edit c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\pipeline\BiomeChunkImpl.java
+Added 13 lines
+Update Todos
+
+Add biome_column profiler timing in NoiseChunkGenerator3D
+
+Thread Profiler through PipelineBiomeProvider → PipelineImpl → BiomeChunkImpl
+
+Add per-stage profiler timing in BiomeChunkImpl constructor
+
+Thread Profiler through BiomeExtrusionProvider and add extrusion timing
+
+Verify the project builds successfully
+Now the extrusion side. Update the addon, template, and provider:
+
+Read c:\Projects\Terra\common\addons\biome-provider-extrusion\src\main\java\com\dfsek\terra\addons\biome\extrusion\BiomeExtrusionAddon.java (lines 45-50)
+Edit c:\Projects\Terra\common\addons\biome-provider-extrusion\src\main\java\com\dfsek\terra\addons\biome\extrusion\BiomeExtrusionAddon.java
+Modified
+Read c:\Projects\Terra\common\addons\biome-provider-extrusion\src\main\java\com\dfsek\terra\addons\biome\extrusion\config\BiomeExtrusionTemplate.java
+Edit c:\Projects\Terra\common\addons\biome-provider-extrusion\src\main\java\com\dfsek\terra\addons\biome\extrusion\config\BiomeExtrusionTemplate.java
+Added 7 lines
+Now update BiomeExtrusionProvider to accept and use the Profiler:
+
+Read c:\Projects\Terra\common\addons\biome-provider-extrusion\src\main\java\com\dfsek\terra\addons\biome\extrusion\BiomeExtrusionProvider.java
+Edit c:\Projects\Terra\common\addons\biome-provider-extrusion\src\main\java\com\dfsek\terra\addons\biome\extrusion\BiomeExtrusionProvider.java
+Added 4 lines
+Now add timing in getBiome for delegate vs extrusion:
+
+Edit c:\Projects\Terra\common\addons\biome-provider-extrusion\src\main\java\com\dfsek\terra\addons\biome\extrusion\BiomeExtrusionProvider.java
+Added 10 lines
+Actually, I need to reconsider the per-block extrusion timing. With ~98K getBiome calls per chunk (16x16x384), each recording 3 push/pop pairs, the profiler's List<Long> would accumulate millions of entries during a profiling session — causing memory pressure. Let me replace the fine-grained timing with a coarser approach:
+
+Edit c:\Projects\Terra\common\addons\biome-provider-extrusion\src\main\java\com\dfsek\terra\addons\biome\extrusion\BiomeExtrusionProvider.java
+Removed 10 lines
+Instead, I'll add timing around getColumn where the delegate pipeline lookup happens (called 256 times per chunk — manageable):
+
+Edit c:\Projects\Terra\common\addons\biome-provider-extrusion\src\main\java\com\dfsek\terra\addons\biome\extrusion\BiomeExtrusionProvider.java
+Added 3 lines
+Update Todos
+
+Add biome_column profiler timing in NoiseChunkGenerator3D
+
+Thread Profiler through PipelineBiomeProvider → PipelineImpl → BiomeChunkImpl
+
+Add per-stage profiler timing in BiomeChunkImpl constructor
+
+Thread Profiler through BiomeExtrusionProvider and add extrusion timing
+
+Verify the project builds successfully
+Now let's try to build:
+
+Bash Compile Terra to check for errors
+IN
+./gradlew compileJava 2>&1 | tail -40
+
+OUT
+        functionRegistry.forEach((key, function) -> parser.registerFunction(key.getID(), function)); // Register registry functions.
+                                                                                         ^
+  required: FunctionBuilder<? extends Function<?>>
+  found:    FunctionBuilder
+C:\Projects\Terra\common\addons\structure-terrascript-loader\src\main\java\com\dfsek\terra\addons\terrascript\script\StructureScript.java:86: warning: [this-escape] possible 'this' escape before subclass is fully initialized
+            .registerFunction("loot", new LootFunctionBuilder(platform, lootRegistry, this))
+                                                                                      ^
+3 warnings
+
+> Task :common:addons:terrascript-function-check-noise-3d:compileJava
+> Task :common:addons:terrascript-function-sampler:compileJava
+
+> Task :platforms:bukkit:common:compileJava
+C:\Projects\Terra\platforms\bukkit\common\src\main\java\com\dfsek\terra\bukkit\PlatformImpl.java:62: warning: [this-escape] possible 'this' escape before subclass is fully initialized
+        load();
+            ^
+C:\Projects\Terra\platforms\bukkit\common\src\main\java\com\dfsek\terra\bukkit\TerraBukkitPlugin.java:52: warning: [this-escape] possible 'this' escape before subclass is fully initialized
+    private AsyncScheduler asyncScheduler = this.getServer().getAsyncScheduler();
+                                                          ^
+C:\Projects\Terra\platforms\bukkit\common\src\main\java\com\dfsek\terra\bukkit\TerraBukkitPlugin.java:54: warning: [this-escape] possible 'this' escape before subclass is fully initialized
+    private GlobalRegionScheduler globalRegionScheduler = this.getServer().getGlobalRegionScheduler();
+                                                                        ^
+C:\Projects\Terra\platforms\bukkit\common\src\main\java\com\dfsek\terra\bukkit\CloudCommandSender.java:23: warning: [deprecation] ChatColor in org.bukkit has been deprecated
+        delegate.getSender().sendMessage(ChatColor.translateAlternateColorCodes('&', message));
+                                         ^
+C:\Projects\Terra\platforms\bukkit\common\src\main\java\com\dfsek\terra\bukkit\handles\BukkitItemHandle.java:44: warning: [deprecation] getByKey(NamespacedKey) in Enchantment has been deprecated
+            org.bukkit.enchantments.Enchantment.getByKey(NamespacedKey.minecraft(MinecraftUtils.stripMinecraftNamespace(id))));
+                                               ^
+C:\Projects\Terra\platforms\bukkit\common\src\main\java\com\dfsek\terra\bukkit\handles\BukkitItemHandle.java:49: warning: [deprecation] values() in Enchantment has been deprecated
+        return Arrays.stream(org.bukkit.enchantments.Enchantment.values()).map(BukkitAdapter::adapt).collect(Collectors.toSet());
+                                                                ^
+6 warnings
+
+> Task :platforms:bukkit:nms:paperweightUserdevSetup UP-TO-DATE
+> Task :platforms:bukkit:nms:compileJava
+
+[Incubating] Problems report is available at: file:///C:/Projects/Terra/build/reports/problems/problems-report.html
+
+BUILD SUCCESSFUL in 59s
+48 actionable tasks: 41 executed, 7 up-to-date
+Build successful. All warnings are pre-existing (not from our changes).
+
+Update Todos
+
+Add biome_column profiler timing in NoiseChunkGenerator3D
+
+Thread Profiler through PipelineBiomeProvider → PipelineImpl → BiomeChunkImpl
+
+Add per-stage profiler timing in BiomeChunkImpl constructor
+
+Thread Profiler through BiomeExtrusionProvider and add extrusion timing
+
+Verify the project builds successfully
+Build passes. Here's a summary of the profiling instrumentation added:
+
+Changes
+1. Chunk generator (NoiseChunkGenerator3D.java:143-145)
+biome_column timing wraps biomeProvider.getColumn() — shows per-column biome provider cost (256 samples/chunk)
+2. Pipeline internals (BiomeChunkImpl.java:30-90)
+biome_pipeline_generate wraps the entire cache-miss path
+source — initial grid fill
+stage_N_ClassName — per-stage breakdown (e.g., stage_0_ExpanderStage, stage_1_SmoothStage)
+3. Extrusion provider (BiomeExtrusionProvider.java:72-75)
+extrusion_base_biome in getColumn() — isolates delegate pipeline lookup cost from extrusion cost
+Profiler hierarchy when running:
+
+chunk_base_3d
+├── sampler_cache
+├── carver_init
+└── block_placement
+    └── biome_column
+        └── extrusion_base_biome          (if extrusion provider)
+            └── biome_pipeline_generate   (on cache miss)
+                ├── source
+                ├── stage_0_ExpanderStage
+                ├── stage_1_SmoothStage
+                └── ...
+The per-block extrusion cost (inside BaseBiomeColumn.get(y)) is intentionally not profiled to avoid memory pressure (~98K push/pop pairs per chunk). Its cost can be inferred as block_placement - biome_column - (other block work).
+
+The new metrics are useful and show the biome provider is consuming significant time, but how do I know which stage corresponds to a location in the configuration file?  For instance I see "stage_88", how do I cross-reference which actual file entry that corresponds to?
+Good point — stage_88_SmoothStage tells you the index and Java class but not which config entry it maps to. The stages come from the pipeline.stages list in your biome provider config. Let me check what that looks like in your pack and see how to make the stage names more informative.
+
+Agent:Find biome pipeline stage config
+IN
+In c:\Projects\ORIGEN2, find the biome provider configuration that defines the pipeline stages list. Look for YAML files that have `pipeline:` with `stages:` entries. This is the biome provider config that lists all the stages (SMOOTH, REPLACE, REPLACE_LIST, BORDER, BORDER_LIST, FRACTAL_EXPAND, etc.). I need to see the full list to understand how many stages there are and what they're called. Check files like biome-provider.yml or similar in the pack root or biome-distribution directories. Be thorough.
+Bash List contents of ORIGEN2 root directory
+IN
+ls -la /c/Projects/ORIGEN2/
+
+OUT
+total 2649
+drwxr-xr-x 1 Peter 197609      0 Mar  7 16:28 .
+drwxr-xr-x 1 Peter 197609      0 Mar  7 00:30 ..
+drwxr-xr-x 1 Peter 197609      0 Mar  5 14:30 .artifacts
+drwxr-xr-x 1 Peter 197609      0 Feb 20 07:23 .claude
+drwxr-xr-x 1 Peter 197609      0 Mar  8 17:08 .git
+drwxr-xr-x 1 Peter 197609      0 Jan 12 19:20 .github
+-rw-r--r-- 1 Peter 197609     58 Feb 20 07:23 .gitignore
+-rw-r--r-- 1 Peter 197609    116 Jan 12 19:20 .gitmodules
+drwxr-xr-x 1 Peter 197609      0 Mar  7 16:13 .scripts
+drwxr-xr-x 1 Peter 197609      0 Feb 20 07:23 .wiki
+-rw-r--r-- 1 Peter 197609   5802 Jan 12 19:20 CHANGELOG.md
+-rw-r--r-- 1 Peter 197609  10728 Mar  4 12:08 CHIMERA_UNPLACED_BIOMES_ANALYSIS.md
+-rw-r--r-- 1 Peter 197609  16349 Mar  3 22:37 CHIMERA_UNPLACED_BIOMES_DETAILED_REFERENCE.md
+-rw-r--r-- 1 Peter 197609    177 Feb 20 08:18 CLAUDE.md
+-rw-r--r-- 1 Peter 197609   6512 Mar  4 07:46 COASTAL_BIOMES_REFERENCE.md
+-rw-r--r-- 1 Peter 197609 493992 Feb 20 08:18 ContinentReference.png
+-rw-r--r-- 1 Peter 197609  35630 Mar  8 14:55 Conversation.md
+-rw-r--r-- 1 Peter 197609     43 Jan 12 19:20 DESIGN.md
+-rw-r--r-- 1 Peter 197609 403864 Feb 20 08:18 Default_Continental_Sampler.png
+-rw-r--r-- 1 Peter 197609   7861 Feb 20 07:23 Expression.md
+-rw-r--r-- 1 Peter 197609  19051 Jan 12 19:20 LICENSE
+-rw-r--r-- 1 Peter 197609   2731 Mar  6 09:53 Missing coastal definitions.txt
+-rw-r--r-- 1 Peter 197609   1879 Feb 23 17:10 NoiseToolSettings.yml
+drwxr-xr-x 1 Peter 197609      0 Feb 22 09:56 OldPromptAndReviewReferences
+-rwxr-xr-x 1 Peter 197609  23801 Mar  3 21:03 OptomizePackSamplers.py
+-rw-r--r-- 1 Peter 197609  19539 Feb 20 07:23 README.md
+drwxr-xr-x 1 Peter 197609      0 Feb 20 07:23 Review
+-rw-r--r-- 1 Peter 197609 656095 Feb 20 08:18 Screenshot 2026-01-19 182533.png
+-rw-r--r-- 1 Peter 197609   1591 Mar  7 22:20 StartupRef.txt
+-rw-r--r-- 1 Peter 197609 115286 Feb 20 07:23 TerrainGenExplore1.png
+-rw-r--r-- 1 Peter 197609 676130 Feb 20 08:18 TerrainReference1_BeforeUpdates.png
+-rw-r--r-- 1 Peter 197609   3322 Feb 22 09:56 ToDo.txt
+-rw-r--r-- 1 Peter 197609   4110 Mar  1 22:52 VanillaJavaBiomes.csv
+-rw-r--r-- 1 Peter 197609    109 Feb 20 07:23 ViewTable.bat
+drwxr-xr-x 1 Peter 197609      0 Feb 22 09:50 __pycache__
+-rw-r--r-- 1 Peter 197609   5472 Feb 20 08:18 ai.md
+-rw-r--r-- 1 Peter 197609   1091 Mar  3 22:33 analyze_zero_chimera.py
+drwxr-xr-x 1 Peter 197609      0 Jan 12 19:20 biome-distribution
+drwxr-xr-x 1 Peter 197609      0 Feb 20 08:18 biomes
+-rw-r--r-- 1 Peter 197609  17150 Mar  8 15:08 customization.yml
+-rw-r--r-- 1 Peter 197609    865 Feb 20 07:23 ensure_module.py
+drwxr-xr-x 1 Peter 197609      0 Feb 20 07:23 features
+drwxr-xr-x 1 Peter 197609      0 Feb 18 20:26 math
+drwxr-xr-x 1 Peter 197609      0 Feb 22 23:55 memory
+-rw-r--r-- 1 Peter 197609    959 Mar  6 15:27 meta.yml
+-rw-r--r-- 1 Peter 197609   6798 Mar  7 16:13 pack.yml
+drwxr-xr-x 1 Peter 197609      0 Feb 20 07:23 palettes
+-rw-r--r-- 1 Peter 197609  30701 Feb 20 08:18 sampler-optimization-reference.md
+drwxr-xr-x 1 Peter 197609      0 Feb 20 07:23 structures
+Grep "stages:" (in /c/Projects/ORIGEN2, type: yaml)
+49 lines of output
+Read pack.yml
+Read CHIMERA.yml
+Read rearth.yml
+Read ExploreExpand.yml
+Read C:\Projects\ORIGEN2\biome-distribution\presets\CHIMERA.yml
+The problem is clear — with all those << includes expanding, stage 88 could be anything. Let me check if the Stage classes have identifying info we can use for better names.
+
+Grep "class.*Stage.*implements Stage" (in c:\Projects\Terra\common\addons\biome-provider-pipeline)
+6 lines of output
+Read c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\api\Stage.java
+Read c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\stage\mutators\ReplaceStage.java
+Read c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\stage\mutators\BorderStage.java
+The stage classes have identifying fields — ReplaceStage has replaceableTag, BorderStage has border/replaceTag, etc. The simplest fix is to add toString() overrides so the profiler names are meaningful. Let me check the remaining stage classes quickly.
+
+Read c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\stage\mutators\SmoothStage.java
+Read c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\stage\mutators\ReplaceListStage.java
+Read c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\stage\mutators\BorderListStage.java
+Grep "class.*Expander" (in c:\Projects\Terra\common\addons\biome-provider-pipeline)
+3 lines of output
+Now I have all the info. I'll add toString() to each stage class to include their identifying tag/biome info, then update BiomeChunkImpl to use it.
+
+Edit c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\stage\mutators\ReplaceStage.java
+Edit failed
+Read c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\stage\mutators\ReplaceStage.java (lines 41-65)
+Read c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\stage\mutators\SmoothStage.java (lines 51-60)
+Read c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\stage\mutators\ReplaceListStage.java (lines 51-80)
+Read c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\stage\mutators\BorderStage.java (lines 26-95)
+Read c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\stage\mutators\BorderListStage.java (lines 83-92)
+Read c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\stage\expander\FractalExpander.java
+Now I'll add toString() to all stage classes and update BiomeChunkImpl to use stage.toString() instead of stage.getClass().getSimpleName():
+
+Edit c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\stage\mutators\ReplaceStage.java
+Added 5 lines
+Edit c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\stage\mutators\ReplaceListStage.java
+Added 5 lines
+Edit c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\stage\mutators\SmoothStage.java
+Added 5 lines
+Edit c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\stage\mutators\BorderStage.java
+Added 5 lines
+Edit c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\stage\mutators\BorderListStage.java
+Added 5 lines
+Edit c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\stage\expander\FractalExpander.java
+Added 5 lines
+Now update BiomeChunkImpl to use stage.toString() instead of stage.getClass().getSimpleName():
+
+Read c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\pipeline\BiomeChunkImpl.java (lines 66-75)
+Edit c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\pipeline\BiomeChunkImpl.java
+Modified
+Now let's verify the build:
+
+Bash Compile to verify changes
+IN
+./gradlew compileJava 2>&1 | tail -15
+
+OUT
+> Task :common:addons:pipeline-image:compileJava UP-TO-DATE
+> Task :common:addons:structure-block-shortcut:compileJava UP-TO-DATE
+> Task :common:addons:structure-mutator:compileJava UP-TO-DATE
+> Task :common:addons:structure-sponge-loader:compileJava UP-TO-DATE
+> Task :common:addons:structure-terrascript-loader:compileJava UP-TO-DATE
+> Task :common:addons:terrascript-function-check-noise-3d:compileJava UP-TO-DATE
+> Task :common:addons:terrascript-function-sampler:compileJava UP-TO-DATE
+> Task :platforms:bukkit:common:compileJava UP-TO-DATE
+> Task :platforms:bukkit:nms:paperweightUserdevSetup UP-TO-DATE
+> Task :platforms:bukkit:nms:compileJava UP-TO-DATE
+
+[Incubating] Problems report is available at: file:///C:/Projects/Terra/build/reports/problems/problems-report.html
+
+BUILD SUCCESSFUL in 1m 41s
+48 actionable tasks: 3 executed, 45 up-to-date
+Build passes. Now the profiler output will show meaningful stage names like:
+
+
+chunk_base_3d
+└── block_placement
+    └── biome_column
+        └── extrusion_base_biome
+            └── biome_pipeline_generate
+                ├── source
+                ├── stage_0_Replace__non_spot
+                ├── stage_1_Replace_land
+                ├── ...
+                ├── stage_N_Border_coast_ocean
+                ├── stage_88_FractalExpand
+                ├── stage_89_Smooth
+                └── stage_90_Replace_river_tag
+Each stage name now includes the config-level tag (from/replaceTag/border) so you can directly match it to the YAML entry. For example, stage_5_Replace_land corresponds to a type: REPLACE with from: land in your pipeline config.
+
+The profiler uses . as a hierarchy separator internally, so the tag values with underscores work fine. If any tag contained a ., the profiler's getTimings() would misparse the hierarchy — but that's unlikely with biome tag naming conventions.
+
+The report log where "0.07956303748304468% of parent" is shown only needs 2 decimals of precision, should be shown first (before the time min / avg / max) and should be spaced so that the percentages of all rows align.
+Grep "% of parent|getTimings|toString|profiler query" (in c:\Projects\Terra)
+68 lines of output
+Read c:\Projects\Terra\common\api\src\main\java\com\dfsek\terra\api\profiler\Timings.java
+Read c:\Projects\Terra\common\addons\command-profiler\src\main\java\com\dfsek\terra\addons\commands\profiler\ProfilerCommandAddon.java
+The formatting is all in Timings.toString(). Here's the relevant line (52-54):
+
+
+builder.append((double) min() / 1000000).append("ms min / ").append(average() / 1000000).append("ms avg / ")
+    .append((double) max() / 1000000).append("ms max (").append(timings.size()).append(" samples, ")
+    .append((sum() / parent.sum()) * 100).append("% of parent)");
+I need to:
+
+Truncate the percentage to 2 decimals
+Move the percentage before the time stats
+Right-align percentages across rows
+The alignment is tricky because toString is recursive and each row is built independently. I'll use a fixed-width format for the percentage field.
+
+Edit c:\Projects\Terra\common\api\src\main\java\com\dfsek\terra\api\profiler\Timings.java
+Added 4 lines
+Let me verify the build:
+
+Bash Compile to verify formatting changes
+IN
+./gradlew compileJava 2>&1 | tail -10
+
+OUT
+> Task :common:addons:terrascript-function-sampler:compileJava UP-TO-DATE
+> Task :platforms:bukkit:common:compileJava UP-TO-DATE
+> Task :platforms:bukkit:nms:paperweightUserdevSetup UP-TO-DATE
+> Task :platforms:bukkit:nms:compileJava UP-TO-DATE
+
+[Incubating] Problems report is available at: file:///C:/Projects/Terra/build/reports/problems/problems-report.html
+
+BUILD SUCCESSFUL in 25s
+48 actionable tasks: 1 executed, 47 up-to-date
+Consider enabling configuration cache to speed up this build: https://docs.gradle.org/9.2.1/userguide/configuration_cache_enabling.html
+Builds fine. The output will now look like:
+
+
+chunk_base_3d: 100.00%  1.23ms min / 4.56ms avg / 12.34ms max (500 samples)
+├───sampler_cache:  5.12%  0.01ms min / 0.02ms avg / 0.05ms max (500 samples)
+├───carver_init:   2.34%  0.01ms min / 0.01ms avg / 0.03ms max (500 samples)
+└───block_placement: 92.41%  1.10ms min / 4.20ms avg / 11.80ms max (500 samples)
+    └───biome_column:  45.67%  0.50ms min / 2.10ms avg / 6.00ms max (500 samples)
+Percentages use %6.2f%% — 6 characters wide with 2 decimal places, so they right-align naturally across rows regardless of whether the value is 0.08% or 100.00%. Time values are also trimmed to 2 decimal places.
+
+At the end of the evaluation I see "(2 samples)" at the end of each line, does this mean the metrics were only produced from 2 biome sampler requests?  Or are only the last 2 requests used?
+Good question. Looking at the profiler implementation, the sample count is every recorded push/pop pair — not limited or windowed. So "2 samples" genuinely means only 2 cache misses occurred for biome_pipeline_generate during your profiling session.
+
+This makes sense: PipelineBiomeProvider uses a Caffeine LoadingCache with 64 entries. The biome_pipeline_generate timing only fires on cache miss (when a new BiomeChunkImpl is constructed). Once the cache is warm, almost all getBiome() calls are cache hits and don't trigger pipeline generation at all.
+
+So what "2 samples" tells you is:
+
+Only 2 biome chunks were computed from scratch during profiling
+All other biome lookups were served from cache
+The per-stage breakdown for those 2 samples is still valid — it shows the relative cost of each stage — but the min/max/avg won't be very stable with so few samples
+To get more samples, you'd need to either:
+
+Profile during exploration — moving to new chunks forces cache misses as new biome chunks are needed and old ones get evicted
+Reduce cache size temporarily for testing — though that would change overall performance characteristics
+The biome_column and extrusion_base_biome timings at the getColumn() level should have many more samples (256 per chunk) since they fire on every column regardless of cache state. Those give you the per-lookup cost including cache hits.
+
+This shows the _rift_land step is taking a significant portion of biome placement time (47%), but nothing about that stage seems any more complex than the source stage (which consumes less than 1%).  Is the profiler only run on a random thread?
+Good observation. Let me check the threading model.
+
+Read c:\Projects\Terra\common\implementation\base\src\main\java\com\dfsek\terra\profiler\ProfilerImpl.java
+Yes — this is a significant issue with what you're seeing. Here's what's happening:
+
+Each thread has its own independent SAFE flag (line 40), initialized to false. The SAFE flag only becomes true after a complete push/pop cycle completes on that thread (line 88: if(size.get() == 0) SAFE.set(true)).
+
+This means:
+
+The first complete push/pop cycle on each thread is silently discarded — it's used just to flip SAFE from false to true
+Only subsequent cycles on the same thread are actually recorded
+If chunk generation is distributed across a thread pool (which Folia/Paper does), a thread that only processes one chunk during the profiling window will record nothing
+So when you see "2 samples" for biome_pipeline_generate, it's likely that:
+
+Many threads participated in chunk generation
+Most threads only ran 1-2 chunks, so either their first cycle was discarded or they only contributed 1 sample
+The _rift_land at 47% could be skewed by so few samples — it might have just been unlucky timing on those 2 runs
+The SAFE mechanism was likely designed to avoid recording a partial first frame (where the profiler starts mid-execution), but it has the side effect of discarding the first full cycle per thread.
+
+The accessibleThreadMaps list (line 43) does collect from all threads — getTimings() merges them. So data IS aggregated across threads, but only from threads that completed at least 2 full cycles.
+
+To get more reliable data, you'd need a longer profiling window with more chunk generation to ensure each thread gets past its warmup discard. The percentages become meaningful once you have enough samples. With only 2, the 47% for _rift_land could just be noise.
+
+In order to simulate this in a more dedicated environment, I would like to update "C:\Projects\BiomeTool" to perform multithreaded chunk generation (like paper), and I would like to to automatically enable the profiler at startup, and show aggrigate statistics from all biome provider relevent stages in the performance tab (updated each time chunks are still being created, otherwise the tab should just show "calculating..." to reenforce to the user assessment is still occuring.)  This tool is easier to startup and iterate with, please create a plan for this.
+Let me explore the BiomeTool codebase first to understand its current structure.
+
+Agent:Explore BiomeTool codebase structure
+IN
+Thoroughly explore c:\Projects\BiomeTool to understand:
+
+1. Project structure - all source directories, build files (gradle/maven), dependencies
+2. How it currently generates chunks - find the main entry point, how it loads Terra packs, how it calls the chunk generator and biome provider
+3. Whether it has any threading model currently (single-threaded? thread pool?)
+4. How it renders/displays results - does it have a GUI? What framework (JavaFX, Swing, etc.)?
+5. Whether it already has any "tabs" in the UI - look for tab-related code
+6. How it accesses the Terra Platform/Profiler
+7. Any existing performance or timing code
+
+Be very thorough - read key files completely, not just search for patterns. I need to understand the full architecture to plan modifications.
+Globpattern: "**/*.java"
+No files found
+Globpattern: "src/**/*.kt"
+No files found
+Read BiomeToolFX.kt
+Read TerraBiomeImageGenerator.kt
+Read javafx.kt
+Read concurrency.kt
+Bash Find resource files like CSS and properties
+IN
+find /c/Projects/BiomeTool/src -name "*.properties" -o -name "*.css" -o -name "*.fxml" | head -10
+
+OUT
+/c/Projects/BiomeTool/src/main/resources/javafx-darktheme.css
+Read MapLayer.kt
+Read DummyPlatformBiome.kt
+Bash List main biometool directory
+IN
+ls -la /c/Projects/BiomeTool/src/main/kotlin/com/dfsek/terra/biometool/
+
+OUT
+total 51
+drwxr-xr-x 1 Peter 197609     0 Jan 14 23:42 .
+drwxr-xr-x 1 Peter 197609     0 Jan  8 10:00 ..
+-rw-r--r-- 1 Peter 197609   356 Jan 14 19:14 BiomeImageGenerator.kt
+-rw-r--r-- 1 Peter 197609   110 Jan  8 10:00 BiomeToolFX.kt
+-rw-r--r-- 1 Peter 197609   492 Jan 14 19:58 BiomeToolLauncher.kt
+-rw-r--r-- 1 Peter 197609  1480 Jan 14 20:00 BiomeToolPlatform.kt
+-rw-r--r-- 1 Peter 197609 18574 Jan 14 23:42 BiomeToolView.kt
+-rw-r--r-- 1 Peter 197609  2014 Jan 14 19:58 LoadingLogView.kt
+-rw-r--r-- 1 Peter 197609  4649 Jan 14 22:56 TerraBiomeImageGenerator.kt
+drwxr-xr-x 1 Peter 197609     0 Jan 14 19:58 console
+drwxr-xr-x 1 Peter 197609     0 Jan  8 10:00 dummy
+drwxr-xr-x 1 Peter 197609     0 Jan 14 19:58 logback
+drwxr-xr-x 1 Peter 197609     0 Feb 28 15:50 map
+drwxr-xr-x 1 Peter 197609     0 Jan  8 10:00 util
+Read OutputStreamAppender.kt
+Read MapTilePoint.kt
+Bash Get line counts for dummy classes
+IN
+wc -l /c/Projects/BiomeTool/src/main/kotlin/com/dfsek/terra/biometool/dummy/*.kt
+
+OUT
+  21 /c/Projects/BiomeTool/src/main/kotlin/com/dfsek/terra/biometool/dummy/DummyBlockState.kt
+  12 /c/Projects/BiomeTool/src/main/kotlin/com/dfsek/terra/biometool/dummy/DummyBlockType.kt
+  15 /c/Projects/BiomeTool/src/main/kotlin/com/dfsek/terra/biometool/dummy/DummyEnchantment.kt
+   6 /c/Projects/BiomeTool/src/main/kotlin/com/dfsek/terra/biometool/dummy/DummyEntityType.kt
+  10 /c/Projects/BiomeTool/src/main/kotlin/com/dfsek/terra/biometool/dummy/DummyItem.kt
+  11 /c/Projects/BiomeTool/src/main/kotlin/com/dfsek/terra/biometool/dummy/DummyItemHandle.kt
+  12 /c/Projects/BiomeTool/src/main/kotlin/com/dfsek/terra/biometool/dummy/DummyItemMeta.kt
+  19 /c/Projects/BiomeTool/src/main/kotlin/com/dfsek/terra/biometool/dummy/DummyItemStack.kt
+   6 /c/Projects/BiomeTool/src/main/kotlin/com/dfsek/terra/biometool/dummy/DummyPlatformBiome.kt
+  10 /c/Projects/BiomeTool/src/main/kotlin/com/dfsek/terra/biometool/dummy/DummyWorldHandle.kt
+ 122 total
+Bash Search for tab/window/performance related commits
+IN
+cd /c/Projects/BiomeTool && git log --oneline --all -30 | grep -i "tab\|window\|performance\|thread\|metrics" || echo "No matching commits"
+
+OUT
+284442a First update to support rendering metrics
+Bash Find logback configuration
+IN
+find /c/Projects/BiomeTool -name "logback.xml" -o -name "logback*.xml"
+
+OUT
+/c/Projects/BiomeTool/bin/main/logback.xml
+/c/Projects/BiomeTool/build/resources/main/logback.xml
+/c/Projects/BiomeTool/src/main/resources/logback.xml
+EnterPlanMode
+OUT
+Entered plan mode. You should now focus on exploring the codebase and designing an implementation approach.
+
+In plan mode, you should:
+1. Thoroughly explore the codebase to understand existing patterns
+2. Identify similar features and architectural approaches
+3. Consider multiple approaches and their trade-offs
+4. Use AskUserQuestion if you need to clarify the approach
+5. Design a concrete implementation strategy
+6. When ready, use ExitPlanMode to present your plan for approval
+
+Remember: DO NOT write or edit any files yet. This is a read-only exploration and planning phase.
+Agent:Explore BiomeTool key source files
+IN
+In c:\Projects\BiomeTool, I need to read the following files thoroughly to understand the current architecture for planning modifications:
+
+1. Read `src/main/kotlin/com/dfsek/terra/biometool/BiomeToolView.kt` completely - this is the main UI controller with tabs, metrics, and the thread pool
+2. Read `src/main/kotlin/com/dfsek/terra/biometool/map/InternalMap.kt` completely - this handles tile rendering with metrics
+3. Read `src/main/kotlin/com/dfsek/terra/biometool/BiomeToolPlatform.kt` completely - this is the Terra platform implementation
+4. Read `src/main/kotlin/com/dfsek/terra/biometool/TerraBiomeImageGenerator.kt` completely - the biome image generator
+
+For each file, note:
+- How the thread pool is created and used
+- How metrics/timing work
+- How the profiler could be accessed
+- How tabs are created and managed
+- How chunk generation is triggered
+- How the pack's biome provider and chunk generator are accessed
+
+Return the FULL contents of each file.
+Read c:\Projects\BiomeTool\src\main\kotlin\com\dfsek\terra\biometool\TerraBiomeImageGenerator.kt
+Agent:Read BiomeTool view and platform files
+IN
+In c:\Projects\BiomeTool, I need to see the exact code for the Performance tab placeholder and how the profiler is currently accessible. Read these specific sections:
+
+1. In `src/main/kotlin/com/dfsek/terra/biometool/BiomeToolView.kt`:
+   - Find the "Performance" tab definition and read the surrounding code (what's in the tab currently?)
+   - Find the `addBiomeViewTab()` function and read it completely
+   - Find how `mapview()` helper works
+   - Find the companion object with the thread pool setup
+   - Find the toolbar/controls area
+
+2. In `src/main/kotlin/com/dfsek/terra/biometool/BiomeToolPlatform.kt` - read the FULL file
+
+3. Check if `AbstractPlatform` has a `getProfiler()` method - search for profiler access in Terra's AbstractPlatform class at `c:\Projects\Terra\common\implementation\base\src\main\java\com\dfsek\terra\AbstractPlatform.java`
+
+4. Read `src/main/kotlin/com/dfsek/terra/biometool/map/MapView.kt` completely
+
+Return the full content of each file/section.
+Read c:\Projects\BiomeTool\src\main\kotlin\com\dfsek\terra\biometool\map\MapView.kt
+Now let me look at the actual full source of the key files to understand exact line numbers and patterns.
+
+Read c:\Projects\BiomeTool\src\main\kotlin\com\dfsek\terra\biometool\BiomeToolView.kt
+Read c:\Projects\BiomeTool\src\main\kotlin\com\dfsek\terra\biometool\map\InternalMap.kt
+Now let me design the plan.
+
+Agent:Design BiomeTool profiler integration
+IN
+I need to design an implementation plan for adding profiler integration to BiomeTool (c:\Projects\BiomeTool). Here's the context:
+
+## Background
+The user has added profiler instrumentation to Terra's biome provider pipeline (in a separate project at c:\Projects\Terra). The profiler records hierarchical timing data via push/pop calls. However, running Terra on a Minecraft server doesn't give enough profiler samples because:
+1. The Caffeine cache means pipeline generation only fires on cache miss
+2. The profiler discards the first push/pop cycle per thread (SAFE flag warmup)
+3. Paper/Folia distributes work across many threads, each getting few samples
+
+BiomeTool is a standalone JavaFX tool that renders biome maps by querying Terra's biome provider. It already has multi-threaded rendering via a coroutine thread pool. The user wants to use it as a dedicated profiling environment.
+
+## Current BiomeTool Architecture
+- **Framework**: JavaFX with TornadoFX DSL, Kotlin
+- **Thread pool**: `Executors.newScheduledThreadPool(processors)` wrapped as Kotlin coroutine dispatcher
+- **Tile rendering**: `InternalMap` schedules coroutine jobs that call `TerraBiomeImageGenerator.generateBiomeImage()` 
+- **generateBiomeImage()**: Queries `configPack.biomeProvider.getBiome(x, y, z, seed)` per pixel in a tile
+- **Existing UI tabs**: "World Preview" (with nested render tabs), "Performance" (placeholder TODO), "Console"
+- **Existing metrics**: tiles/second counter in InternalMap using AtomicInteger/AtomicLong
+- **Profiler access**: `BiomeToolPlatform.getProfiler()` returns the `ProfilerImpl` singleton (from AbstractPlatform)
+- **Profiler API**: `profiler.start()`, `profiler.stop()`, `profiler.reset()`, `profiler.getTimings()` returns `Map<String, Timings>`. Each `Timings` has `min()`, `max()`, `average()`, `sum()`, `getTimings()` (list of longs in nanos), and `subItems` map accessed via `getSubItem(id)`.
+
+## Requirements
+1. **Auto-start profiler**: Enable the profiler automatically when BiomeTool starts (call `profiler.start()`)
+2. **Performance tab**: Replace the TODO placeholder with a live view showing aggregate profiler statistics from all biome-provider-relevant stages
+3. **Live updates**: The performance tab should update while chunks are being generated. When no chunks are actively generating, show "Calculating..." to indicate waiting for more data
+4. **Multithreaded generation**: The existing thread pool already provides this - biome queries happen across worker threads just like Paper
+
+## Profiler Hierarchy (from Terra instrumentation)
+The profiler records these frames (hierarchical, dot-separated):
+```
+chunk_base_3d
+├── sampler_cache
+├── carver_init
+└── block_placement
+    └── biome_column
+        └── extrusion_base_biome
+            └── biome_pipeline_generate  (cache miss only)
+                ├── source
+                ├── stage_0_Replace__non_spot
+                ├── stage_1_FractalExpand
+                └── ...
+```
+
+However, BiomeTool doesn't use the chunk generator (NoiseChunkGenerator3D) - it directly queries the biome provider. So `chunk_base_3d` and `block_placement` won't appear. The profiler frames that WILL fire are:
+- `biome_pipeline_generate` with sub-stages (on cache miss in PipelineBiomeProvider)
+- `extrusion_base_biome` (in BiomeExtrusionProvider.getColumn)
+
+But wait - BiomeTool calls `getBiome()` directly, not `getColumn()`. So `extrusion_base_biome` won't fire either. Only `biome_pipeline_generate` and its sub-stages will fire (when the Caffeine cache misses).
+
+Actually, looking more carefully: BiomeTool calls `provider.getBiome(x, y, z, seed)` which goes through BiomeExtrusionProvider.getBiome() → delegate.getBiome() → PipelineBiomeProvider.getBiome() → cache.get() → (on miss) BiomeChunkImpl constructor with profiler instrumentation.
+
+So only the `biome_pipeline_generate` hierarchy will fire, and only on cache miss.
+
+## Key Design Decisions Needed
+
+1. **How to display profiler data**: The Timings class has a hierarchical structure. We need to flatten or tree-display the biome pipeline stages with their percentages and timing.
+
+2. **Update mechanism**: Use a JavaFX Timeline or scheduled task to periodically poll `profiler.getTimings()` and update the UI.
+
+3. **"Calculating..." state**: When no new tiles are being rendered (InternalMap.isActivelyRendering is false and pendingJobs is empty), show a waiting state.
+
+4. **What to show**: Focus on `biome_pipeline_generate` and its children (the pipeline stages), since that's what's relevant for biome provider performance.
+
+## Implementation Approach
+
+### Performance Tab Content
+Replace the TODO textarea with a structured view:
+- A header showing total samples, overall timing
+- A table/list of pipeline stages with columns: Stage Name, % of Parent, Avg Time, Min Time, Max Time, Samples
+- A status indicator: "Rendering..." when actively generating, "Waiting for renders..." when idle
+- A "Reset" button to clear profiler data
+
+### Key Files to Modify
+1. `BiomeToolView.kt` - Replace Performance tab placeholder, add profiler auto-start, add periodic update timer
+2. `BiomeToolPlatform.kt` - Possibly start profiler here on init
+
+### Approach for live updates
+- Use a `javafx.animation.Timeline` with a KeyFrame every 500ms-1000ms
+- On each tick, call `BiomeToolPlatform.getProfiler().getTimings()` 
+- Extract the `biome_pipeline_generate` subtree
+- Format and display in the Performance tab
+- Check if InternalMap is actively rendering to toggle the status message
+
+Please design a detailed, step-by-step implementation plan.
+Globpattern: "**/Profiler*.java"
+Found 5 files
+Read InternalMap.kt
+Grep "Timings" (in c:/Projects/Terra/common, glob: *.java)
+6 lines of output
+Read TerraBiomeImageGenerator.kt
+Read build.gradle.kts
+Grep "biome_pipeline_generate|extrusion_base_biome|profiler\.push|profiler\.pop" (in c:/Projects/Terra, glob: *.java)
+28 lines of output
+Grep "profiler\.push\(|profiler\.pop\(" (in c:/Projects/Terra/common/addons/biome-provider-pipeline)
+6 lines of output
+Read ProfilerCommandAddon.java
+Grep "isActivelyRendering|pendingJobs" (in c:/Projects/BiomeTool/src/main/kotlin/com/dfsek/terra/biometool/map)
+24 lines of output
+Grep "public.*getProfiler|profiler.*field|private.*profiler" (in c:\Projects\Terra\common\implementation\base\src\main\java\com\dfsek\terra\AbstractPlatform.java)
+7 lines of output
+Good - getProfiler() is public. Now let me verify the Timings class has the subItems field as private and check for getTimings() on the Profiler interface.
+
+Read c:\Projects\Terra\common\api\src\main\java\com\dfsek\terra\api\profiler\Timings.java
+Write C:\Users\Peter\.claude\plans\fancy-riding-gray.md
+61 lines
+Claude’s Plan
+BiomeTool Profiler Integration Plan
+Context
+The Terra profiler instrumentation was added to the biome pipeline but profiling in-game is limited by thread warmup (SAFE flag discards first cycle per thread) and low sample counts. BiomeTool provides a controlled environment for iterating on biome performance analysis. The user wants BiomeTool to auto-enable profiling, show aggregate profiler statistics in the Performance tab (live-updating while rendering, "Calculating..." when idle), and leverage existing multithreading.
+
+Note: BiomeTool already uses a coroutine thread pool for tile rendering, distributing biome queries across worker threads — no new threading work is needed.
+
+Changes
+1. Auto-start profiler on platform init
+File: c:\Projects\BiomeTool\src\main\kotlin\com\dfsek\terra\biometool\BiomeToolPlatform.kt
+
+In init (or after platform construction), call profiler.start() so profiling is always active without user action.
+2. Expose rendering state from InternalMap
+File: c:\Projects\BiomeTool\src\main\kotlin\com\dfsek\terra\biometool\map\InternalMap.kt
+
+Make isActivelyRendering (or equivalent) accessible — add a public getter or property.
+File: c:\Projects\BiomeTool\src\main\kotlin\com\dfsek\terra\biometool\map\MapView.kt
+
+Expose isRendering through MapView so the UI layer can check it.
+3. Add getSubItems() accessor to Timings
+File: c:\Projects\Terra\common\api\src\main\java\com\dfsek\terra\api\profiler\Timings.java
+
+Add: public Map<String, Timings> getSubItems() { return subItems; }
+The subItems map is currently private with only getSubItem(id) (which auto-creates entries via computeIfAbsent). We need read-only iteration to build the Performance tab display. Return an unmodifiable view.
+4. Replace Performance tab placeholder with live profiler display
+File: c:\Projects\BiomeTool\src\main\kotlin\com\dfsek\terra\biometool\BiomeToolView.kt
+
+Replace the TODO textarea (around lines 255-266) with:
+
+A monospaced TextArea (read-only) that displays profiler output
+A Timeline (JavaFX timer) running every ~500ms that:
+Checks if any active map tab's InternalMap isRendering
+If rendering: calls BiomeToolPlatform.profiler.getTimings(), formats using Timings.toString() (the tree output already has the percentage/timing format we configured), updates the TextArea
+If not rendering: shows "Calculating..." text to indicate the system is waiting for render activity
+5. Fix Performance menu item bug
+File: c:\Projects\BiomeTool\src\main\kotlin\com\dfsek\terra\biometool\BiomeToolView.kt
+
+Line ~138-140: Change toolWindows.console.select() to toolWindows.performance.select() in the Performance menu item handler.
+6. Reset profiler on pack reload
+File: c:\Projects\BiomeTool\src\main\kotlin\com\dfsek\terra\biometool\BiomeToolView.kt
+
+When a new pack is loaded (in addBiomeViewTab or equivalent), call BiomeToolPlatform.profiler.reset() to clear stale data from the previous pack.
+File Summary
+File	Change
+BiomeToolPlatform.kt	Auto-start profiler
+InternalMap.kt	Expose isActivelyRendering
+MapView.kt	Forward rendering state
+Timings.java	Add getSubItems() accessor
+BiomeToolView.kt	Performance tab UI, timer, menu fix, reset on reload
+Verification
+Launch BiomeTool, load ORIGEN2 pack
+Navigate the map to trigger tile rendering
+Open Performance tab — should show live profiler tree with pipeline stage timings updating every ~500ms
+Stop moving — once rendering completes, display should show "Calculating..."
+Move again — profiler data should resume updating
+Verify Performance menu item correctly selects the Performance tab
+Load a different pack — profiler data should reset
+Stayed in plan mode
+Here's the plan:
+
+BiomeTool Profiler Integration Plan
+Context
+The Terra profiler instrumentation was added to the biome pipeline but profiling in-game is limited by thread warmup (SAFE flag discards first cycle per thread) and low sample counts. BiomeTool provides a controlled environment for iterating on biome performance analysis. The user wants BiomeTool to auto-enable profiling, show aggregate profiler statistics in the Performance tab (live-updating while rendering, "Calculating..." when idle), and leverage existing multithreading.
+
+Note: BiomeTool already uses a coroutine thread pool for tile rendering — no new threading work is needed.
+
+Changes
+Auto-start profiler on platform init — BiomeToolPlatform.kt: Call profiler.start() so profiling is always active.
+
+Expose rendering state — Make isActivelyRendering accessible from InternalMap.kt → MapView.kt so the UI can check it.
+
+Add getSubItems() accessor to Timings — Timings.java: Add public Map<String, Timings> getSubItems() returning an unmodifiable view. Currently subItems is private with only getSubItem(id) which auto-creates entries.
+
+Replace Performance tab placeholder with live profiler display — BiomeToolView.kt:
+
+Monospaced read-only TextArea displaying profiler output
+Timeline timer (~500ms) that checks if any map is rendering, then updates with Timings.toString() tree output, or shows "Calculating..." when idle
+Fix Performance menu item bug — BiomeToolView.kt line ~138-140: Change toolWindows.console.select() → toolWindows.performance.select()
+
+Reset profiler on pack reload — Call profiler.reset() when loading a new pack to clear stale data.
+
+Verification
+Launch BiomeTool, load ORIGEN2 pack
+Navigate map to trigger rendering → Performance tab shows live profiler tree
+Stop moving → display shows "Calculating..."
+Verify Performance menu item selects correct tab
+Load different pack → profiler data resets
+Claude’s Plan
+BiomeTool Profiler Integration Plan
+Context
+The Terra profiler instrumentation was added to the biome pipeline but profiling in-game is limited by thread warmup (SAFE flag discards first cycle per thread) and low sample counts. BiomeTool provides a controlled environment for iterating on biome performance analysis. The user wants BiomeTool to auto-enable profiling, show aggregate profiler statistics in the Performance tab (live-updating while rendering, "Calculating..." when idle), and leverage existing multithreading.
+
+Note: BiomeTool already uses a coroutine thread pool for tile rendering, distributing biome queries across worker threads — no new threading work is needed.
+
+Changes
+1. Auto-start profiler on platform init
+File: c:\Projects\BiomeTool\src\main\kotlin\com\dfsek\terra\biometool\BiomeToolPlatform.kt
+
+In init (or after platform construction), call profiler.start() so profiling is always active without user action.
+2. Expose rendering state from InternalMap
+File: c:\Projects\BiomeTool\src\main\kotlin\com\dfsek\terra\biometool\map\InternalMap.kt
+
+Make isActivelyRendering (or equivalent) accessible — add a public getter or property.
+File: c:\Projects\BiomeTool\src\main\kotlin\com\dfsek\terra\biometool\map\MapView.kt
+
+Expose isRendering through MapView so the UI layer can check it.
+3. Add getSubItems() accessor to Timings
+File: c:\Projects\Terra\common\api\src\main\java\com\dfsek\terra\api\profiler\Timings.java
+
+Add: public Map<String, Timings> getSubItems() { return subItems; }
+The subItems map is currently private with only getSubItem(id) (which auto-creates entries via computeIfAbsent). We need read-only iteration to build the Performance tab display. Return an unmodifiable view.
+4. Replace Performance tab placeholder with live profiler display
+File: c:\Projects\BiomeTool\src\main\kotlin\com\dfsek\terra\biometool\BiomeToolView.kt
+
+Replace the TODO textarea (around lines 255-266) with:
+
+A monospaced TextArea (read-only) that displays profiler output
+A Timeline (JavaFX timer) running every ~500ms that:
+Checks if any active map tab's InternalMap isRendering
+If rendering: calls BiomeToolPlatform.profiler.getTimings(), formats using Timings.toString() (the tree output already has the percentage/timing format we configured), updates the TextArea
+If not rendering: shows "Calculating..." text to indicate the system is waiting for render activity
+5. Fix Performance menu item bug
+File: c:\Projects\BiomeTool\src\main\kotlin\com\dfsek\terra\biometool\BiomeToolView.kt
+
+Line ~138-140: Change toolWindows.console.select() to toolWindows.performance.select() in the Performance menu item handler.
+6. Reset profiler on pack reload
+File: c:\Projects\BiomeTool\src\main\kotlin\com\dfsek\terra\biometool\BiomeToolView.kt
+
+When a new pack is loaded (in addBiomeViewTab or equivalent), call BiomeToolPlatform.profiler.reset() to clear stale data from the previous pack.
+File Summary
+File	Change
+BiomeToolPlatform.kt	Auto-start profiler
+InternalMap.kt	Expose isActivelyRendering
+MapView.kt	Forward rendering state
+Timings.java	Add getSubItems() accessor
+BiomeToolView.kt	Performance tab UI, timer, menu fix, reset on reload
+Verification
+Launch BiomeTool, load ORIGEN2 pack
+Navigate the map to trigger tile rendering
+Open Performance tab — should show live profiler tree with pipeline stage timings updating every ~500ms
+Stop moving — once rendering completes, display should show "Calculating..."
+Move again — profiler data should resume updating
+Verify Performance menu item correctly selects the Performance tab
+Load a different pack — profiler data should reset
+Stayed in plan mode
+Good point — showing "Calculating..." when idle is misleading since the data is already complete. The tab should simply keep displaying the last aggregate statistics at all times, updating live when rendering is active.
+
+Edit C:\Users\Peter\.claude\plans\fancy-riding-gray.md
+Removed 1 line
+Also removing the rendering state exposure since it's no longer needed for the UI logic:
+
+Edit C:\Users\Peter\.claude\plans\fancy-riding-gray.md
+Removed 7 lines
+Edit C:\Users\Peter\.claude\plans\fancy-riding-gray.md
+Modified
+Edit C:\Users\Peter\.claude\plans\fancy-riding-gray.md
+Modified
+Edit C:\Users\Peter\.claude\plans\fancy-riding-gray.md
+Modified
+Edit C:\Users\Peter\.claude\plans\fancy-riding-gray.md
+Removed 2 lines
+Edit C:\Users\Peter\.claude\plans\fancy-riding-gray.md
+Edit failed
+Read C:\Users\Peter\.claude\plans\fancy-riding-gray.md (from line 46)
+Edit C:\Users\Peter\.claude\plans\fancy-riding-gray.md
+Removed 1 line
+Claude’s Plan
+BiomeTool Profiler Integration Plan
+Context
+The Terra profiler instrumentation was added to the biome pipeline but profiling in-game is limited by thread warmup (SAFE flag discards first cycle per thread) and low sample counts. BiomeTool provides a controlled environment for iterating on biome performance analysis. The user wants BiomeTool to auto-enable profiling, show aggregate profiler statistics in the Performance tab (live-updating while rendering, "Calculating..." when idle), and leverage existing multithreading.
+
+Note: BiomeTool already uses a coroutine thread pool for tile rendering, distributing biome queries across worker threads — no new threading work is needed.
+
+Changes
+1. Auto-start profiler on platform init
+File: c:\Projects\BiomeTool\src\main\kotlin\com\dfsek\terra\biometool\BiomeToolPlatform.kt
+
+In init (or after platform construction), call profiler.start() so profiling is always active without user action.
+2. Add getSubItems() accessor to Timings
+File: c:\Projects\Terra\common\api\src\main\java\com\dfsek\terra\api\profiler\Timings.java
+
+Add: public Map<String, Timings> getSubItems() { return subItems; }
+The subItems map is currently private with only getSubItem(id) (which auto-creates entries via computeIfAbsent). We need read-only iteration to build the Performance tab display. Return an unmodifiable view.
+3. Replace Performance tab placeholder with live profiler display
+File: c:\Projects\BiomeTool\src\main\kotlin\com\dfsek\terra\biometool\BiomeToolView.kt
+
+Replace the TODO textarea (around lines 255-266) with:
+
+A monospaced TextArea (read-only) that displays profiler output
+A Timeline (JavaFX timer) running every ~500ms that:
+Calls BiomeToolPlatform.profiler.getTimings(), formats using Timings.toString() (the tree output already has the percentage/timing format we configured), updates the TextArea
+Data persists when rendering stops — the tab always shows the latest aggregate statistics
+4. Fix Performance menu item bug
+File: c:\Projects\BiomeTool\src\main\kotlin\com\dfsek\terra\biometool\BiomeToolView.kt
+
+Line ~138-140: Change toolWindows.console.select() to toolWindows.performance.select() in the Performance menu item handler.
+5. Reset profiler on pack reload
+File: c:\Projects\BiomeTool\src\main\kotlin\com\dfsek\terra\biometool\BiomeToolView.kt
+
+When a new pack is loaded (in addBiomeViewTab or equivalent), call BiomeToolPlatform.profiler.reset() to clear stale data from the previous pack.
+File Summary
+File	Change
+BiomeToolPlatform.kt	Auto-start profiler
+Timings.java	Add getSubItems() accessor
+BiomeToolView.kt	Performance tab UI, timer, menu fix, reset on reload
+Verification
+Launch BiomeTool, load ORIGEN2 pack
+Navigate the map to trigger tile rendering
+Open Performance tab — should show live profiler tree with pipeline stage timings updating every ~500ms
+Stop moving — last aggregate statistics remain displayed
+Verify Performance menu item correctly selects the Performance tab
+Load a different pack — profiler data should reset
+User approved the plan
+Update Todos
+
+Add getSubItems() accessor to Timings.java
+
+Auto-start profiler in BiomeToolPlatform.kt
+
+Replace Performance tab placeholder with live profiler display
+
+Fix Performance menu item bug
+
+Reset profiler on pack reload
+Read c:\Projects\Terra\common\api\src\main\java\com\dfsek\terra\api\profiler\Timings.java
+Edit c:\Projects\Terra\common\api\src\main\java\com\dfsek\terra\api\profiler\Timings.java
+Added 4 lines
+Update Todos
+
+Add getSubItems() accessor to Timings.java
+
+Auto-start profiler in BiomeToolPlatform.kt
+
+Replace Performance tab placeholder with live profiler display
+
+Fix Performance menu item bug
+
+Reset profiler on pack reload
+Read c:\Projects\BiomeTool\src\main\kotlin\com\dfsek\terra\biometool\BiomeToolPlatform.kt
+Edit c:\Projects\BiomeTool\src\main\kotlin\com\dfsek\terra\biometool\BiomeToolPlatform.kt
+Added 1 line
+Update Todos
+
+Add getSubItems() accessor to Timings.java
+
+Auto-start profiler in BiomeToolPlatform.kt
+
+Replace Performance tab placeholder with live profiler display
+
+Fix Performance menu item bug
+
+Reset profiler on pack reload
+Read c:\Projects\BiomeTool\src\main\kotlin\com\dfsek\terra\biometool\BiomeToolView.kt
+Now I'll implement the Performance tab with live profiler display. I need to replace the placeholder (lines 255-266) and add a Timeline timer.
+
+Edit c:\Projects\BiomeTool\src\main\kotlin\com\dfsek\terra\biometool\BiomeToolView.kt
+Added 3 lines
+Edit c:\Projects\BiomeTool\src\main\kotlin\com\dfsek\terra\biometool\BiomeToolView.kt
+Added 1 line
+Now add the performanceTextArea field and replace the placeholder tab:
+
+Edit c:\Projects\BiomeTool\src\main\kotlin\com\dfsek\terra\biometool\BiomeToolView.kt
+Added 2 lines
+Now replace the Performance tab placeholder:
+
+Edit c:\Projects\BiomeTool\src\main\kotlin\com\dfsek\terra\biometool\BiomeToolView.kt
+Modified
+Now add the Timeline timer. I'll add it after the loadingOverlay setup, at the end of the root block:
+
+Edit c:\Projects\BiomeTool\src\main\kotlin\com\dfsek\terra\biometool\BiomeToolView.kt
+Added 14 lines
+Now fix the Performance menu item bug:
+
+Update Todos
+
+Add getSubItems() accessor to Timings.java
+
+Auto-start profiler in BiomeToolPlatform.kt
+
+Replace Performance tab placeholder with live profiler display
+
+Fix Performance menu item bug
+
+Reset profiler on pack reload
+Edit c:\Projects\BiomeTool\src\main\kotlin\com\dfsek\terra\biometool\BiomeToolView.kt
+Modified
+Now add profiler reset on pack reload:
+
+Update Todos
+
+Add getSubItems() accessor to Timings.java
+
+Auto-start profiler in BiomeToolPlatform.kt
+
+Replace Performance tab placeholder with live profiler display
+
+Fix Performance menu item bug
+
+Reset profiler on pack reload
+Edit c:\Projects\BiomeTool\src\main\kotlin\com\dfsek\terra\biometool\BiomeToolView.kt
+Added 1 line
+Update Todos
+
+Add getSubItems() accessor to Timings.java
+
+Auto-start profiler in BiomeToolPlatform.kt
+
+Replace Performance tab placeholder with live profiler display
+
+Fix Performance menu item bug
+
+Reset profiler on pack reload
+Let me verify the final state of the edited files:
+
+Read c:\Projects\BiomeTool\src\main\kotlin\com\dfsek\terra\biometool\BiomeToolView.kt (lines 2-71)
+Read c:\Projects\Terra\common\api\src\main\java\com\dfsek\terra\api\profiler\Timings.java (lines 79-93)
+Read c:\Projects\BiomeTool\src\main\kotlin\com\dfsek\terra\biometool\BiomeToolView.kt (lines 137-146)
+Read c:\Projects\BiomeTool\src\main\kotlin\com\dfsek\terra\biometool\BiomeToolView.kt (lines 258-287)
+Read c:\Projects\BiomeTool\src\main\kotlin\com\dfsek\terra\biometool\BiomeToolView.kt (lines 311-340)
+Let me also check the reload function has the profiler reset:
+
+Read c:\Projects\BiomeTool\src\main\kotlin\com\dfsek\terra\biometool\BiomeToolView.kt (lines 341-355)
+All changes are in place. Here's a summary of what was done:
+
+Terra (Timings.java):
+
+Added getSubItems() returning an unmodifiable map view of sub-timings
+BiomeTool:
+
+BiomeToolPlatform.kt — Auto-starts profiler in init block after load()
+BiomeToolView.kt:
+Performance tab now has a monospaced, read-only TextArea displaying profiler output
+A Timeline fires every 500ms, polling BiomeToolPlatform.profiler.timings and formatting the tree output into the text area
+Fixed menu bug: Performance item now selects toolWindows.performance instead of toolWindows.console
+Profiler resets on pack reload before platform.reload()
+Is the BiomeTool setup to take Terra from the latest local maven?
+Globpattern: "**/*.gradle*"
+Found 2 files
+Read c:\Projects\BiomeTool\build.gradle.kts
+Yes — mavenLocal() is listed first in the repositories block (line 22), so it checks ~/.m2 before the remote repos. However, the Terra dependencies are pinned to a specific git hash:
+
+
+val terraGitHash = "ab245b090"
+This means BiomeTool will only pick up your local Maven artifacts if they're published with a version ending in -BETA-ab245b090. Your current changes (the getSubItems() accessor in Timings, profiler instrumentation in the pipeline, etc.) are on a different commit.
+
+You'll need to either:
+
+Update terraGitHash in build.gradle.kts:128 to match the hash of your current Terra commit (after publishing to local Maven), or
+Publish Terra to local Maven and update the hash accordingly.
+Want me to check what your current Terra commit hash is so we can update it?
+
+Please also update the BiomeTool to take in the Dendry addon, similar to what is done in C:\NoiseTool\
+Let me check how NoiseTool handles the DendryTerra dependency.
+
+Globpattern: "**/*.gradle*"
+Found 2 files
+Read C:\Projects\NoiseTool\build.gradle.kts
+I see — NoiseTool has it at line 69. BiomeTool already has the DendryTerra dependency at line 165:
+
+
+terraAddon("com.github.diytechy:dendryterra:1.0.0-BETA-1")
+It's already there in BiomeTool's build.gradle.kts:165. Both projects use the same com.github.diytechy:dendryterra:1.0.0-BETA-1 coordinates. Is there something specific about the DendryTerra integration you'd like changed?
+
+It's probably not finding the most recent version (BETA-3), which it should look for from local maven first
+Read c:\Projects\BiomeTool\build.gradle.kts (lines 164-168)
+Edit c:\Projects\BiomeTool\build.gradle.kts
+Modified
+Updated to 1.0.0-BETA-3. With mavenLocal() listed first, it'll pick up your local Maven build if available before falling back to the Repsy/Jitpack remotes.
+
+Getting error:
+
+Mar 08, 2026 8:36:40 PM tornadofx.DefaultErrorHandler uncaughtException
+SEVERE: Uncaught error
+java.util.ConcurrentModificationException
+        at java.base/java.util.HashMap.forEach(HashMap.java:1433)
+        at com.dfsek.terra.profiler.ProfilerImpl.lambda$getTimings$5(ProfilerImpl.java:115)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
+        at com.dfsek.terra.profiler.ProfilerImpl.getTimings(ProfilerImpl.java:115)
+        at com.dfsek.terra.biometool.BiomeToolView.profilerUpdateTimeline$lambda$56(BiomeToolView.kt:314)
+        at com.sun.scenario.animation.shared.TimelineClipCore.visitKeyFrame(TimelineClipCore.java:239)
+        at com.sun.scenario.animation.shared.TimelineClipCore.playTo(TimelineClipCore.java:180)
+        at javafx.animation.Timeline.doPlayTo(Timeline.java:172)
+        at javafx.animation.AnimationAccessorImpl.playTo(AnimationAccessorImpl.java:39)
+        at com.sun.scenario.animation.shared.InfiniteClipEnvelope.timePulse(InfiniteClipEnvelope.java:104)
+        at javafx.animation.Animation.doTimePulse(Animation.java:1189)
+        at javafx.animation.Animation$1.lambda$timePulse$0(Animation.java:207)
+        at java.base/java.security.AccessController.doPrivileged(AccessController.java:400)
+        at javafx.animation.Animation$1.timePulse(Animation.java:206)
+        at com.sun.scenario.animation.AbstractPrimaryTimer.timePulseImpl(AbstractPrimaryTimer.java:343)
+        at com.sun.scenario.animation.AbstractPrimaryTimer$MainLoop.run(AbstractPrimaryTimer.java:266)
+        at com.sun.javafx.tk.quantum.QuantumToolkit.pulse(QuantumToolkit.java:588)
+        at com.sun.javafx.tk.quantum.QuantumToolkit.pulse(QuantumToolkit.java:572)
+        at com.sun.javafx.tk.quantum.QuantumToolkit.pulseFromQueue(QuantumToolkit.java:565)
+        at com.sun.javafx.tk.quantum.QuantumToolkit.lambda$runToolkit$11(QuantumToolkit.java:352)
+        at com.sun.glass.ui.InvokeLaterDispatcher$Future.run(InvokeLaterDispatcher.java:95)
+        at com.sun.glass.ui.win.WinApplication._runLoop(Native Method)
+        at com.sun.glass.ui.win.WinApplication.lambda$runLoop$3(WinApplication.java:185)
+        at java.base/java.lang.Thread.run(Thread.java:1575)
+The ProfilerImpl.getTimings() iterates over thread-local maps concurrently with the worker threads modifying them. We need to catch the ConcurrentModificationException and skip that update cycle.
+
+Read c:\Projects\BiomeTool\src\main\kotlin\com\dfsek\terra\biometool\BiomeToolView.kt (lines 308-320)
+Edit c:\Projects\BiomeTool\src\main\kotlin\com\dfsek\terra\biometool\BiomeToolView.kt
+Added 4 lines
+The ConcurrentModificationException occurs because ProfilerImpl.getTimings() iterates the internal HashMap while worker threads are still pushing/popping timings. Wrapping in a try/catch simply skips that 500ms tick — the next one will succeed when there's no contention.
+
+Is there a way then to suppress that error?  It is also impossible to scroll in the performance tab since it appears to reset every 500 mS forcing the scroll bar back to the top, ideally it would also reformat the output as a table form with a column for stage, label, percentage, min time, avg time, max time, and other relevent metrics.
+Let me look at ProfilerImpl.getTimings() to understand the data structure, then redesign the display.
+
+Grep "class ProfilerImpl" (in c:\Projects\Terra)
+2 lines of output
+Read c:\Projects\Terra\common\implementation\base\src\main\java\com\dfsek\terra\profiler\ProfilerImpl.java
+The issue is at line 115: smap.forEach iterates the thread-local HashMap while worker threads concurrently modify it via computeIfAbsent in pop(). The synchronized(accessibleThreadMaps) only guards the list of maps, not the individual maps themselves. The catch handles it but TornadoFX's error handler still logs it.
+
+Now let me read the current Timings toString to understand the output format for building the table.
+
+Read c:\Projects\Terra\common\api\src\main\java\com\dfsek\terra\api\profiler\Timings.java
+Now let me read the current BiomeToolView profiler code to understand what I'm replacing.
+
+Read c:\Projects\BiomeTool\src\main\kotlin\com\dfsek\terra\biometool\BiomeToolView.kt (lines 308-327)
+Now I'll fix getTimings() in ProfilerImpl to make defensive copies of the per-thread maps (fixing the CME at the source), then rewrite the performance tab to use a table format and preserve scroll position.
+
+Edit c:\Projects\Terra\common\implementation\base\src\main\java\com\dfsek\terra\profiler\ProfilerImpl.java
+Added 10 lines
+Missing import.
+
+Edit c:\Projects\Terra\common\implementation\base\src\main\java\com\dfsek\terra\profiler\ProfilerImpl.java
+Added 1 line
+Now let me update the BiomeTool performance tab to use a table format and preserve scroll position.
+
+Edit c:\Projects\BiomeTool\src\main\kotlin\com\dfsek\terra\biometool\BiomeToolView.kt
+Added 64 lines
+Now the ConcurrentModificationException is handled at the source in ProfilerImpl.getTimings() (defensive copy of per-thread maps), so it should rarely reach the catch in BiomeTool. The performance tab now:
+
+Preserves scroll position — saves/restores scrollTop across updates
+Table format with columns: Stage, %, Min, Avg, Max, Total, Samples
+Hierarchical indentation — sub-stages are indented under their parent
+Column-aligned — padded to consistent widths
+You'll need to republish Terra to local Maven to pick up the ProfilerImpl fix.
+
+I am seeing two categories to large performance hits, the first is related to large replace lists:
+
+USE_RIVER - uses 27%, 155 mS per chunk (first stage in C:\Projects\ORIGEN2\biome-distribution\stages\add_rivers.yml)
+ice_cap - uses 5%, 30 mS per chunk (first stage in C:\Projects\ORIGEN2\biome-distribution\stages\set_biomes_in_climates_origen.yml)
+
+Is it possible the sampler is being re-evaluated for each replace stage even if it is not applicable to the current biome?  Or is it re-evaluated for each y-stage?  Or is the y-stage only used for extrusions?
+
+Or is the cache sampler needing a larger number of samples due to multiple threads overwriting the other thread's value?
+Good questions. Let me trace the code paths to answer precisely.
+
+Grep "class ReplaceListStage" (in c:\Projects\Terra)
+3 lines of output
+Read c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\stage\mutators\ReplaceListStage.java
+Now let me check how ProbabilityCollection.get() uses the sampler.
+
+Grep "public.*get\(Sampler|public.*get\(sampler" (in c:\Projects\Terra\common\api)
+2 lines of output
+Read c:\Projects\Terra\common\api\src\main\java\com\dfsek\terra\api\util\collection\ProbabilityCollection.java
+Now let me check the CacheSampler since you mentioned it, and also check the config files.
+
+Read c:\Projects\Terra\common\addons\config-noise-function\src\main\java\com\dfsek\terra\addons\noise\config\sampler\CacheSampler.java
+Now let me check how the pipeline applies stages — specifically the BiomeChunkImpl to see what coordinates are passed.
+
+Read c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\pipeline\BiomeChunkImpl.java
+Now let me check the ORIGEN2 config for add_rivers to see how many entries it has.
+
+Read C:\Projects\ORIGEN2\biome-distribution\stages\add_rivers.yml
+Now let me check ReplaceStage to see the same pattern.
+
+Read c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\stage\mutators\ReplaceStage.java
+Here are the answers to your questions:
+
+Is the sampler re-evaluated for each replace stage even if the biome doesn't match?
+
+No — looking at the code:
+
+ReplaceStage.apply() (line 35): checks viewPoint.getBiome().getTags().contains(replaceableTag) first. If the tag doesn't match, it returns immediately without sampling. So the REPLACE stages (lines 98-309 of add_rivers.yml) are cheap for non-matching biomes.
+
+ReplaceListStage.apply() (line 40-44): checks replace.containsKey(center) first (HashMap lookup), then falls back to getTags().contains(defaultTag). Only calls sampler.getSample() if one of those matches.
+
+So why is USE_RIVER (the REPLACE_LIST) taking 27%?
+
+The USE_RIVER REPLACE_LIST stage at the top of add_rivers.yml has default-from: USE_RIVER — this means every biome tagged USE_RIVER triggers a sampler evaluation. Since most non-specialized biomes likely carry this tag, the sampler fires for a large proportion of grid cells. And with ~22 specific biome overrides in the to: map, there's also a containsKey lookup per cell, though that's a HashMap O(1).
+
+The real cost is: the EXPRESSION sampler riverSampler(x,z) is being evaluated for every matching cell. Since this is the same *riverSampler YAML anchor shared across all ~28 stages, the actual Sampler object should be the same instance due to YAML anchoring — meaning the CacheSampler would serve hits on subsequent stages for the same coordinates.
+
+However, there's a subtle issue: ProbabilityCollection.get() (line 76) calls n.getSample(seed, x, z) which calls CacheSampler.getSample(seed, x, y) — it's a 2D call. The CacheSampler 2D cache with default exp=8 has only 256 slots. The pipeline grid can be much larger than 16x16 depending on resolution and expander count. If the grid is bigger than 16x16, earlier rows' cache entries get evicted before the next stage reads the same coordinates, causing re-evaluation.
+
+Is it re-evaluated for each y-stage?
+
+No. The biome pipeline is purely 2D — look at BiomeChunkImpl constructor: it iterates gridX and gridZ only, never y. The y dimension only comes into play in BiomeExtrusionProvider which wraps the pipeline result and applies extrusions per-block vertically. The pipeline itself runs once per (x, z) chunk position.
+
+Is the CacheSampler thrashing due to multiple threads?
+
+No — CacheSampler uses ThreadLocal caches (lines 31-34), so each thread has its own isolated cache. Threads cannot overwrite each other's entries. The cache thrashing, if any, is within a single thread when the pipeline grid exceeds the cache capacity.
+
+Summary of likely cause: The USE_RIVER REPLACE_LIST matches many biomes (it's the default river tag), and the 256-slot CacheSampler may not be large enough to hold all coordinates for a single pipeline chunk, causing repeated evaluations of the EXPRESSION sampler across the ~28 river stages sharing the same anchor. You could test this by increasing the cache exp for the river sampler.
+
+So each expression evaluates a pipeline chunk?  How can I confirm the size?
+The pipeline grid size depends on resolution and the number of expander stages. Let me trace how it's calculated.
+
+Read c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\pipeline\PipelineImpl.java
+The key info is already logged at DEBUG level (lines 54-57). Let me check what your ORIGEN2 pipeline config looks like to calculate the numbers.
+
+Read C:\Projects\ORIGEN2\biome-distribution\presets\CHIMERA.yml
+Grep "type: FRACTAL"" (in C:\Projects\ORIGEN2\biome-distribution\presets\CHIMERA.yml)
+2 lines of output
+Grep "FRACTAL|EXPAND" (in C:\Projects\ORIGEN2\biome-distribution)
+4 lines of output
+So CHIMERA has exactly 1 FRACTAL_EXPAND stage. Here's how the grid size works:
+
+Pipeline grid calculation:
+
+idealChunkArraySize = 128 (hardcoded in BiomePipelineTemplate)
+expanderCount = 1 (one FRACTAL_EXPAND)
+The loop at line 42-48 of PipelineImpl increments initialSize until arraySize >= 128
+With 1 expander, initialSizeToArraySize does: size = initialSize, then one expansion: size = size * 2 - 1. So:
+
+initialSize=65 → arraySize = 65*2-1 = 129 (first to hit ≥128)
+The grid that each stage operates on varies as it expands, but the total array is 129x129 = 16,641 cells. The working grid at each stage is smaller due to border contraction, but still much larger than 256 slots.
+
+To confirm your actual values, the pipeline already logs them at DEBUG level. You can either:
+
+Enable DEBUG logging in BiomeTool's logback config, or
+Add INFO-level logging temporarily. Let me add that to make the values visible in BiomeTool's console:
+Read c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\pipeline\PipelineImpl.java (lines 54-59)
+Edit c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\pipeline\PipelineImpl.java
+Added 2 lines
+After you republish Terra to local Maven and rebuild BiomeTool, you'll see something like:
+
+
+Initialized a new biome pipeline:
+Array size: 129 (Target: 128)
+Internal array origin: ...
+Chunk size: ...
+Expander count: 1
+Resolution: 2
+The key number is Array size — that's the side length of the internal grid. The total cells iterated per stage is up to arraySize² = ~16,641. With a 256-slot CacheSampler, the same riverSampler EXPRESSION gets re-evaluated from scratch for most cells on every one of the ~28 river stages, since earlier cache entries are evicted long before the next stage reads them.
+
+This is the root cause of the 27% cost: ~28 stages × ~16K sampler evaluations each, with almost no cache benefit between stages.
+
+I'm very confused though, a minecraft chunk is just a 16x16 block, which is the smallest world grid that Terra needs to solve for.  Why would the array size initialize to 129 x 129?  That would be almost 10x larger than the required minimum size.  Can you walk me through what's leading up to such a large array?  Is it really evaluated the full grid on each sampler?
+Great question — the 129x129 is surprising. Let me walk through the math step by step.
+
+Read c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\config\BiomePipelineTemplate.java
+Now let me check how PipelineBiomeProvider maps world coordinates to pipeline chunks.
+
+Read c:\Projects\Terra\common\addons\biome-provider-pipeline\src\main\java\com\dfsek\terra\addons\biome\pipeline\PipelineBiomeProvider.java
+Now I can give you the full picture. Here's the walkthrough:
+
+The pipeline chunk is NOT a Minecraft chunk. It's a separate, larger grid.
+
+Step 1: World → Pipeline coordinates
+
+In getBiome() (line 91-92): x /= resolution and z /= resolution. With resolution = 2, world coordinates are halved. So a 16-block Minecraft chunk becomes 8 pipeline cells wide.
+
+Step 2: Pipeline chunk lookup
+
+Lines 94-95: chunkX = Math.floorDiv(x, chunkSize). The chunkSize is the output size of the pipeline after all border contractions. This is what we need to determine.
+
+Step 3: Why the array is so large
+
+The idealChunkArraySize = 128 is hardcoded in BiomePipelineTemplate.java:59. This is a tuning parameter that controls how many usable output cells the pipeline produces per generation — it's completely unrelated to Minecraft's 16x16 chunk size.
+
+With your config (1 expander, ~90 stages), here's the math:
+
+
+expanderCount = 1
+gridInterval (before expand) = 2^(1-0) = 2
+
+Loop finds initialSize = 65:
+  arraySize = 65 * 2 - 1 = 129    (one expansion)
+
+Source stage fills: 129/2 + 1 = 65 x 65 grid (at interval 2)
+After FRACTAL_EXPAND: 65*2-1 = 129 x 129 grid (at interval 1)
+Then each Smooth/Border stage (maxRelativeReadDistance() = 1) shrinks the grid by 2. But Replace/ReplaceList stages (maxRelativeReadDistance() = 0) do NOT shrink it. So after the expand, the grid stays ~129 wide through all the Replace stages.
+
+Step 4: Output chunkSize
+
+After all border contractions from Smooth/Border stages, the remaining usable area is chunkSize. This is probably something like 100-120 cells. With resolution = 2, that covers 200-240 blocks per side — roughly 12-15 Minecraft chunks worth of biome data in one pipeline generation.
+
+Step 5: Caching
+
+The 64-entry Caffeine cache in PipelineBiomeProvider stores these large pipeline chunks. So most getBiome() calls are cache hits — the expensive full pipeline generation only happens on cache miss.
+
+So yes — each pipeline generation evaluates ~129x129 = ~16,641 cells through every stage. But this amortizes over many Minecraft chunks. The 128 target is a tradeoff: larger = fewer pipeline generations but more work per generation. You could try reducing it (e.g., 64 or 32) to see how it affects performance, though it may increase overhead from more frequent cache misses and border redundancy.
+
+To directly answer your question about the samplers: Yes, each of the ~28 river Replace stages iterates the full ~129-wide grid. For cells where the biome tag doesn't match, only a tag check happens (cheap). For cells where it does match, the sampler is evaluated — and with a 256-slot cache, those evaluations are almost always cache misses between stages.
+
+You note "Loop finds initialSize = 65", where does that come from?
+You're right to question that — I was computing it wrong. Let me trace the loop properly.
+
+The loop increments initialSize from 1 until arraySize >= 128 AND chunkSize > 1:
+
+
+int initialSize = 1;
+while(true) {
+    arraySize = BiomeChunkImpl.initialSizeToArraySize(expanderCount, initialSize);
+    chunkOriginArrayIndex = BiomeChunkImpl.calculateChunkOriginArrayIndex(expanderCount, stages);
+    chunkSize = BiomeChunkImpl.calculateChunkSize(arraySize, chunkOriginArrayIndex, expanderCount);
+    if(chunkSize > 1 && arraySize >= idealChunkArraySize) break;
+    initialSize++;
+}
+With expanderCount = 1, initialSizeToArraySize does one expansion: size = initialSize * 2 - 1.
+
+So arraySize = initialSize * 2 - 1. We need arraySize >= 128, meaning initialSize * 2 - 1 >= 128, so initialSize >= 64.5, meaning initialSize = 65 → arraySize = 129.
+
+But — we also need chunkSize > 1. The chunkOriginArrayIndex depends on your actual stages, and chunkSize = arraySize - 2 * chunkOriginArrayIndex - 1. If the origin index is large enough (from many Smooth/Border stages consuming borders), the chunkSize could go negative at smaller array sizes, forcing the loop to keep incrementing.
+
+The chunkOriginArrayIndex is a constant computed from the stage list — it doesn't change with initialSize. So really we just need arraySize >= max(128, 2 * chunkOriginArrayIndex + 3).
+
+I don't know the exact chunkOriginArrayIndex for CHIMERA without running it — it depends on how many Smooth/Border/Expander stages exist in the full ~90-stage pipeline. That's exactly what the new INFO logging will tell you. The initialSize of 65 is the minimum assuming the origin index doesn't push it higher — your actual value could be larger if the border consumption is significant.
+
+The loggeer confirms your estimate:
+
+[22:05:05 INFO]: Array size: 129 (Target: 128)
+[22:05:05 INFO]: Internal array origin: 8
+[22:05:05 INFO]: Chunk size: 112
+[22:05:05 INFO]: Expander count: 1
+[22:05:05 INFO]: Resolution: 2
+
+ But I'm still not following the rationale for those sizes.  Why does the arraySize need to be >= 128?  Is that just from the code?  I'm trying to understand the rational for that being the minimum array size.
+It's just a hardcoded constant — there's no deep rationale tying it to Minecraft geometry. Look at BiomePipelineTemplate.java:59:
+
+
+new PipelineImpl(source, stages, resolution, 128, profiler)
+That 128 is the idealChunkArraySize parameter. The loop just finds the smallest initialSize that produces an array at least that big after expansions. It's a tuning knob — larger means more output cells per pipeline generation (fewer cache misses at pipeline chunk borders), smaller means less work per generation.
+
+With your actual numbers:
+
+arraySize = 129, chunkOriginArrayIndex = 8, chunkSize = 112
+Output: 112x112 = 12,544 usable pipeline cells per generation
+With resolution = 2: covers 224x224 blocks = ~14x14 Minecraft chunks per pipeline chunk
+The 8-cell border on each side is "wasted" — needed by Smooth/Border stages for adjacent reads but not part of the output
+So each pipeline generation does ~129x129 = 16,641 cells through every stage, to produce 112x112 usable cells. The 64-entry Caffeine cache stores these, so at most 64 * 224 = ~14,336 blocks worth of pipeline chunks are cached.
+
+The 128 could be made configurable or reduced. If you set it to, say, 32, you'd get smaller pipeline chunks (less work per generation, but more generations needed to cover the same area, and proportionally more border waste). It's a classic batch-size tradeoff — there's nothing fundamental about 128 specifically.
+
