@@ -51,10 +51,12 @@ public class PipelineImpl implements Pipeline {
         this.chunkOriginArrayIndex = chunkOriginArrayIndex;
         this.chunkSize = chunkSize;
 
-        logger.debug("Initialized a new biome pipeline:");
-        logger.debug("Array size: {} (Target: {})", arraySize, idealChunkArraySize);
-        logger.debug("Internal array origin: {}", chunkOriginArrayIndex);
-        logger.debug("Chunk size: {}", chunkSize);
+        logger.info("Initialized a new biome pipeline:");
+        logger.info("Array size: {} (Target: {})", arraySize, idealChunkArraySize);
+        logger.info("Internal array origin: {}", chunkOriginArrayIndex);
+        logger.info("Chunk size: {}", chunkSize);
+        logger.info("Expander count: {}", expanderCount);
+        logger.info("Resolution: {}", resolution);
     }
 
     @Override
