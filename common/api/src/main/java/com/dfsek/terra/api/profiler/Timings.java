@@ -49,9 +49,13 @@ public class Timings {
     private String toString(int indent, Timings parent, Set<Integer> branches) {
         StringBuilder builder = new StringBuilder();
 
-        builder.append((double) min() / 1000000).append("ms min / ").append(average() / 1000000).append("ms avg / ")
-            .append((double) max() / 1000000).append("ms max (").append(timings.size()).append(" samples, ")
-            .append((sum() / parent.sum()) * 100).append("% of parent)");
+        double percent = (sum() / parent.sum()) * 100;
+        builder.append(String.format("%6.2f%%", percent))
+            .append("  ")
+            .append(String.format("%.2f", (double) min() / 1000000)).append("ms min / ")
+            .append(String.format("%.2f", average() / 1000000)).append("ms avg / ")
+            .append(String.format("%.2f", (double) max() / 1000000)).append("ms max (")
+            .append(timings.size()).append(" samples)");
 
         List<String> frames = new ArrayList<>();
         Set<Integer> newBranches = new HashSet<>(branches);
