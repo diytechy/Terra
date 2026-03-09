@@ -21,6 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.ConcurrentModificationException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -111,15 +112,25 @@ public class ProfilerImpl implements Profiler {
     @Override
     public Map<String, Timings> getTimings() {
         Map<String, Timings> map = new HashMap<>();
+        List<Map<String, List<Long>>> snapshot;
         synchronized(accessibleThreadMaps) {
-            accessibleThreadMaps.forEach(smap -> smap.forEach((key, list) -> {
-                String[] keys = key.split("\\.");
+            snapshot = new ArrayList<>(accessibleThreadMaps);
+        }
+        for(Map<String, List<Long>> smap : snapshot) {
+            Map<String, List<Long>> smapCopy;
+            try {
+                smapCopy = new HashMap<>(smap);
+            } catch(ConcurrentModificationException e) {
+                continue; // Thread is actively modifying its map, skip it this cycle
+            }
+            for(Map.Entry<String, List<Long>> entry : smapCopy.entrySet()) {
+                String[] keys = entry.getKey().split("\\.");
                 Timings timings = map.computeIfAbsent(keys[0], id -> new Timings());
                 for(int i = 1; i < keys.length; i++) {
                     timings = timings.getSubItem(keys[i]);
                 }
-                new ArrayList<>(list).forEach(timings::addTime);
-            }));
+                new ArrayList<>(entry.getValue()).forEach(timings::addTime);
+            }
         }
         return map;
     }
