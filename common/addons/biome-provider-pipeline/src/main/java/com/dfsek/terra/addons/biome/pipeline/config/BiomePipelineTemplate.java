@@ -27,9 +27,11 @@ import com.dfsek.terra.api.world.biome.generation.BiomeProvider;
 @SuppressWarnings({ "FieldMayBeFinal", "unused" })
 public class BiomePipelineTemplate implements ObjectTemplate<BiomeProvider> {
     private final Profiler profiler;
+    private final int generationThreads;
 
-    public BiomePipelineTemplate(Profiler profiler) {
+    public BiomePipelineTemplate(Profiler profiler, int generationThreads) {
         this.profiler = profiler;
+        this.generationThreads = generationThreads;
     }
     @Value("resolution")
     @Default
@@ -57,6 +59,6 @@ public class BiomePipelineTemplate implements ObjectTemplate<BiomeProvider> {
     @Override
     public BiomeProvider get() {
         return new PipelineBiomeProvider(new PipelineImpl(source, stages, resolution, 64, profiler), resolution, blendSampler,
-            blendAmplitude, profiler);
+            blendAmplitude, profiler, generationThreads);
     }
 }

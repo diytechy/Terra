@@ -1348,3 +1348,43 @@ So each pipeline generation does ~129x129 = 16,641 cells through every stage, to
 
 The 128 could be made configurable or reduced. If you set it to, say, 32, you'd get smaller pipeline chunks (less work per generation, but more generations needed to cover the same area, and proportionally more border waste). It's a classic batch-size tradeoff — there's nothing fundamental about 128 specifically.
 
+Here's the full flow:
+
+Minecraft → Terra:
+
+Line 50: Minecraft calls getNoiseBiome(int x, int y, int z, Sampler). These are biome coordinates, which are 1/4 of block coordinates (Minecraft's biome grid is 4x4x4 blocks per cell since 1.18). That's why line 52 does x << 2, y << 2, z << 2 — converting biome coords back to block coords before passing to Terra.
+
+So for a 16x16 block chunk, Minecraft queries a 4x4 biome grid per horizontal slice. There is no single "chunk coordinate" query — Minecraft calls getNoiseBiome individually for each biome cell it needs.
+
+Terra BiomeProvider → Pipeline chunk:
+
+In PipelineBiomeProvider.getBiome() (which we read earlier):
+
+
+x /= resolution;    // 2 → halves coordinates
+z /= resolution;
+
+int chunkX = Math.floorDiv(x, chunkSize);   // chunkSize = 112
+int chunkZ = Math.floorDiv(z, chunkSize);
+
+int chunkWorldX = chunkX * chunkSize;        // pipeline chunk origin
+int chunkWorldZ = chunkZ * chunkSize;
+
+int xInChunk = x - chunkWorldX;              // offset within pipeline chunk
+int zInChunk = z - chunkWorldZ;
+
+return biomeChunkCache.get(new SeededVector2Key(chunkWorldX, chunkWorldZ, seed))
+    .get(xInChunk, zInChunk).getBiome();
+It does NOT center on the query. The 112x112 grid is aligned to a fixed world grid. Pipeline chunks tile the world at multiples of 112 (in pipeline-space), which is 112 * 2 = 224 blocks apart. The query just finds which tile it falls in via floorDiv, then looks up the offset within that tile.
+
+Summary of the coordinate chain for a block at world (1000, 64, 2000):
+
+Minecraft converts to biome coords: (250, 16, 500)
+Calls getNoiseBiome(250, 16, 500)
+Terra converts back to blocks: (1000, 64, 2000)
+Divides by resolution 2: pipeline coords (500, 1000)
+floorDiv(500, 112) = 4, floorDiv(1000, 112) = 8 → pipeline chunk (448, 896)
+Offset: (500-448, 1000-896) = (52, 104)
+Cache lookup for chunk (448, 896, seed) → returns pre-computed 112x112 grid → cell (52, 104)
+The expensive 129x129 pipeline generation only happens on cache miss. Once generated, all subsequent biome queries within that 224x224 block area are O(1) cache lookups.
+

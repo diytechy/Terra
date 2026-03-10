@@ -13,6 +13,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.StreamSupport;
 
 import com.dfsek.terra.addons.biome.pipeline.api.BiomeChunk;
@@ -29,10 +30,10 @@ import com.dfsek.terra.api.world.biome.generation.BiomeProvider;
 
 public class PipelineBiomeProvider implements BiomeProvider {
 
-    private static final int CACHE_SIZE = 4;
+    private static final int ENTRIES_PER_THREAD = 4;
 
     private final Pipeline pipeline;
-    private final ThreadLocal<BiomeChunkCache> chunkCache;
+    private final BiomeChunkCache chunkCache;
     private final int chunkSize;
     private final int resolution;
     private final Sampler mutator;
@@ -40,14 +41,16 @@ public class PipelineBiomeProvider implements BiomeProvider {
     private final Set<Biome> biomes;
     private final Profiler profiler;
 
-    public PipelineBiomeProvider(Pipeline pipeline, int resolution, Sampler mutator, double noiseAmp, Profiler profiler) {
+    public PipelineBiomeProvider(Pipeline pipeline, int resolution, Sampler mutator, double noiseAmp, Profiler profiler,
+                                 int generationThreads) {
         this.profiler = profiler;
         this.pipeline = pipeline;
         this.resolution = resolution;
         this.mutator = mutator;
         this.noiseAmp = noiseAmp;
         this.chunkSize = pipeline.getChunkSize();
-        this.chunkCache = ThreadLocal.withInitial(BiomeChunkCache::new);
+        int stripeCount = Math.max(1, generationThreads);
+        this.chunkCache = new BiomeChunkCache(ENTRIES_PER_THREAD * stripeCount, stripeCount);
 
         Set<PipelineBiome> biomeSet = new HashSet<>();
         pipeline.getSource().getBiomes().forEach(biomeSet::add);
@@ -100,7 +103,7 @@ public class PipelineBiomeProvider implements BiomeProvider {
         int xInChunk = x - chunkWorldX;
         int zInChunk = z - chunkWorldZ;
 
-        BiomeChunk chunk = chunkCache.get().get(chunkWorldX, chunkWorldZ, seed, pipeline);
+        BiomeChunk chunk = chunkCache.get(chunkWorldX, chunkWorldZ, seed, pipeline);
         return chunk.get(xInChunk, zInChunk).getBiome();
     }
 
@@ -125,35 +128,62 @@ public class PipelineBiomeProvider implements BiomeProvider {
     }
 
     private static final class BiomeChunkCache {
-        private final int[] keyX = new int[CACHE_SIZE];
-        private final int[] keyZ = new int[CACHE_SIZE];
-        private final long[] keySeed = new long[CACHE_SIZE];
-        private final BiomeChunk[] chunks = new BiomeChunk[CACHE_SIZE];
-        private final int[] age = new int[CACHE_SIZE];
-        private int tick;
+        private final int stripeCount;
+        private final int entriesPerStripe;
+        private final int[] keyX;
+        private final int[] keyZ;
+        private final long[] keySeed;
+        private final BiomeChunk[] chunks;
+        private final int[] age;
+        private final int[] tick;
+        private final ReentrantLock[] locks;
+
+        BiomeChunkCache(int totalSize, int stripeCount) {
+            this.stripeCount = stripeCount;
+            this.entriesPerStripe = totalSize / stripeCount;
+            this.keyX = new int[totalSize];
+            this.keyZ = new int[totalSize];
+            this.keySeed = new long[totalSize];
+            this.chunks = new BiomeChunk[totalSize];
+            this.age = new int[totalSize];
+            this.tick = new int[stripeCount];
+            this.locks = new ReentrantLock[stripeCount];
+            for(int i = 0; i < stripeCount; i++) {
+                locks[i] = new ReentrantLock();
+            }
+        }
 
         BiomeChunk get(int chunkWorldX, int chunkWorldZ, long seed, Pipeline pipeline) {
-            // Search for existing entry
-            for(int i = 0; i < CACHE_SIZE; i++) {
-                if(chunks[i] != null && keyX[i] == chunkWorldX && keyZ[i] == chunkWorldZ && keySeed[i] == seed) {
-                    age[i] = ++tick;
-                    return chunks[i];
+            int stripe = Math.floorMod(chunkWorldX * 31 + chunkWorldZ, stripeCount);
+            int start = stripe * entriesPerStripe;
+            int end = start + entriesPerStripe;
+
+            locks[stripe].lock();
+            try {
+                // Search for existing entry in this stripe
+                for(int i = start; i < end; i++) {
+                    if(chunks[i] != null && keyX[i] == chunkWorldX && keyZ[i] == chunkWorldZ && keySeed[i] == seed) {
+                        age[i] = ++tick[stripe];
+                        return chunks[i];
+                    }
                 }
-            }
 
-            // Miss — evict the oldest entry
-            int oldest = 0;
-            for(int i = 1; i < CACHE_SIZE; i++) {
-                if(age[i] < age[oldest]) oldest = i;
-            }
+                // Miss — evict the oldest entry in this stripe
+                int oldest = start;
+                for(int i = start + 1; i < end; i++) {
+                    if(age[i] < age[oldest]) oldest = i;
+                }
 
-            BiomeChunk chunk = pipeline.generateChunk(new SeededVector2Key(chunkWorldX, chunkWorldZ, seed));
-            keyX[oldest] = chunkWorldX;
-            keyZ[oldest] = chunkWorldZ;
-            keySeed[oldest] = seed;
-            chunks[oldest] = chunk;
-            age[oldest] = ++tick;
-            return chunk;
+                BiomeChunk chunk = pipeline.generateChunk(new SeededVector2Key(chunkWorldX, chunkWorldZ, seed));
+                keyX[oldest] = chunkWorldX;
+                keyZ[oldest] = chunkWorldZ;
+                keySeed[oldest] = seed;
+                chunks[oldest] = chunk;
+                age[oldest] = ++tick[stripe];
+                return chunk;
+            } finally {
+                locks[stripe].unlock();
+            }
         }
     }
 }
