@@ -37,6 +37,7 @@ import java.util.function.Supplier;
 import com.dfsek.terra.addons.manifest.api.AddonInitializer;
 import com.dfsek.terra.addons.noise.config.CubicSplinePointTemplate;
 import com.dfsek.terra.addons.noise.config.DimensionApplicableSampler;
+import com.dfsek.terra.addons.noise.config.sampler.LastValueSampler;
 import com.dfsek.terra.addons.noise.config.templates.BinaryArithmeticTemplate;
 import com.dfsek.terra.addons.noise.config.templates.CacheSamplerTemplate;
 import com.dfsek.terra.addons.noise.config.templates.DerivativeSamplerTemplate;
@@ -163,7 +164,13 @@ public class NoiseAddon implements AddonInitializer {
                     () -> new ExpressionNormalizerTemplate(packSamplers, packFunctions, expressionParseOptions));
 
                 NoiseConfigPackTemplate template = event.loadTemplate(new NoiseConfigPackTemplate());
-                packSamplers.putAll(template.getSamplers());
+                template.getSamplers().forEach((name, das) -> {
+                    if(das.getDimensions() == 2) {
+                        packSamplers.put(name, new DimensionApplicableSampler(2, new LastValueSampler(das.getSampler())));
+                    } else {
+                        packSamplers.put(name, das);
+                    }
+                });
                 packFunctions.putAll(template.getFunctions());
                 event.getPack().getContext().put(template);
             })

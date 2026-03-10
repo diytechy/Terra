@@ -46,7 +46,7 @@ public class PipelineBiomeProvider implements BiomeProvider {
         this.noiseAmp = noiseAmp;
         this.chunkSize = pipeline.getChunkSize();
         this.biomeChunkCache = Caffeine.newBuilder()
-            .maximumSize(64)
+            .maximumSize(256)
             .build(pipeline::generateChunk);
 
         Set<PipelineBiome> biomeSet = new HashSet<>();

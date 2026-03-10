@@ -91,15 +91,18 @@ Currently there are about 30 cached sampler types, although perhaps this is not 
 
 I think this should be attacked from multiple angles:
 
-Step 1. Plan improvements to the 2d cache:
-A. The cache will now actually carry 2 cache tables, 1 constant chunk cache array of a strict 16x16 size (Dedicated for chunk generation, may be dead for many samplers), and the configurable sized array that exists today.
-B. The 2d cache size default size will be 64 x 64 (exp = 7)
-C. A cache sampler should be able to be configured with a right side bit shift.  This is expounded further below.
-D. There would no longer be a need to store a hash / seed, each cache sampler is per thread and per sampler, the seed does not change, I assume a reload of Terra would cause all these caches to get reconstructed anyways.  All that is needed are x and z coordinates (double or int32 if int type), and the outcome value (double).
-E. Update the "C:\Projects\ORIGEN2\OptomizePackSamplers.py" script to:
-    i. Also default all cache samplers (remove their size) and set them to an integer type if the samplers used in their expressions are all direct x/z values (nothing is scaling them)
-    ii. Add a "QueryRez" parameter that increases to 4 if the sampler is only used for biome placement (the sampler or other samplers that depend on it are ONLY used in biome placement, they do not appear as named samplers in any biome / extrusion files)
-    iii. Upon receiving a coordinate pair, the sampler would first check to see if it exists in the sparse cache intended for biome pipeline determination.
+Plan improvements to the 2d cache:
+A. The cache sampler has a new resolution parameter definition, array lookups are based on that resolution.  (So if resolution is 2, an x/z coordinate lookup of 0,0 and 1,1 would both attempt to occupy the same location in the cache array).  This way when the BiomeProvider is making queries on the resolution, it's spacing ensures it has unique hits on the cache array.  Queries for chunk generation can still overwrite the cache, but I do not think a single thread will be attempting chunk generation in parallel with biome lookups.  I am not sure if there is a way to confirm this.  This way the biome pipeline queries would have a full unique cache for it's resolution, but chunk generation would still benefit from single point hits.
+B. The 2d cache size default size will be 64 x 64 (exp = 12)
+C. There would no longer be a need to store a hash / seed, each cache sampler is per thread and per sampler.  The cache would initialize all values to NaN for doubles or int_max for integers, to ensure a 0,0 coordinate hit does result in recompute.
+
+Make a plan to update the "C:\Projects\ORIGEN2\OptomizePackSamplers.py" script to:
+    A. Count the number of sampler usages inside of Biomes (including aliasing usage), and write out a table of all named samplers and the number of times they are used through both biome pipeline stages and individual biome usages through their terrain.
+    B. Have a parameter at the top of the script that indicates the number of sampler usages that are needed to convert it to a cache sampler.
+    C. Allow it to edit existing cache samplers (not just convert uncached samplers to cached):
+        i. Default size of all existing cache samplers (remove their size / exp setting), set them to an integer type, and set the new "resolution" definition to match the resolution of the pack biome sampler.
+        i. Remove any cache sampler parents from any samplers that do not exceed the usage threshold.
+
 
 Point 1B - A true 64x64 grid, exp=12.  I misspoke.
 Point 2A - It can just store the coordinates for each point similar to how the definable cache works today.  If the point locations match, then the cache can be used, otherwise, it would recalculated.  Basically the same path as the configurable cache.  Then the "life" of the sampler is effectively continuous.
@@ -118,7 +121,11 @@ In fact, ideally:
     iiii. Again, make sure to count each instance of sampler use in biome files.
 
 
-Step 2. Plan improvements to the query range definition.  Set the minimum to 64 instead of 129, and produce warning if the calculated array size exceeds the this minimum.
+Step 2. Plan improvements to the biome pipeline array creation / query range definition and the biome pipeline cache.  Set the maximum size to 64 instead of using a minimum definition size of 129, and increment "initialSize" right up until the array size is as large as possible without exceeding this maximum size.  If the initial chunk size returned from "BiomeChunkImpl.calculateChunkSize(arraySize, chunkOriginArrayIndex, expanderCount);" is greater than this maximum value, create a warning in the log but use that value.
+
+Also allow for 4 of these caches to exist per thread instead of a single large one.  That way if the biome sampler keeps crossing the boundary edge of the Terra chunk, it does not need to continuously recompute back and forth between the two chunks, but can instead bounce between the two most recent caches. 
+
+Finally, should this even be implemented as a caffeine cache?  Can't it just be a static persistent cache?
 
 Step 3. Pl
 
@@ -129,4 +136,23 @@ Step 3. Pl
 Or 
 
 80 x 80 x 8 (x long) x 4 (z long) x 8 (result) = 820 kB per 2d cache. (20% loss assuming perfect grid generation) for int type.
+
+I'm considering the fact that threads may jump between different regions, and in this case it would make sense for the biome pipeline cache to be available to all threads.  Is it possible for Terra to know how many threads are active?  Can you create a plan to modify the biome provider cache to be available to all threads, and initialize to a size of 4xthreadcount?
+
+#############################################
+
+I think there is a bug in the most recent cache updates.  Running the BiomeTool I am seeing some metrics that don't seem to align with what I would expect.
+
+When the BiomeTool launches it starts with a default block area view of about 1300 x 600 blocks (780000 blocks total).  This is about 3000 minecraft chunks.
+
+With the current build, the performance statistics are:
+4 Threads
+440 seconds to render
+28107 samples at a 65x65 grid, at resolution of 2, this would cover about 112 x 112 blocks with border accommodations (~10000 blocks per Terra chunk)
+I would have expected 78 samples to be evaluated at the best case.  It seems the new cache method is somehow resulting in either mismatches in the cache, or overwriting.
+
+Now with the older Terra build f0b2706f4:
+4 Threads
+67 seconds to render
+44 samples at what should be 129 x 129 grid. (about a 200 x 200 grid, so best case 20 samples)
 
