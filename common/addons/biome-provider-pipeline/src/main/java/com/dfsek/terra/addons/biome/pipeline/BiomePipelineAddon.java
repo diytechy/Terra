@@ -60,7 +60,7 @@ public class BiomePipelineAddon implements AddonInitializer {
             .then(event -> {
                 CheckedRegistry<Supplier<ObjectTemplate<BiomeProvider>>> providerRegistry = event.getPack().getOrCreateRegistry(
                     PROVIDER_REGISTRY_KEY);
-                providerRegistry.register(addon.key("PIPELINE"), () -> new BiomePipelineTemplate(platform.getProfiler(), platform.getGenerationThreads()));
+                providerRegistry.register(addon.key("PIPELINE"), () -> new BiomePipelineTemplate(platform.getProfiler()));
             })
             .then(event -> {
                 CheckedRegistry<Supplier<ObjectTemplate<Source>>> sourceRegistry = event.getPack().getOrCreateRegistry(
