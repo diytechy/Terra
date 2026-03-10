@@ -56,14 +56,7 @@ public class ExpressionFunctionTemplate extends SamplerTemplate<ExpressionNoiseF
         var mergedFunctions = new HashMap<>(globalFunctions);
         mergedFunctions.putAll(functions);
         var mergedSamplers = new HashMap<>(globalSamplers);
-        // For local samplers: prefer the global instance when a matching name exists,
-        // so that shared pack samplers (and their caches) are reused across expressions
-        // rather than creating duplicate instances from re-parsed meta references.
-        samplers.forEach((name, localSampler) -> {
-            if(!globalSamplers.containsKey(name)) {
-                mergedSamplers.put(name, localSampler);
-            }
-        });
+        mergedSamplers.putAll(samplers);
         try {
             return new ExpressionNoiseFunction(convertFunctionsAndSamplers(mergedFunctions, mergedSamplers), expression, vars,
                 parseOptions);

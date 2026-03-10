@@ -60,11 +60,7 @@ public class ExpressionNormalizerTemplate extends NormalizerTemplate<ExpressionN
         var mergedFunctions = new HashMap<>(globalFunctions);
         mergedFunctions.putAll(functions);
         var mergedSamplers = new HashMap<>(globalSamplers);
-        samplers.forEach((name, localSampler) -> {
-            if(!globalSamplers.containsKey(name)) {
-                mergedSamplers.put(name, localSampler);
-            }
-        });
+        mergedSamplers.putAll(samplers);
         try {
             return new ExpressionNormalizer(function, convertFunctionsAndSamplers(mergedFunctions, mergedSamplers), expression, vars,
                 parseOptions);
