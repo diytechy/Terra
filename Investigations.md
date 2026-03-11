@@ -156,3 +156,30 @@ Now with the older Terra build f0b2706f4:
 67 seconds to render
 44 samples at what should be 129 x 129 grid. (about a 200 x 200 grid, so best case 20 samples)
 
+#############################################
+
+Why is the size noted as 65 x 65 when it should be capped at 64 x 64?
+
+#########################################33
+
+Now a new problem appears to be that the cache sampler does not appear to be offering any improvement, but at 64x64 entries default it should be able to cover the entire range of the biome pipeline and prevent sampler recompute, but I see no difference between in performance between with / without the cache sampler, even though some samplers are reused over 30 times.
+
+Please investigate, knowing the configuration is at "C:\Projects\ORIGEN2".
+
+##############################################333
+
+Create a plan to change the way the Terra engine is handling sampler compilation.
+
+For every sampler, when it's compiled it should be able to cache it's last value in terms of x, y (if dimensions =3), z, and seed.  This way when a sampler is recalled during chunk generation it can just provide it's cached value instead of recompute.  I see no reason this couldn't be done for every compiled sampler, as it would consume at most 20 bytes per compiled sampler.
+
+In addition to this create a plan to make sure samplers can compile with named samplers that may have not been compiled yet or available.  This could be done via lazy-resolving sampler references with verification after all samplers are compiled, but it may be beneficial for the pack loading stage to first build a hierarchy of samplers, compile them in the order of needed usage (samplers with no dependencies first), and after each compile make sure that named sampler is available for the next compile process.  Then each sampler's usage count can be computed, which may be useful for future automated caching for the biome generation pipeline.
+
+Actually caching of the last value should only be done for 2 dimensional samplers as it will likely be reused through the column, 3 dimensional samplers would rarely benefit from caching.
+
+Please proceed with phase 1 and 2, but note automated caching of the last sampler value should only occur on 2-dimensional samplers, assuming that is trivial to check.
+
+Now that we have a deferred expression method, I assume we can also compute the number of times a global pack sampler is used when it is tied back to the placeholder.  I want to plan a separate method of caching the entire array of that sampler across it's biome-provider array points (Similar to how the final output is cached), caching the sampler output in double.  This could also be a caffeine cache, but I assume each biome pipeline triggers on a separate thread.  This one probably could be a simpler thread local cache.  Ideally at stage determination the number of sampler usages could be derived via permutation usage in dependent samplers, and a threshold could be used to define how many iterations are needed to cache a sampler's output across the biome pipeline array.  Then the array would just be initialized to the size of the biome pipeline provider (per thread) * the number of samplers to cache.
+
+This way samplers don't need to be explicitly defined in the pack file, and caching happens implicitly.  It also removes the need to store each coordinate in the cache sampler since the outcome is just based on 
+
+I'd like to explore a method for the cache sampler to store data sample values in a unit definition type of single instead of double, and I would like to understand if there might be a way in the 2d sampler to set a 2d chunky
