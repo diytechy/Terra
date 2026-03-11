@@ -79,6 +79,14 @@ public class DeferredExpressionSampler implements Sampler {
         return compile().getSample(seed, x, y, z);
     }
 
+    /**
+     * Eagerly compile the expression, surfacing any parse errors at pack load time
+     * rather than deferring them to first evaluation.
+     */
+    public void validate() {
+        compile();
+    }
+
     private Sampler compile() {
         Sampler s = compiled;
         if(s != null) return s;

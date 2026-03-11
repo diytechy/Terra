@@ -107,11 +107,13 @@ The combination means: the 3D sampler sets a base density gradient (solid below 
 
 The `ChunkInterpolator` does **not** evaluate the 3D sampler at every block. It samples on a coarse grid:
 
-- Horizontal: every 4 blocks (configurable)
-- Vertical: every 4 blocks (configurable, based on height / resolution)
+- Horizontal: every 4 blocks (**hardcoded** — not configurable)
+- Vertical: every 4 blocks (**hardcoded** — not configurable)
 - Between sample points: **trilinear interpolation**
 
-This means the 3D terrain sampler is evaluated at roughly `5 × 5 × (height/4)` points per chunk, and all intermediate values are interpolated.
+This means the 3D terrain sampler is evaluated at roughly `5 × 5 × (height/4)` points per chunk, and all intermediate values are interpolated. The 4-block step is baked into `ChunkInterpolator` via bit-shifts (`<< 2`) and fixed array dimensions (`new Interpolator3[4][size][4]`).
+
+> **Note:** The carving interpolator (`LazilyEvaluatedInterpolator`) has a *configurable* resolution via `carving.resolution.horizontal` (default 4) and `carving.resolution.vertical` (default 2) in pack.yml. The terrain `ChunkInterpolator` does not have this flexibility.
 
 ### Evaluation Points
 
@@ -152,7 +154,7 @@ terrain:
 ```
 
 **Algorithm:**
-1. At each coarse grid point, check all biomes within `distance × step` blocks
+1. At each coarse grid point (every 4 blocks), check all biomes within `distance × step` blocks
 2. If all biomes are the same → use center sample directly (homogeneity optimization)
 3. If mixed → compute weighted average:
    ```
@@ -161,6 +163,12 @@ terrain:
 4. Blending is skipped when `blendDistance = 0` or Y is outside `y-range`
 
 **Effective radius:** `distance × step` blocks in each direction. E.g., distance=3, step=4 → 12-block radius.
+
+**Important distinction — blend distance vs interpolation grid:**
+- The **interpolation grid** (hardcoded 4-block spacing) controls *where* the full density computation is performed — at the 5×5 coarse grid points per chunk.
+- The **blend distance + step** controls *what happens at each grid point*: how far the biome averaging kernel reaches. With `distance: 3, step: 4`, each grid point samples a 7×7 neighborhood of biome columns (reaching 12 blocks in each direction) and averages their noise.
+- Reducing `distance` from 3 to 2 shrinks the kernel from 12 to 8 blocks — biome transitions become sharper/narrower. `distance: 1` gives a small 3×3 kernel (4 blocks). `distance: 0` skips blending entirely.
+- The blend kernel radius is independent of the interpolation grid spacing. A smaller `distance` is meaningful even though the grid is coarse — it controls how many neighboring biomes influence each grid point's density value, not the sampling frequency of the result.
 
 **Performance:** Larger `blendDistance` increases biome column lookups per chunk. The interpolator pre-scans for the max blend distance in each chunk and only allocates for the actual radius needed.
 
@@ -227,7 +235,7 @@ if (minDensitySampler != null) {
 }
 ```
 
-Applied after the combined 3D+2D density is computed, before carving is checked.
+Applied after the combined 3D+2D density is computed, before carving is checked. Unlike the terrain sampler (which is trilinearly interpolated on the coarse 4-block grid), the min-density sampler is evaluated at **every block position** for full per-block precision.
 
 ---
 

@@ -30,13 +30,16 @@ import com.dfsek.seismic.type.sampler.DerivativeSampler;
 import com.dfsek.seismic.type.sampler.Sampler;
 import com.dfsek.tectonic.api.config.template.object.ObjectTemplate;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
 import com.dfsek.terra.addons.manifest.api.AddonInitializer;
 import com.dfsek.terra.addons.noise.config.CubicSplinePointTemplate;
 import com.dfsek.terra.addons.noise.config.DimensionApplicableSampler;
+import com.dfsek.terra.addons.noise.config.sampler.DeferredExpressionSampler;
 import com.dfsek.terra.addons.noise.config.sampler.LastValueSampler;
 import com.dfsek.terra.addons.noise.config.templates.BinaryArithmeticTemplate;
 import com.dfsek.terra.addons.noise.config.templates.CacheSamplerTemplate;
@@ -173,6 +176,28 @@ public class NoiseAddon implements AddonInitializer {
                 });
                 packFunctions.putAll(template.getFunctions());
                 event.getPack().getContext().put(template);
+
+                // Validate all deferred expression samplers now that all pack samplers are available.
+                // This eagerly compiles every deferred expression, surfacing parse errors at pack load
+                // instead of deferring them to first chunk generation.
+                List<String> validationErrors = new ArrayList<>();
+                packSamplers.forEach((name, das) -> {
+                    Sampler sampler = das.getSampler();
+                    if(sampler instanceof LastValueSampler lvs) {
+                        sampler = lvs.getDelegate();
+                    }
+                    if(sampler instanceof DeferredExpressionSampler deferred) {
+                        try {
+                            deferred.validate();
+                        } catch(RuntimeException e) {
+                            validationErrors.add(name + ": " + e.getCause().getMessage());
+                        }
+                    }
+                });
+                if(!validationErrors.isEmpty()) {
+                    throw new RuntimeException("Failed to compile " + validationErrors.size() +
+                        " deferred expression sampler(s):\n  " + String.join("\n  ", validationErrors));
+                }
             })
             .priority(50)
             .failThrough();
