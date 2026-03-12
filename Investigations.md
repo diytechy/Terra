@@ -183,3 +183,23 @@ Now that we have a deferred expression method, I assume we can also compute the 
 This way samplers don't need to be explicitly defined in the pack file, and caching happens implicitly.  It also removes the need to store each coordinate in the cache sampler since the outcome is just based on 
 
 I'd like to explore a method for the cache sampler to store data sample values in a unit definition type of single instead of double, and I would like to understand if there might be a way in the 2d sampler to set a 2d chunky
+
+################################
+
+I'm getting a new error with some changes from "":
+
+[14:18:24] [Server thread/ERROR]: Encountered an unexpected exception
+java.lang.RuntimeException: Chunk system crash propagated from unrecoverableChunkSystemFailure
+	at ca.spottedleaf.moonrise.patches.chunk_system.scheduling.ChunkTaskScheduler.lambda$unrecoverableChunkSystemFailure$0(ChunkTaskScheduler.java:327) 
+...
+Caused by: java.lang.RuntimeException: Failed to parse deferred expression.
+	at com.dfsek.terra.addons.noise.config.sampler.DeferredExpressionSampler.compile(DeferredExpressionSampler.java:101) ~[?:?]
+...
+Caused by: com.dfsek.paralithic.eval.tokenizer.ParseException: 2 errors occured. First:   1:12: Unknown variable: 'openingsDeltaShallow'
+	at Terra-bukkit-7.0.0-BETA-e971aef4a-shaded.jar//com.dfsek.paralithic.eval.tokenizer.ParseException.create(ParseException.java:42) ~[?:?]
+
+This is after modifying the file "C:\Projects\ORIGEN2\biomes\abstract\terrain\land\eq_global_river.yml".
+
+A few points:
+1. I would not have expected this sampler to be converted to a deferred sampler, or are all expressions now assumed to be deferred?
+2. Getting errors when the sampler is first called is strange because a samplers use is not guaranteed, and may happen hours after they are built depending on other dependencies, can an init function call all named samplers at some coordinate set once after they are all loaded to make sure they are fully functional and trigger any errors instead of relying on chance if they are called later?
