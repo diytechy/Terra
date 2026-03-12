@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
 import com.dfsek.terra.addons.manifest.api.AddonInitializer;
@@ -160,11 +161,14 @@ public class NoiseAddon implements AddonInitializer {
 
                 Map<String, DimensionApplicableSampler> packSamplers = new LinkedHashMap<>();
                 Map<String, FunctionTemplate> packFunctions = new LinkedHashMap<>();
+                AtomicBoolean deferCompilation = new AtomicBoolean(true);
                 event.getPack().getContext().put(new PackSamplerContext(packSamplers, packFunctions));
                 noiseRegistry.register(addon.key("EXPRESSION"),
-                    () -> new ExpressionFunctionTemplate(packSamplers, packFunctions, expressionParseOptions));
+                    () -> new ExpressionFunctionTemplate(packSamplers, packFunctions, expressionParseOptions,
+                        deferCompilation));
                 noiseRegistry.register(addon.key("EXPRESSION_NORMALIZER"),
-                    () -> new ExpressionNormalizerTemplate(packSamplers, packFunctions, expressionParseOptions));
+                    () -> new ExpressionNormalizerTemplate(packSamplers, packFunctions, expressionParseOptions,
+                        deferCompilation));
 
                 NoiseConfigPackTemplate template = event.loadTemplate(new NoiseConfigPackTemplate());
                 template.getSamplers().forEach((name, das) -> {
@@ -198,6 +202,10 @@ public class NoiseAddon implements AddonInitializer {
                     throw new RuntimeException("Failed to compile " + validationErrors.size() +
                         " deferred expression sampler(s):\n  " + String.join("\n  ", validationErrors));
                 }
+
+                // All pack samplers validated. Disable deferral so subsequent expression
+                // parsing (biomes, features, etc.) compiles eagerly with immediate error reporting.
+                deferCompilation.set(false);
             })
             .priority(50)
             .failThrough();

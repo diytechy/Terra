@@ -8,6 +8,7 @@
 package com.dfsek.terra.addons.noise.config.templates.normalizer;
 
 import com.dfsek.paralithic.eval.parser.Parser.ParseOptions;
+import com.dfsek.paralithic.eval.tokenizer.ParseException;
 import com.dfsek.paralithic.sampler.normalizer.ExpressionNormalizer;
 import com.dfsek.seismic.type.sampler.Sampler;
 import com.dfsek.tectonic.api.config.template.annotations.Default;
@@ -16,10 +17,12 @@ import com.dfsek.tectonic.api.config.template.annotations.Value;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.dfsek.terra.addons.noise.config.DimensionApplicableSampler;
 import com.dfsek.terra.addons.noise.config.sampler.DeferredExpressionSampler;
 import com.dfsek.terra.addons.noise.config.templates.FunctionTemplate;
+import com.dfsek.terra.addons.noise.paralithic.FunctionUtil;
 import com.dfsek.terra.api.config.meta.Meta;
 
 
@@ -29,6 +32,7 @@ public class ExpressionNormalizerTemplate extends NormalizerTemplate<ExpressionN
     private final Map<String, DimensionApplicableSampler> globalSamplers;
     private final Map<String, FunctionTemplate> globalFunctions;
     private final ParseOptions parseOptions;
+    private final AtomicBoolean deferCompilation;
 
     @Value("expression")
     private @Meta String expression;
@@ -47,15 +51,30 @@ public class ExpressionNormalizerTemplate extends NormalizerTemplate<ExpressionN
 
     public ExpressionNormalizerTemplate(Map<String, DimensionApplicableSampler> globalSamplers,
                                         Map<String, FunctionTemplate> globalFunctions,
-                                        ParseOptions parseOptions) {
+                                        ParseOptions parseOptions,
+                                        AtomicBoolean deferCompilation) {
         this.globalSamplers = globalSamplers;
         this.globalFunctions = globalFunctions;
         this.parseOptions = parseOptions;
+        this.deferCompilation = deferCompilation;
     }
 
     @Override
     public Sampler get() {
-        return new DeferredExpressionSampler(globalSamplers, globalFunctions, samplers, functions, expression, vars, parseOptions,
-            function);
+        if(deferCompilation.get()) {
+            return new DeferredExpressionSampler(globalSamplers, globalFunctions, samplers, functions, expression, vars,
+                parseOptions, function);
+        }
+        var mergedFunctions = new HashMap<>(globalFunctions);
+        mergedFunctions.putAll(functions);
+        var mergedSamplers = new HashMap<>(globalSamplers);
+        mergedSamplers.putAll(samplers);
+        try {
+            return new ExpressionNormalizer(function,
+                FunctionUtil.convertFunctionsAndSamplers(mergedFunctions, mergedSamplers),
+                expression, vars, parseOptions);
+        } catch(ParseException e) {
+            throw new RuntimeException("Failed to parse expression normalizer.", e);
+        }
     }
 }
