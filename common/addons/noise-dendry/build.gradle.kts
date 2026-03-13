@@ -1,4 +1,4 @@
-version = version("1.0.0-BETA-3")
+version = version(Versions.Libraries.dendryTerra)
 
 dependencies {
     compileOnlyApi(project(":common:addons:manifest-addon-loader"))
