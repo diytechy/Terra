@@ -203,3 +203,9 @@ This is after modifying the file "C:\Projects\ORIGEN2\biomes\abstract\terrain\la
 A few points:
 1. I would not have expected this sampler to be converted to a deferred sampler, or are all expressions now assumed to be deferred?
 2. Getting errors when the sampler is first called is strange because a samplers use is not guaranteed, and may happen hours after they are built depending on other dependencies, can an init function call all named samplers at some coordinate set once after they are all loaded to make sure they are fully functional and trigger any errors instead of relying on chance if they are called later?
+
+############################################
+
+Each time the biome sampler runs a pack level named sampler, it should cache all those samples for the sampler in a thread specific cache that locates the sampler and it's Terra chunk coordinates that it was evaluated for.
+
+This should mitigate the need for explicitly set "CACHE" samplers.
