@@ -45,6 +45,11 @@ public class ReplaceStage implements Stage {
     }
 
     @Override
+    public Sampler getSampler() {
+        return sampler;
+    }
+
+    @Override
     public String toString() {
         return "Replace_" + replaceableTag;
     }

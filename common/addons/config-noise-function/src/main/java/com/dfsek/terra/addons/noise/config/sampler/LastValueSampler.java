@@ -15,7 +15,7 @@ import com.dfsek.seismic.type.sampler.Sampler;
  */
 public class LastValueSampler implements Sampler {
 
-    private final Sampler delegate;
+    private volatile Sampler delegate;
     private final ThreadLocal<LastValue> lastValue = ThreadLocal.withInitial(LastValue::new);
 
     public LastValueSampler(Sampler delegate) {
@@ -44,6 +44,15 @@ public class LastValueSampler implements Sampler {
 
     public Sampler getDelegate() {
         return delegate;
+    }
+
+    /**
+     * Package-private method used by pipeline caching analysis to install chunk-scope caches.
+     * Replaces the delegate with a caching wrapper while maintaining call compatibility
+     * with compiled expressions that hold a reference to this LastValueSampler instance.
+     */
+    void setDelegate(Sampler newDelegate) {
+        this.delegate = newDelegate;
     }
 
     private static final class LastValue {

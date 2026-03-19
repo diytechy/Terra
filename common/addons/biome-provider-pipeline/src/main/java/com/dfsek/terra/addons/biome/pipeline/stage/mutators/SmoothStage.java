@@ -56,6 +56,11 @@ public class SmoothStage implements Stage {
     }
 
     @Override
+    public Sampler getSampler() {
+        return sampler;
+    }
+
+    @Override
     public String toString() {
         return "Smooth";
     }

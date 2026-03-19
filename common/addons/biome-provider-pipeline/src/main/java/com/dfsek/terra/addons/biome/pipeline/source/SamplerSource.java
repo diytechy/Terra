@@ -32,4 +32,8 @@ public class SamplerSource implements Source {
     public Iterable<PipelineBiome> getBiomes() {
         return biomes.getContents();
     }
+
+    public Sampler getSampler() {
+        return sampler;
+    }
 }

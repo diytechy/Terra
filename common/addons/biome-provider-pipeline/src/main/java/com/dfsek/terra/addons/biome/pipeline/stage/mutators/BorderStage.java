@@ -81,6 +81,11 @@ public class BorderStage implements Stage {
     }
 
     @Override
+    public Sampler getSampler() {
+        return Sampler;
+    }
+
+    @Override
     public String toString() {
         return "Border_" + replaceTag + "_" + border;
     }

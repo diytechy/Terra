@@ -206,6 +206,44 @@ A few points:
 
 ############################################
 
-Each time the biome sampler runs a pack level named sampler, it should cache all those samples for the sampler in a thread specific cache that locates the sampler and it's Terra chunk coordinates that it was evaluated for.
+I want to plan for some updates to make Terra perform biome queries more quickly.
+
+Currently, for any sampler to cache multiple samples it relies on pack samplers to have a cache type.
+
+When samplers are instanced this can consume large chunks of memory usage that is never freed, as each coordinate is stored in the cache sampler.
+
+I'd like make some updates to bypass the need for caching entirely and better automate the process of allocation of memory and determination of when memory should be freed.
+
+Each time the biome query / biome pipeline runs a pack level named sampler, it should cache all those samples for the sampler in a thread specific cache that locates the sampler and it's Terra chunk coordinates that it was evaluated form.  This would be would be the same way fully evaluated biome sampler results are cached now, the only difference is that sampler values would also have their values cached if used during the biome query process.
 
 This should mitigate the need for explicitly set "CACHE" samplers.
+
+In addition, the sampler cache could be located by the Terra chunk coordinates, instead of storing each sample x/z value.
+
+In order to determine priority of each cache and when / if it can be created, Terra should have a loose method to determine:
+
+If a pack level named sampler is used in the biome pipeline.
+How complex the sampler appears to be (expressions may be quite costly, compared to raw sampler values)
+How many times a sampler is used within the biome pipeline generation process based on it's usage in other samplers that cumulate into the final output.
+The complexity * number of uses should give a final weight, where higher values indicate the sampler uses a lot of cpu and would benefit substantially from caching within the biome pipeline.
+
+Available memory in the parent process can then be used for Terra to derive what samplers should be cached when a chunk is processed for the biome pipeline.
+
+This would largely eliminate the need for individually defined cache samplers, reduce the footprint of cached results (since they would be located by Terra chunk coordinates instead of individual x/z coordinates), and simplify memory usage and garbage collection, such that if the biome pipeline has not been queried for x time and it is complete, memory allocated for sampler cache creation can be freed up until needed again.
+
+
+
+
+
+
+##################################
+
+I'm trying to call a sampler with "NaN" inputs to trigger a special value, but it seems the Terra sampler compiler is attempting to resolve the label "NaN" to another name, or it is being corrupted on yml read.
+
+Do I need to formulate the expression in the config pack differently (At C:\Projects\ORIGEN2\math\samplers\rivers.yml).  I also tried to create a variable name "nan_Input" setting it to "NaN", but  that also does not appear to work.
+
+The error is:
+java.lang.RuntimeException: Failed to compile 1 deferred expression sampler(s):
+  maxRiverWidthAtLevel: 2 errors occured. First:   2:24: Unknown variable: 'NaN'
+        at com.dfsek.terra.addons.noise.NoiseAddon.lambda$initialize$23(NoiseAddon.java:203)
+        at com.dfsek.terra.event.EventContextImpl.lambda$handle$0(EventContextImpl.java:50)

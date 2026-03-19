@@ -87,6 +87,11 @@ public class BorderListStage implements Stage {
     }
 
     @Override
+    public Sampler getSampler() {
+        return Sampler;
+    }
+
+    @Override
     public String toString() {
         return "BorderList_" + defaultReplace + "_" + border;
     }

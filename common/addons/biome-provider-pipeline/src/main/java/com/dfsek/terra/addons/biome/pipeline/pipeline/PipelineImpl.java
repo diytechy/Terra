@@ -1,15 +1,21 @@
 package com.dfsek.terra.addons.biome.pipeline.pipeline;
 
+import com.dfsek.seismic.type.sampler.Sampler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
 
 import com.dfsek.terra.addons.biome.pipeline.api.BiomeChunk;
 import com.dfsek.terra.addons.biome.pipeline.api.Expander;
 import com.dfsek.terra.addons.biome.pipeline.api.Pipeline;
 import com.dfsek.terra.addons.biome.pipeline.api.Source;
 import com.dfsek.terra.addons.biome.pipeline.api.Stage;
+import com.dfsek.terra.addons.biome.pipeline.cache.ChunkGenerationContext;
+import com.dfsek.terra.addons.biome.pipeline.cache.ChunkScopedCacheSampler;
+import com.dfsek.terra.addons.biome.pipeline.cache.PipelineSamplerAnalysis;
 import com.dfsek.terra.api.profiler.Profiler;
 import com.dfsek.terra.api.util.cache.SeededVector2Key;
 
@@ -26,8 +32,33 @@ public class PipelineImpl implements Pipeline {
     private final int chunkOriginArrayIndex;
     private final int resolution;
     private final Profiler profiler;
+    private final ThreadLocal<ChunkGenerationContext> chunkContextLocal;
+    private final int numCachedSamplers;
 
     public PipelineImpl(Source source, List<Stage> stages, int resolution, int maxArraySize, Profiler profiler) {
+        this(source, stages, resolution, maxArraySize, profiler, null, null);
+    }
+
+    /**
+     * Full constructor with optional sampler caching support.
+     *
+     * @param source the biome source
+     * @param stages the pipeline stages
+     * @param resolution the pipeline resolution
+     * @param maxArraySize maximum array size
+     * @param profiler the profiler
+     * @param packSamplers map of pack-level samplers for caching analysis (null = no caching)
+     * @param complexityEstimator function to estimate sampler complexity (required if packSamplers is not null)
+     */
+    public PipelineImpl(
+        Source source,
+        List<Stage> stages,
+        int resolution,
+        int maxArraySize,
+        Profiler profiler,
+        Map<String, Sampler> packSamplers,
+        Function<Sampler, Integer> complexityEstimator) {
+
         this.source = source;
         this.stages = stages;
         this.resolution = resolution;
@@ -63,6 +94,25 @@ public class PipelineImpl implements Pipeline {
         this.chunkOriginArrayIndex = chunkOriginArrayIndex;
         this.chunkSize = chunkSize;
 
+        // Initialize caching context and analyze pack samplers
+        this.chunkContextLocal = new ThreadLocal<>();
+        if (packSamplers != null && !packSamplers.isEmpty() && complexityEstimator != null) {
+            PipelineSamplerAnalysis.AnalysisResult analysisResult =
+                PipelineSamplerAnalysis.analyze(source, stages, packSamplers, bestArraySize, complexityEstimator);
+
+            // Install chunk-scope cache wrappers on selected samplers
+            for (PipelineSamplerAnalysis.SelectedSampler selected : analysisResult.selected) {
+                Sampler originalSampler = selected.sampler;
+                ChunkScopedCacheSampler cacheSampler = new ChunkScopedCacheSampler(originalSampler, chunkContextLocal, selected.slot);
+
+                // Swap the delegate in the original LastValueSampler wrapper
+                setLastValueSamplerDelegate(originalSampler, cacheSampler);
+            }
+            this.numCachedSamplers = analysisResult.numSlots;
+        } else {
+            this.numCachedSamplers = 0;
+        }
+
         logger.info("Initialized a new biome pipeline:");
         logger.info("Array size: {} (Max: {})", bestArraySize, maxArraySize);
         logger.info("Internal array origin: {}", chunkOriginArrayIndex);
@@ -73,7 +123,29 @@ public class PipelineImpl implements Pipeline {
 
     @Override
     public BiomeChunk generateChunk(SeededVector2Key worldCoordinates) {
-        return new BiomeChunkImpl(worldCoordinates, this);
+        // Skip context setup if no samplers are cached
+        if (numCachedSamplers == 0) {
+            return new BiomeChunkImpl(worldCoordinates, this);
+        }
+
+        // Get or create the context for this thread
+        ChunkGenerationContext ctx = chunkContextLocal.get();
+        if (ctx == null) {
+            ctx = new ChunkGenerationContext(numCachedSamplers, arraySize);
+            chunkContextLocal.set(ctx);
+        }
+
+        // Set up context for this chunk
+        int blockOriginX = (worldCoordinates.x - chunkOriginArrayIndex) * resolution;
+        int blockOriginZ = (worldCoordinates.z - chunkOriginArrayIndex) * resolution;
+        ctx.reset(blockOriginX, blockOriginZ, resolution);
+
+        try {
+            return new BiomeChunkImpl(worldCoordinates, this);
+        } finally {
+            // Invalidate the context so stale cache entries aren't reused between chunks
+            ctx.invalidate();
+        }
     }
 
     @Override
@@ -109,5 +181,20 @@ public class PipelineImpl implements Pipeline {
 
     protected Profiler getProfiler() {
         return profiler;
+    }
+
+    /**
+     * Helper to set the delegate on a LastValueSampler wrapper via reflection.
+     * This allows swapping in a ChunkScopedCacheSampler while the LastValueSampler
+     * is held by compiled expressions (which can't be changed).
+     */
+    private static void setLastValueSamplerDelegate(Sampler lastValueSampler, Sampler newDelegate) {
+        try {
+            var method = lastValueSampler.getClass().getDeclaredMethod("setDelegate", Sampler.class);
+            method.setAccessible(true);
+            method.invoke(lastValueSampler, newDelegate);
+        } catch (Exception e) {
+            logger.warn("Failed to set LastValueSampler delegate", e);
+        }
     }
 }

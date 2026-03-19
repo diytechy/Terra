@@ -54,6 +54,11 @@ public class ReplaceListStage implements Stage {
     }
 
     @Override
+    public Sampler getSampler() {
+        return sampler;
+    }
+
+    @Override
     public String toString() {
         return "ReplaceList_" + defaultTag;
     }

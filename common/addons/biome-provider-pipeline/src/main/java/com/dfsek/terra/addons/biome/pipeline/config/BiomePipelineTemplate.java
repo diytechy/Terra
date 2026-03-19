@@ -14,6 +14,8 @@ import com.dfsek.tectonic.api.config.template.annotations.Value;
 import com.dfsek.tectonic.api.config.template.object.ObjectTemplate;
 
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
 
 import com.dfsek.terra.addons.biome.pipeline.PipelineBiomeProvider;
 import com.dfsek.terra.addons.biome.pipeline.api.Source;
@@ -27,9 +29,25 @@ import com.dfsek.terra.api.world.biome.generation.BiomeProvider;
 @SuppressWarnings({ "FieldMayBeFinal", "unused" })
 public class BiomePipelineTemplate implements ObjectTemplate<BiomeProvider> {
     private final Profiler profiler;
+    private final Map<String, Sampler> packSamplers;
+    private final Function<Sampler, Integer> complexityEstimator;
 
-    public BiomePipelineTemplate(Profiler profiler) {
+    /**
+     * Constructor for BiomePipelineTemplate with optional caching support.
+     *
+     * @param profiler the profiler
+     * @param packSamplers map of pack-level samplers (may be null or empty)
+     * @param complexityEstimator function to estimate sampler complexity (may be null)
+     */
+    public BiomePipelineTemplate(Profiler profiler, Map<String, Sampler> packSamplers, Function<Sampler, Integer> complexityEstimator) {
         this.profiler = profiler;
+        this.packSamplers = packSamplers;
+        this.complexityEstimator = complexityEstimator;
+    }
+
+    // Backward-compatible constructor without caching
+    public BiomePipelineTemplate(Profiler profiler) {
+        this(profiler, null, null);
     }
     @Value("resolution")
     @Default
@@ -56,7 +74,7 @@ public class BiomePipelineTemplate implements ObjectTemplate<BiomeProvider> {
 
     @Override
     public BiomeProvider get() {
-        return new PipelineBiomeProvider(new PipelineImpl(source, stages, resolution, 64, profiler), resolution, blendSampler,
-            blendAmplitude, profiler);
+        PipelineImpl pipeline = new PipelineImpl(source, stages, resolution, 64, profiler, packSamplers, complexityEstimator);
+        return new PipelineBiomeProvider(pipeline, resolution, blendSampler, blendAmplitude, profiler);
     }
 }
