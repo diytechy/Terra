@@ -103,15 +103,14 @@ public class BiomePipelineAddon implements AddonInitializer {
     private static Map<String, Sampler> extractPackSamplers(com.dfsek.terra.api.config.ConfigPack pack) {
         try {
             // Try to get PackSamplerContext from pack context
-            Class<?> packSamplerContextClass = Class.forName("com.dfsek.terra.addons.noise.PackSamplerContext");
-            Object psc = pack.getContext().get(packSamplerContextClass);
+            Object psc = pack.getContext().getByClassName("com.dfsek.terra.addons.noise.PackSamplerContext");
 
             if (psc == null) {
                 return new HashMap<>();
             }
 
             // Get the packSamplers map via reflection
-            var method = packSamplerContextClass.getMethod("getPackSamplers");
+            var method = psc.getClass().getMethod("getPackSamplers");
             Object samplers = method.invoke(psc);
 
             if (samplers instanceof Map) {
