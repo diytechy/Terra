@@ -59,13 +59,17 @@ public final class PipelineSamplerAnalysis {
         int arraySize,
         Function<Sampler, Integer> complexityEstimator) {
 
+        System.out.println("[PipelineSamplerAnalysis] Starting sampler analysis with " + packSamplers.size() + " pack samplers available");
+
         if (packSamplers.isEmpty()) {
+            System.out.println("[PipelineSamplerAnalysis] No pack samplers available - auto-caching disabled");
             return new AnalysisResult(new ArrayList<>(), 0);
         }
 
         // Step 1: Count references to each pack sampler
         Map<Sampler, String> samplerInstanceMap = SamplerReferenceWalker.buildPackSamplerInstanceMap(packSamplers);
         Map<String, Integer> referenceCounts = SamplerReferenceWalker.countReferences(source, stages, samplerInstanceMap);
+        System.out.println("[PipelineSamplerAnalysis] Found " + referenceCounts.size() + " samplers used in pipeline (out of " + packSamplers.size() + " available)");
 
         // Step 2: Estimate complexity for each sampler
         Map<String, Integer> complexities = new HashMap<>();
@@ -123,7 +127,9 @@ public final class PipelineSamplerAnalysis {
         int maxSlots) {
 
         if (selected.isEmpty()) {
-            logger.info("Pipeline sampler caching: no samplers selected (none used in pipeline or budget exhausted)");
+            String msg = "Pipeline sampler caching: no samplers selected (none used in pipeline or budget exhausted)";
+            System.out.println("[PipelineSamplerAnalysis] " + msg);
+            logger.info(msg);
             return;
         }
 
@@ -156,7 +162,9 @@ public final class PipelineSamplerAnalysis {
             }
         }
 
-        logger.info(sb.toString());
+        String output = sb.toString();
+        System.out.println("[PipelineSamplerAnalysis] " + output.replace("\n", "\n[PipelineSamplerAnalysis] "));
+        logger.info(output);
     }
 
     /**
