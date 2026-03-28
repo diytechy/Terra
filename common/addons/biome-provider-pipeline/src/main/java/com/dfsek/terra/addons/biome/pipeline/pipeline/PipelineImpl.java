@@ -102,14 +102,25 @@ public class PipelineImpl implements Pipeline {
 
             // Install chunk-scope cache wrappers on selected samplers
             for (PipelineSamplerAnalysis.SelectedSampler selected : analysisResult.selected) {
-                Sampler lastValueSampler = selected.sampler;
+                Sampler selectedSampler = selected.sampler;
+
+                // Unwrap DimensionApplicableSampler to get the LastValueSampler inside
+                // (Check by class simple name to avoid cross-addon dependency)
+                Sampler sampler = selectedSampler;
+                if (selectedSampler.getClass().getSimpleName().equals("DimensionApplicableSampler")) {
+                    sampler = unwrapDimensionApplicableSampler(selectedSampler);
+                    if (sampler == null) {
+                        logger.warn("Could not unwrap DimensionApplicableSampler for {}", selected.name);
+                        continue;
+                    }
+                }
 
                 // Get the inner sampler that the LastValueSampler currently wraps
                 // (LastValueSampler wraps DeferredExpressionSampler or other compiled samplers)
-                Sampler innerSampler = getLastValueSamplerDelegate(lastValueSampler);
+                Sampler innerSampler = getLastValueSamplerDelegate(sampler);
                 if (innerSampler == null) {
                     // If we can't get the delegate, skip this sampler
-                    logger.warn("Could not extract delegate from LastValueSampler for caching");
+                    logger.warn("Could not extract delegate from LastValueSampler for {}", selected.name);
                     continue;
                 }
 
@@ -117,8 +128,8 @@ public class PipelineImpl implements Pipeline {
                 ChunkScopedCacheSampler cacheSampler = new ChunkScopedCacheSampler(innerSampler, chunkContextLocal, selected.slot);
 
                 // Replace the delegate in the LastValueSampler with the cache wrapper
-                // Now: LastValueSampler → ChunkScopedCacheSampler → (original inner sampler)
-                setLastValueSamplerDelegate(lastValueSampler, cacheSampler);
+                // Now: DimensionApplicableSampler → LastValueSampler → ChunkScopedCacheSampler → (original inner sampler)
+                setLastValueSamplerDelegate(sampler, cacheSampler);
             }
             this.numCachedSamplers = analysisResult.numSlots;
         } else {
@@ -199,6 +210,24 @@ public class PipelineImpl implements Pipeline {
      * Extract the delegate from a LastValueSampler wrapper via reflection.
      * Returns the inner sampler that the LastValueSampler currently delegates to.
      */
+    /**
+     * Unwrap a DimensionApplicableSampler to get the inner sampler via reflection.
+     * DimensionApplicableSampler wraps a single Sampler and stores it in a private field.
+     * This method extracts that inner sampler without requiring a direct type reference.
+     */
+    private static Sampler unwrapDimensionApplicableSampler(Sampler dimensionApplicable) {
+        try {
+            var method = dimensionApplicable.getClass().getMethod("getSampler");
+            Object result = method.invoke(dimensionApplicable);
+            if (result instanceof Sampler) {
+                return (Sampler) result;
+            }
+        } catch (Exception e) {
+            logger.warn("Failed to unwrap DimensionApplicableSampler", e);
+        }
+        return null;
+    }
+
     private static Sampler getLastValueSamplerDelegate(Sampler lastValueSampler) {
         try {
             var method = lastValueSampler.getClass().getMethod("getDelegate");
