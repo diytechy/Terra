@@ -66,10 +66,9 @@ public final class PipelineSamplerAnalysis {
             return new AnalysisResult(new ArrayList<>(), 0);
         }
 
-        // Step 1: Count references to each pack sampler
-        Map<Sampler, String> samplerInstanceMap = SamplerReferenceWalker.buildPackSamplerInstanceMap(packSamplers);
-        Map<String, Integer> referenceCounts = SamplerReferenceWalker.countReferences(source, stages, samplerInstanceMap);
-        System.out.println("[PipelineSamplerAnalysis] Found " + referenceCounts.size() + " samplers used in pipeline (out of " + packSamplers.size() + " available)");
+        // Step 1: Count references to each pack sampler by scanning expression strings
+        Map<String, Integer> referenceCounts = SamplerReferenceWalker.countReferences(source, stages, packSamplers);
+        System.out.println("[PipelineSamplerAnalysis] Reference counts: " + referenceCounts);
 
         // Step 2: Estimate complexity for each sampler
         Map<String, Integer> complexities = new HashMap<>();

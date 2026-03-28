@@ -141,6 +141,9 @@ public class BiomePipelineAddon implements AddonInitializer {
                 }
 
                 System.out.println("[BiomePipelineAddon] Successfully extracted " + result.size() + " Sampler objects for auto-caching");
+                if (!result.isEmpty()) {
+                    System.out.println("[BiomePipelineAddon] Extracted sampler names: " + String.join(", ", result.keySet()));
+                }
                 return result;
             }
         } catch (Exception e) {

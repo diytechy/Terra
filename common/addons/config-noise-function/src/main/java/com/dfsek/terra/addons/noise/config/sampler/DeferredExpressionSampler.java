@@ -87,6 +87,14 @@ public class DeferredExpressionSampler implements Sampler {
         compile();
     }
 
+    /**
+     * Get the original expression string (before compilation).
+     * Used by auto-caching analysis to scan for pack sampler references.
+     */
+    public String getExpressionString() {
+        return expression;
+    }
+
     private Sampler compile() {
         Sampler s = compiled;
         if(s != null) return s;

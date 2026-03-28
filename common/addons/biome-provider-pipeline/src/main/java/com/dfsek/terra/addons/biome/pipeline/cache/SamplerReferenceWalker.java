@@ -9,24 +9,28 @@ package com.dfsek.terra.addons.biome.pipeline.cache;
 
 import com.dfsek.seismic.type.sampler.Sampler;
 
-import java.lang.reflect.Field;
 import java.util.HashMap;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import com.dfsek.terra.addons.biome.pipeline.api.Source;
 import com.dfsek.terra.addons.biome.pipeline.api.Stage;
 
 
 /**
- * Walks a biome pipeline to count references to pack-level samplers.
+ * Counts references to pack-level samplers by scanning expression strings.
  *
- * For each sampler found in the source and stages, this walker checks if the sampler
- * (or one it wraps) is an instance of a known pack-level sampler. Each match increments
- * the reference count for that sampler.
+ * Pack samplers are wrapped in `LastValueSampler(DeferredExpressionSampler{expression: "..."})`.
+ * The DeferredExpressionSampler retains the raw expression string even after compilation.
+ * By scanning these strings for pack sampler name calls, we determine which pack samplers
+ * are referenced by other pack samplers (transitive usage).
  *
- * Used during {@link PipelineSamplerAnalysis} to determine usage frequencies.
+ * Stage samplers are compiled `ExpressionNoiseFunction` instances with no accessible expression
+ * string. They are scanned when available (if somehow deferred), but the analysis relies primarily
+ * on pack-to-pack reference counting.
+ *
+ * Used during {@link PipelineSamplerAnalysis} to determine usage frequencies for sampler selection.
  */
 public final class SamplerReferenceWalker {
 
@@ -34,46 +38,117 @@ public final class SamplerReferenceWalker {
     }
 
     /**
-     * Walk the pipeline structure and count references to pack-level samplers.
+     * Count references to pack-level samplers by scanning expression strings for sampler name calls.
      *
-     * @param source the biome source
+     * @param source the biome source (if any)
      * @param stages the pipeline stages
-     * @param packSamplerInstances identity map of pack-level sampler instances; maps sampler -> name for lookup
-     * @return a map from pack sampler name to reference count
+     * @param packSamplers map of (name -> sampler) for all pack-level samplers
+     * @return map from pack sampler name to reference count
      */
     public static Map<String, Integer> countReferences(
         Source source,
         List<Stage> stages,
-        Map<Sampler, String> packSamplerInstances) {
+        Map<String, Sampler> packSamplers) {
 
         Map<String, Integer> counts = new HashMap<>();
 
-        // Initialize counts for all known pack samplers
-        for (String name : packSamplerInstances.values()) {
+        // Initialize all pack sampler counts to 0
+        for (String name : packSamplers.keySet()) {
             counts.put(name, 0);
         }
 
-        // Walk source
+        Set<String> packNames = packSamplers.keySet();
+
+        System.out.println("[SamplerReferenceWalker] Starting reference count analysis for " + packNames.size() + " pack samplers");
+
+        // Pass 1: Count pack-to-pack references (most accurate)
+        // Each pack sampler's expression is scanned for references to other pack samplers
+        int packExprCount = 0;
+        for (Map.Entry<String, Sampler> entry : packSamplers.entrySet()) {
+            String exprString = extractExpressionString(entry.getValue());
+            if (exprString != null) {
+                packExprCount++;
+                scanForPackSamplerCalls(exprString, packNames, counts);
+            }
+        }
+        System.out.println("[SamplerReferenceWalker] Scanned " + packExprCount + " pack sampler expressions for cross-references");
+
+        // Pass 2: Count stage-to-pack references (only if expression strings are accessible)
+        // In current CHIMERA setup, stage samplers are ExpressionNoiseFunction (compiled, no strings).
+        // This pass handles cases where stages might be DeferredExpressionSampler instances.
+        int stageExprCount = 0;
+        for (Stage stage : stages) {
+            if (stage != null) {
+                Sampler stageSampler = stage.getSampler();
+                if (stageSampler != null) {
+                    String exprString = extractExpressionString(stageSampler);
+                    if (exprString != null) {
+                        stageExprCount++;
+                        scanForPackSamplerCalls(exprString, packNames, counts);
+                    }
+                }
+            }
+        }
+        if (stageExprCount > 0) {
+            System.out.println("[SamplerReferenceWalker] Scanned " + stageExprCount + " stage expressions for pack sampler references");
+        } else {
+            System.out.println("[SamplerReferenceWalker] No stage expression strings available (stages are compiled ExpressionNoiseFunction)");
+        }
+
+        // Also scan source if present
         if (source != null) {
             Sampler sourceSampler = extractSampler(source);
             if (sourceSampler != null) {
-                countSampler(sourceSampler, packSamplerInstances, counts);
+                String exprString = extractExpressionString(sourceSampler);
+                if (exprString != null) {
+                    System.out.println("[SamplerReferenceWalker] Scanning source sampler expression");
+                    scanForPackSamplerCalls(exprString, packNames, counts);
+                }
             }
         }
 
-        // Walk stages
-        for (Stage stage : stages) {
-            Sampler stageSampler = extractSampler(stage);
-            if (stageSampler != null) {
-                countSampler(stageSampler, packSamplerInstances, counts);
-            }
-        }
-
+        System.out.println("[SamplerReferenceWalker] Final reference counts: " + counts);
         return counts;
     }
 
     /**
-     * Extract a sampler from a source via reflection on the getSampler() method.
+     * Extract expression string from a sampler, unwrapping wrappers recursively.
+     *
+     * Handles:
+     * - LastValueSampler: unwraps via public getDelegate() method
+     * - DeferredExpressionSampler: extracts expression string via reflection
+     * - ExpressionNoiseFunction: no expression string available (returns null)
+     * - Other types: returns null
+     */
+    private static String extractExpressionString(Sampler sampler) {
+        if (sampler == null) return null;
+
+        // Unwrap LastValueSampler using its public getDelegate() method
+        if (sampler instanceof com.dfsek.terra.addons.noise.config.sampler.LastValueSampler) {
+            Sampler delegate = ((com.dfsek.terra.addons.noise.config.sampler.LastValueSampler) sampler).getDelegate();
+            return extractExpressionString(delegate);
+        }
+
+        // Get expression string from DeferredExpressionSampler
+        // Check by class simple name to avoid direct dependency on the noise addon class
+        if (sampler.getClass().getSimpleName().equals("DeferredExpressionSampler")) {
+            try {
+                // Call the public getExpressionString() method
+                Object result = sampler.getClass().getMethod("getExpressionString").invoke(sampler);
+                if (result instanceof String) {
+                    return (String) result;
+                }
+            } catch (Exception ignored) {
+                // If reflection fails, fall through to return null
+            }
+        }
+
+        // ExpressionNoiseFunction and other sampler types: expression string not available
+        return null;
+    }
+
+    /**
+     * Extract sampler from a Source via reflection on the getSampler() method.
      */
     private static Sampler extractSampler(Source source) {
         try {
@@ -89,75 +164,22 @@ public final class SamplerReferenceWalker {
     }
 
     /**
-     * Extract a sampler from a stage via the default interface method or reflection.
+     * Scan an expression string for pack sampler name references.
+     *
+     * For each pack sampler name, checks if the expression contains `name + "("` or `name + " ("`.
+     * Increments the reference count for each match found.
+     *
+     * The `name + "("` pattern avoids false positives for prefix-overlap names:
+     * - `elevation(` in `elevation_with_mesas(` → no match (underscore is not paren)
+     * - `continents(` in `continentsWithSpots(` → no match (W is not paren)
+     * - `spot(` in `spotRadius(` → no match (R is not paren)
      */
-    private static Sampler extractSampler(Stage stage) {
-        try {
-            Sampler sampler = stage.getSampler();
-            if (sampler != null) {
-                return sampler;
-            }
-        } catch (Exception ignored) {
-        }
-        return null;
-    }
-
-    /**
-     * Check if a sampler is a pack-level instance and increment its count.
-     * Handles LastValueSampler wrapping transparently via reflection.
-     */
-    private static void countSampler(
-        Sampler sampler,
-        Map<Sampler, String> packSamplerInstances,
-        Map<String, Integer> counts) {
-
-        if (sampler == null) return;
-
-        // Unwrap LastValueSampler to get the inner sampler (via reflection to avoid module dependency)
-        Sampler toCheck = sampler;
-        if (isLastValueSampler(sampler)) {
-            Sampler delegate = getLastValueSamplerDelegate(sampler);
-            if (delegate != null) {
-                toCheck = delegate;
+    private static void scanForPackSamplerCalls(String expression, Set<String> packNames, Map<String, Integer> counts) {
+        for (String name : packNames) {
+            // Match both "name(" and "name (" (with or without space)
+            if (expression.contains(name + "(") || expression.contains(name + " (")) {
+                counts.merge(name, 1, Integer::sum);
             }
         }
-
-        // Check if this sampler is a known pack-level instance (by identity)
-        String packSamplerName = packSamplerInstances.get(toCheck);
-        if (packSamplerName != null) {
-            counts.put(packSamplerName, counts.getOrDefault(packSamplerName, 0) + 1);
-        }
-    }
-
-    /**
-     * Check if a sampler is a LastValueSampler by class name.
-     */
-    private static boolean isLastValueSampler(Sampler sampler) {
-        return sampler.getClass().getName().endsWith("LastValueSampler");
-    }
-
-    /**
-     * Extract the delegate from a LastValueSampler via reflection.
-     */
-    private static Sampler getLastValueSamplerDelegate(Sampler sampler) {
-        try {
-            Field field = sampler.getClass().getDeclaredField("delegate");
-            field.setAccessible(true);
-            return (Sampler) field.get(sampler);
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    /**
-     * Build a reverse map from sampler instance to pack-level sampler name.
-     * This lets us quickly identify pack samplers by object identity during walks.
-     */
-    public static Map<Sampler, String> buildPackSamplerInstanceMap(Map<String, Sampler> packSamplers) {
-        Map<Sampler, String> result = new IdentityHashMap<>();
-        for (Map.Entry<String, Sampler> entry : packSamplers.entrySet()) {
-            result.put(entry.getValue(), entry.getKey());
-        }
-        return result;
     }
 }
