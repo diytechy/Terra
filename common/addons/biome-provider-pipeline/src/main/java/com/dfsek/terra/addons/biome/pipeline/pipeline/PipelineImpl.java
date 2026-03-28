@@ -102,11 +102,23 @@ public class PipelineImpl implements Pipeline {
 
             // Install chunk-scope cache wrappers on selected samplers
             for (PipelineSamplerAnalysis.SelectedSampler selected : analysisResult.selected) {
-                Sampler originalSampler = selected.sampler;
-                ChunkScopedCacheSampler cacheSampler = new ChunkScopedCacheSampler(originalSampler, chunkContextLocal, selected.slot);
+                Sampler lastValueSampler = selected.sampler;
 
-                // Swap the delegate in the original LastValueSampler wrapper
-                setLastValueSamplerDelegate(originalSampler, cacheSampler);
+                // Get the inner sampler that the LastValueSampler currently wraps
+                // (LastValueSampler wraps DeferredExpressionSampler or other compiled samplers)
+                Sampler innerSampler = getLastValueSamplerDelegate(lastValueSampler);
+                if (innerSampler == null) {
+                    // If we can't get the delegate, skip this sampler
+                    logger.warn("Could not extract delegate from LastValueSampler for caching");
+                    continue;
+                }
+
+                // Wrap the inner sampler in the cache
+                ChunkScopedCacheSampler cacheSampler = new ChunkScopedCacheSampler(innerSampler, chunkContextLocal, selected.slot);
+
+                // Replace the delegate in the LastValueSampler with the cache wrapper
+                // Now: LastValueSampler → ChunkScopedCacheSampler → (original inner sampler)
+                setLastValueSamplerDelegate(lastValueSampler, cacheSampler);
             }
             this.numCachedSamplers = analysisResult.numSlots;
         } else {
@@ -181,6 +193,23 @@ public class PipelineImpl implements Pipeline {
 
     protected Profiler getProfiler() {
         return profiler;
+    }
+
+    /**
+     * Extract the delegate from a LastValueSampler wrapper via reflection.
+     * Returns the inner sampler that the LastValueSampler currently delegates to.
+     */
+    private static Sampler getLastValueSamplerDelegate(Sampler lastValueSampler) {
+        try {
+            var method = lastValueSampler.getClass().getMethod("getDelegate");
+            Object result = method.invoke(lastValueSampler);
+            if (result instanceof Sampler) {
+                return (Sampler) result;
+            }
+        } catch (Exception e) {
+            logger.warn("Failed to get LastValueSampler delegate", e);
+        }
+        return null;
     }
 
     /**

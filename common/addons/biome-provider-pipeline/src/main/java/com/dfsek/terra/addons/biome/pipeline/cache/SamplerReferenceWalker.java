@@ -124,9 +124,15 @@ public final class SamplerReferenceWalker {
         if (sampler == null) return null;
 
         // Unwrap LastValueSampler using its public getDelegate() method
-        if (sampler instanceof com.dfsek.terra.addons.noise.config.sampler.LastValueSampler) {
-            Sampler delegate = ((com.dfsek.terra.addons.noise.config.sampler.LastValueSampler) sampler).getDelegate();
-            return extractExpressionString(delegate);
+        // Check by class simple name to avoid direct dependency on the noise addon class
+        if (sampler.getClass().getSimpleName().equals("LastValueSampler")) {
+            try {
+                // Call the public getDelegate() method via reflection
+                Sampler delegate = (Sampler) sampler.getClass().getMethod("getDelegate").invoke(sampler);
+                return extractExpressionString(delegate);
+            } catch (Exception ignored) {
+                // If reflection fails, fall through to return null
+            }
         }
 
         // Get expression string from DeferredExpressionSampler
