@@ -36,8 +36,8 @@ import com.dfsek.terra.addons.biome.pipeline.api.Stage;
 public final class PipelineSamplerAnalysis {
     private static final Logger logger = LoggerFactory.getLogger(PipelineSamplerAnalysis.class);
 
-    // Memory budget per thread for sampler caches: 256 KB
-    private static final long BUDGET_BYTES_PER_THREAD = 256 * 1024L;
+    // Memory budget per thread for sampler caches: 1 MB
+    private static final long BUDGET_BYTES_PER_THREAD = 1024 * 1024L;
 
     private PipelineSamplerAnalysis() {
     }
