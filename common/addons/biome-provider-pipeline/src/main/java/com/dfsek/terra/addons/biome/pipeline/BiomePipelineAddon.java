@@ -66,9 +66,10 @@ public class BiomePipelineAddon implements AddonInitializer {
                     PROVIDER_REGISTRY_KEY);
                 providerRegistry.register(addon.key("PIPELINE"), () -> {
                     // Extract pack samplers and complexity estimator from pack context
-                    Map<String, Sampler> packSamplers = extractPackSamplers(event.getPack());
+                    boolean debugProfiler = platform.getTerraConfig().isDebugProfiler();
+                    Map<String, Sampler> packSamplers = extractPackSamplers(event.getPack(), debugProfiler);
                     Function<Sampler, Integer> complexityEstimator = getComplexityEstimator();
-                    return new BiomePipelineTemplate(platform.getProfiler(), packSamplers, complexityEstimator);
+                    return new BiomePipelineTemplate(platform.getProfiler(), packSamplers, complexityEstimator, debugProfiler);
                 });
             })
             .then(event -> {
@@ -100,27 +101,27 @@ public class BiomePipelineAddon implements AddonInitializer {
      * Extract pack-level samplers from the pack context.
      * Uses reflection to avoid direct dependency on NoiseAddon.
      */
-    private static Map<String, Sampler> extractPackSamplers(com.dfsek.terra.api.config.ConfigPack pack) {
+    private static Map<String, Sampler> extractPackSamplers(com.dfsek.terra.api.config.ConfigPack pack, boolean debugProfiler) {
         try {
             // Try to get PackSamplerContext from pack context
             Object psc = pack.getContext().getByClassName("com.dfsek.terra.addons.noise.PackSamplerContext");
 
             if (psc == null) {
-                System.out.println("[BiomePipelineAddon] PackSamplerContext not found in pack context");
+                if (debugProfiler) System.out.println("[BiomePipelineAddon] PackSamplerContext not found in pack context");
                 return new HashMap<>();
             }
 
-            System.out.println("[BiomePipelineAddon] Found PackSamplerContext, attempting to extract pack samplers");
+            if (debugProfiler) System.out.println("[BiomePipelineAddon] Found PackSamplerContext, attempting to extract pack samplers");
 
             // Get the samplers map via reflection - DIAGNOSTIC: trying getSamplers() method
             var method = psc.getClass().getMethod("getSamplers");
             Object samplers = method.invoke(psc);
 
-            System.out.println("[BiomePipelineAddon] getSamplers() returned: " + (samplers == null ? "null" : samplers.getClass().getName()));
+            if (debugProfiler) System.out.println("[BiomePipelineAddon] getSamplers() returned: " + (samplers == null ? "null" : samplers.getClass().getName()));
 
             if (samplers instanceof Map) {
                 Map<String, Object> samplerMap = (Map<String, Object>) samplers;
-                System.out.println("[BiomePipelineAddon] Extracted " + samplerMap.size() + " pack samplers for auto-caching analysis");
+                if (debugProfiler) System.out.println("[BiomePipelineAddon] Extracted " + samplerMap.size() + " pack samplers for auto-caching analysis");
 
                 Map<String, Sampler> result = new HashMap<>();
 
@@ -140,9 +141,11 @@ public class BiomePipelineAddon implements AddonInitializer {
                     }
                 }
 
-                System.out.println("[BiomePipelineAddon] Successfully extracted " + result.size() + " Sampler objects for auto-caching");
-                if (!result.isEmpty()) {
-                    System.out.println("[BiomePipelineAddon] Extracted sampler names: " + String.join(", ", result.keySet()));
+                if (debugProfiler) {
+                    System.out.println("[BiomePipelineAddon] Successfully extracted " + result.size() + " Sampler objects for auto-caching");
+                    if (!result.isEmpty()) {
+                        System.out.println("[BiomePipelineAddon] Extracted sampler names: " + String.join(", ", result.keySet()));
+                    }
                 }
                 return result;
             }
@@ -152,7 +155,7 @@ public class BiomePipelineAddon implements AddonInitializer {
             e.printStackTrace();
         }
 
-        System.out.println("[BiomePipelineAddon] Returning empty sampler map - auto-caching will not be active");
+        if (debugProfiler) System.out.println("[BiomePipelineAddon] Returning empty sampler map - auto-caching will not be active");
         return new HashMap<>();
     }
 

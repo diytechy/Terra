@@ -31,6 +31,7 @@ public class BiomePipelineTemplate implements ObjectTemplate<BiomeProvider> {
     private final Profiler profiler;
     private final Map<String, Sampler> packSamplers;
     private final Function<Sampler, Integer> complexityEstimator;
+    private final boolean debugProfiler;
 
     /**
      * Constructor for BiomePipelineTemplate with optional caching support.
@@ -38,16 +39,18 @@ public class BiomePipelineTemplate implements ObjectTemplate<BiomeProvider> {
      * @param profiler the profiler
      * @param packSamplers map of pack-level samplers (may be null or empty)
      * @param complexityEstimator function to estimate sampler complexity (may be null)
+     * @param debugProfiler whether to enable debug logging for sampler caching analysis
      */
-    public BiomePipelineTemplate(Profiler profiler, Map<String, Sampler> packSamplers, Function<Sampler, Integer> complexityEstimator) {
+    public BiomePipelineTemplate(Profiler profiler, Map<String, Sampler> packSamplers, Function<Sampler, Integer> complexityEstimator, boolean debugProfiler) {
         this.profiler = profiler;
         this.packSamplers = packSamplers;
         this.complexityEstimator = complexityEstimator;
+        this.debugProfiler = debugProfiler;
     }
 
     // Backward-compatible constructor without caching
     public BiomePipelineTemplate(Profiler profiler) {
-        this(profiler, null, null);
+        this(profiler, null, null, false);
     }
     @Value("resolution")
     @Default
@@ -74,7 +77,7 @@ public class BiomePipelineTemplate implements ObjectTemplate<BiomeProvider> {
 
     @Override
     public BiomeProvider get() {
-        PipelineImpl pipeline = new PipelineImpl(source, stages, resolution, 64, profiler, packSamplers, complexityEstimator);
+        PipelineImpl pipeline = new PipelineImpl(source, stages, resolution, 64, profiler, packSamplers, complexityEstimator, debugProfiler);
         return new PipelineBiomeProvider(pipeline, resolution, blendSampler, blendAmplitude, profiler);
     }
 }

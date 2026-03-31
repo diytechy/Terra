@@ -36,7 +36,7 @@ public class PipelineImpl implements Pipeline {
     private final int numCachedSamplers;
 
     public PipelineImpl(Source source, List<Stage> stages, int resolution, int maxArraySize, Profiler profiler) {
-        this(source, stages, resolution, maxArraySize, profiler, null, null);
+        this(source, stages, resolution, maxArraySize, profiler, null, null, false);
     }
 
     /**
@@ -49,6 +49,7 @@ public class PipelineImpl implements Pipeline {
      * @param profiler the profiler
      * @param packSamplers map of pack-level samplers for caching analysis (null = no caching)
      * @param complexityEstimator function to estimate sampler complexity (required if packSamplers is not null)
+     * @param debugProfiler whether to enable debug logging for sampler caching analysis
      */
     public PipelineImpl(
         Source source,
@@ -57,7 +58,8 @@ public class PipelineImpl implements Pipeline {
         int maxArraySize,
         Profiler profiler,
         Map<String, Sampler> packSamplers,
-        Function<Sampler, Integer> complexityEstimator) {
+        Function<Sampler, Integer> complexityEstimator,
+        boolean debugProfiler) {
 
         this.source = source;
         this.stages = stages;
@@ -98,7 +100,7 @@ public class PipelineImpl implements Pipeline {
         this.chunkContextLocal = new ThreadLocal<>();
         if (packSamplers != null && !packSamplers.isEmpty() && complexityEstimator != null) {
             PipelineSamplerAnalysis.AnalysisResult analysisResult =
-                PipelineSamplerAnalysis.analyze(source, stages, packSamplers, bestArraySize, complexityEstimator);
+                PipelineSamplerAnalysis.analyze(source, stages, packSamplers, bestArraySize, complexityEstimator, debugProfiler);
 
             // Install chunk-scope cache wrappers on selected samplers
             for (PipelineSamplerAnalysis.SelectedSampler selected : analysisResult.selected) {
