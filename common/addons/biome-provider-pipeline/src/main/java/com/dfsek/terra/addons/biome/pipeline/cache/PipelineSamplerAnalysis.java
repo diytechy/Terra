@@ -50,6 +50,7 @@ public final class PipelineSamplerAnalysis {
      * @param packSamplers map of (sampler name -> sampler) for all pack-level 2D samplers
      * @param arraySize the pipeline array size (side length)
      * @param complexityEstimator function that estimates sampler complexity (required; usually SamplerComplexityEstimator::estimate)
+     * @param debugProfiler whether to enable debug logging
      * @return analysis result containing selected samplers and slot assignments
      */
     public static AnalysisResult analyze(
@@ -57,18 +58,19 @@ public final class PipelineSamplerAnalysis {
         List<Stage> stages,
         Map<String, Sampler> packSamplers,
         int arraySize,
-        Function<Sampler, Integer> complexityEstimator) {
+        Function<Sampler, Integer> complexityEstimator,
+        boolean debugProfiler) {
 
-        System.out.println("[PipelineSamplerAnalysis] Starting sampler analysis with " + packSamplers.size() + " pack samplers available");
+        if (debugProfiler) System.out.println("[PipelineSamplerAnalysis] Starting sampler analysis with " + packSamplers.size() + " pack samplers available");
 
         if (packSamplers.isEmpty()) {
-            System.out.println("[PipelineSamplerAnalysis] No pack samplers available - auto-caching disabled");
+            if (debugProfiler) System.out.println("[PipelineSamplerAnalysis] No pack samplers available - auto-caching disabled");
             return new AnalysisResult(new ArrayList<>(), 0);
         }
 
         // Step 1: Count references to each pack sampler by scanning expression strings
-        Map<String, Integer> referenceCounts = SamplerReferenceWalker.countReferences(source, stages, packSamplers);
-        System.out.println("[PipelineSamplerAnalysis] Reference counts: " + referenceCounts);
+        Map<String, Integer> referenceCounts = SamplerReferenceWalker.countReferences(source, stages, packSamplers, debugProfiler);
+        if (debugProfiler) System.out.println("[PipelineSamplerAnalysis] Reference counts: " + referenceCounts);
 
         // Step 2: Estimate complexity for each sampler
         Map<String, Integer> complexities = new HashMap<>();
@@ -111,7 +113,7 @@ public final class PipelineSamplerAnalysis {
         }
 
         // Log the selection
-        logSelection(selected, weights, arraySize, maxSlots);
+        logSelection(selected, weights, arraySize, maxSlots, debugProfiler);
 
         return new AnalysisResult(selected, slot);
     }
@@ -123,11 +125,12 @@ public final class PipelineSamplerAnalysis {
         List<SelectedSampler> selected,
         List<SamplerWeight> allWeights,
         int arraySize,
-        int maxSlots) {
+        int maxSlots,
+        boolean debugProfiler) {
 
         if (selected.isEmpty()) {
             String msg = "Pipeline sampler caching: no samplers selected (none used in pipeline or budget exhausted)";
-            System.out.println("[PipelineSamplerAnalysis] " + msg);
+            if (debugProfiler) System.out.println("[PipelineSamplerAnalysis] " + msg);
             logger.info(msg);
             return;
         }
@@ -162,7 +165,7 @@ public final class PipelineSamplerAnalysis {
         }
 
         String output = sb.toString();
-        System.out.println("[PipelineSamplerAnalysis] " + output.replace("\n", "\n[PipelineSamplerAnalysis] "));
+        if (debugProfiler) System.out.println("[PipelineSamplerAnalysis] " + output.replace("\n", "\n[PipelineSamplerAnalysis] "));
         logger.info(output);
     }
 

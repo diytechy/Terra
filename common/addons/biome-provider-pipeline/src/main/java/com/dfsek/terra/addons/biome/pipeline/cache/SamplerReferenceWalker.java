@@ -43,12 +43,14 @@ public final class SamplerReferenceWalker {
      * @param source the biome source (if any)
      * @param stages the pipeline stages
      * @param packSamplers map of (name -> sampler) for all pack-level samplers
+     * @param debugProfiler whether to enable debug logging
      * @return map from pack sampler name to reference count
      */
     public static Map<String, Integer> countReferences(
         Source source,
         List<Stage> stages,
-        Map<String, Sampler> packSamplers) {
+        Map<String, Sampler> packSamplers,
+        boolean debugProfiler) {
 
         Map<String, Integer> counts = new HashMap<>();
 
@@ -59,7 +61,7 @@ public final class SamplerReferenceWalker {
 
         Set<String> packNames = packSamplers.keySet();
 
-        System.out.println("[SamplerReferenceWalker] Starting reference count analysis for " + packNames.size() + " pack samplers");
+        if (debugProfiler) System.out.println("[SamplerReferenceWalker] Starting reference count analysis for " + packNames.size() + " pack samplers");
 
         // Pass 1: Count pack-to-pack references (most accurate)
         // Each pack sampler's expression is scanned for references to other pack samplers
@@ -71,7 +73,7 @@ public final class SamplerReferenceWalker {
                 scanForPackSamplerCalls(exprString, packNames, counts);
             }
         }
-        System.out.println("[SamplerReferenceWalker] Scanned " + packExprCount + " pack sampler expressions for cross-references");
+        if (debugProfiler) System.out.println("[SamplerReferenceWalker] Scanned " + packExprCount + " pack sampler expressions for cross-references");
 
         // Pass 2: Count stage-to-pack references (only if expression strings are accessible)
         // In current CHIMERA setup, stage samplers are ExpressionNoiseFunction (compiled, no strings).
@@ -89,10 +91,12 @@ public final class SamplerReferenceWalker {
                 }
             }
         }
-        if (stageExprCount > 0) {
-            System.out.println("[SamplerReferenceWalker] Scanned " + stageExprCount + " stage expressions for pack sampler references");
-        } else {
-            System.out.println("[SamplerReferenceWalker] No stage expression strings available (stages are compiled ExpressionNoiseFunction)");
+        if (debugProfiler) {
+            if (stageExprCount > 0) {
+                System.out.println("[SamplerReferenceWalker] Scanned " + stageExprCount + " stage expressions for pack sampler references");
+            } else {
+                System.out.println("[SamplerReferenceWalker] No stage expression strings available (stages are compiled ExpressionNoiseFunction)");
+            }
         }
 
         // Also scan source if present
@@ -101,13 +105,13 @@ public final class SamplerReferenceWalker {
             if (sourceSampler != null) {
                 String exprString = extractExpressionString(sourceSampler);
                 if (exprString != null) {
-                    System.out.println("[SamplerReferenceWalker] Scanning source sampler expression");
+                    if (debugProfiler) System.out.println("[SamplerReferenceWalker] Scanning source sampler expression");
                     scanForPackSamplerCalls(exprString, packNames, counts);
                 }
             }
         }
 
-        System.out.println("[SamplerReferenceWalker] Final reference counts: " + counts);
+        if (debugProfiler) System.out.println("[SamplerReferenceWalker] Final reference counts: " + counts);
         return counts;
     }
 
