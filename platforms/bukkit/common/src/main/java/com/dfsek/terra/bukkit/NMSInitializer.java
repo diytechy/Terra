@@ -9,7 +9,7 @@ import com.dfsek.terra.bukkit.util.VersionUtil;
 
 
 public interface NMSInitializer {
-    List<String> SUPPORTED_VERSIONS = List.of("v1.21.11");
+    List<String> SUPPORTED_VERSIONS = List.of("v1.21.11", "v26.1");
     String MINECRAFT_VERSION = VersionUtil.getMinecraftVersionInfo().toString();
     String TERRA_PACKAGE = NMSInitializer.class.getPackageName();
 

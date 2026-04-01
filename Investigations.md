@@ -247,3 +247,23 @@ java.lang.RuntimeException: Failed to compile 1 deferred expression sampler(s):
   maxRiverWidthAtLevel: 2 errors occured. First:   2:24: Unknown variable: 'NaN'
         at com.dfsek.terra.addons.noise.NoiseAddon.lambda$initialize$23(NoiseAddon.java:203)
         at com.dfsek.terra.event.EventContextImpl.lambda$handle$0(EventContextImpl.java:50)
+
+#############################
+
+Recently there were some loggers added to Terra to show how samplers were being selected and graded for automatic caching.  Can you update these loggers to only show when the profiler debug is turned on?
+
+For example, these loggers are the ones I want to restrict:
+
+"[SamplerReferenceWalker] Scanning source sampler expression"
+"[SamplerReferenceWalker] Scanned 75 stage expressions"
+"Pipeline sampler caching: selected"
+
+#################################
+
+Now update remaining for 26.1:
+
+Update Versions.kt:64-66 - Update to 26.1-R0.1-SNAPSHOT
+Update plugin.yml:8 -  Update api-version to 26.1
+
+Forge: https://github.com/MinecraftForge/MinecraftForge, 26.1
+Fabric: https://github.com/FabricMC/fabric-api, 26.1 (API)
