@@ -89,7 +89,7 @@ public class PipelineImpl implements Pipeline {
                 bestArraySize = BiomeChunkImpl.initialSizeToArraySize(expanderCount, bestInitialSize);
                 chunkSize = BiomeChunkImpl.calculateChunkSize(bestArraySize, chunkOriginArrayIndex, expanderCount);
             }
-            logger.warn("Pipeline array size {} exceeds maximum {} due to stage border requirements", bestArraySize, maxArraySize);
+            if (debugProfiler) logger.warn("Pipeline array size {} exceeds maximum {} due to stage border requirements", bestArraySize, maxArraySize);
         }
 
         this.arraySize = bestArraySize;
@@ -112,7 +112,7 @@ public class PipelineImpl implements Pipeline {
                 if (selectedSampler.getClass().getSimpleName().equals("DimensionApplicableSampler")) {
                     sampler = unwrapDimensionApplicableSampler(selectedSampler);
                     if (sampler == null) {
-                        logger.warn("Could not unwrap DimensionApplicableSampler for {}", selected.name);
+                        if (debugProfiler) logger.warn("Could not unwrap DimensionApplicableSampler for {}", selected.name);
                         continue;
                     }
                 }
@@ -122,7 +122,7 @@ public class PipelineImpl implements Pipeline {
                 Sampler innerSampler = getLastValueSamplerDelegate(sampler);
                 if (innerSampler == null) {
                     // If we can't get the delegate, skip this sampler
-                    logger.warn("Could not extract delegate from LastValueSampler for {}", selected.name);
+                    if (debugProfiler) logger.warn("Could not extract delegate from LastValueSampler for {}", selected.name);
                     continue;
                 }
 
@@ -138,12 +138,14 @@ public class PipelineImpl implements Pipeline {
             this.numCachedSamplers = 0;
         }
 
-        logger.info("Initialized a new biome pipeline:");
-        logger.info("Array size: {} (Max: {})", bestArraySize, maxArraySize);
-        logger.info("Internal array origin: {}", chunkOriginArrayIndex);
-        logger.info("Chunk size: {}", chunkSize);
-        logger.info("Expander count: {}", expanderCount);
-        logger.info("Resolution: {}", resolution);
+        if (debugProfiler) {
+            logger.info("Initialized a new biome pipeline:");
+            logger.info("Array size: {} (Max: {})", bestArraySize, maxArraySize);
+            logger.info("Internal array origin: {}", chunkOriginArrayIndex);
+            logger.info("Chunk size: {}", chunkSize);
+            logger.info("Expander count: {}", expanderCount);
+            logger.info("Resolution: {}", resolution);
+        }
     }
 
     @Override
