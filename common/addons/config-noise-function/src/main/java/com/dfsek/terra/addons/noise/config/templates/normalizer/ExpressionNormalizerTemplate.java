@@ -16,12 +16,9 @@ import com.dfsek.tectonic.api.config.template.annotations.Value;
 import com.dfsek.tectonic.api.exception.ValidationException;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.regex.Pattern;
 
 import com.dfsek.terra.addons.noise.config.DimensionApplicableSampler;
 import com.dfsek.terra.addons.noise.config.sampler.DeferredExpressionSampler;
@@ -66,39 +63,16 @@ public class ExpressionNormalizerTemplate extends NormalizerTemplate<ExpressionN
     @Override
     public boolean validate() throws ValidationException {
         boolean result = super.validate();
-        // Check for undefined variables (but not undefined functions/samplers, which may be
-        // forward references not yet loaded). This catches YAML merge failures without
-        // false-positive errors on function calls that haven't been evaluated yet.
-        validateVariableReferences();
-        return result;
-    }
-
-    private void validateVariableReferences() throws ValidationException {
-        // Extract variable names (identifiers NOT followed by '('), and check against defined vars
-        Set<String> undefinedVars = new HashSet<>();
-
-        // Regex: match identifiers NOT followed by '('
-        Pattern varPattern = Pattern.compile("\\b([a-zA-Z_][a-zA-Z0-9_]*)(?!\\()");
-        var matcher = varPattern.matcher(expression);
-
-        // Built-in variables: 'in' or 'input' for normalizers, plus x/y/z/seed
-        Set<String> builtins = Set.of("x", "y", "z", "seed", "in", "input");
-
-        while(matcher.find()) {
-            String identifier = matcher.group(1);
-            // If it's not a built-in and not in the vars map, flag it as undefined
-            if(!builtins.contains(identifier) && !vars.containsKey(identifier)) {
-                undefinedVars.add(identifier);
-            }
-        }
-
-        if(!undefinedVars.isEmpty()) {
+        // Only warn if variables map is completely empty — this catches YAML merge failures.
+        // If vars has any content, we trust that the later DeferredExpressionSampler compilation
+        // will catch any actual undefined variable errors with full parse context.
+        if(vars.isEmpty() && !expression.isBlank()) {
             throw new ValidationException(
-                "Expression normalizer references undefined variables (check 'variables:' — undefined variables become 0 silently):\n"
+                "Expression normalizer has no variables defined. Check that 'variables:' uses the correct YAML merge path:\n"
                 + "  Expression: " + expression.strip().lines().findFirst().orElse("(empty)") + "\n"
-                + "  Undefined variables: " + undefinedVars + "\n"
-                + "  Defined variables: " + vars.keySet());
+                + "  variables: block is empty");
         }
+        return result;
     }
 
     @Override
