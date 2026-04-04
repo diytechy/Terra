@@ -462,4 +462,3 @@ When the chunk finally generates (after timeout or queue processing), it may hav
 6. **Consider Biome Provider Caching Bypass**
    - For chunk generation, consider using the uncached biome provider if available
    - Caching during chunk generation might cause more contention than benefit if queries are mostly unique
-

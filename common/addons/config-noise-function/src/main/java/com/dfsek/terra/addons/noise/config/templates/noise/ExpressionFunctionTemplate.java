@@ -21,6 +21,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.dfsek.tectonic.api.exception.ValidationException;
 
+import java.util.HashSet;
+import java.util.Set;
+import java.util.regex.Pattern;
+
 import com.dfsek.terra.addons.noise.config.DimensionApplicableSampler;
 import com.dfsek.terra.addons.noise.config.sampler.DeferredExpressionSampler;
 import com.dfsek.terra.addons.noise.config.templates.FunctionTemplate;
@@ -60,21 +64,39 @@ public class ExpressionFunctionTemplate extends SamplerTemplate<ExpressionNoiseF
     @Override
     public boolean validate() throws ValidationException {
         boolean result = super.validate();
-        // Eagerly attempt compilation so undefined-variable errors surface at pack load
-        // rather than silently producing 0 at runtime.
-        DeferredExpressionSampler deferred = new DeferredExpressionSampler(
-            globalSamplers, globalFunctions, samplers, functions, expression, vars, parseOptions);
-        try {
-            deferred.validate();
-        } catch(RuntimeException e) {
-            throw new ValidationException(
-                "Expression failed to compile (check 'variables:' — undefined variables become 0 silently):\n"
-                + "  Expression: " + expression.strip().lines().findFirst().orElse("(empty)") + "\n"
-                + "  Defined variables: " + vars.keySet() + "\n"
-                + "  Error: " + (e.getCause() != null ? e.getCause().getMessage() : e.getMessage()),
-                e);
-        }
+        // Check for undefined variables (but not undefined functions/samplers, which may be
+        // forward references not yet loaded). This catches YAML merge failures without
+        // false-positive errors on function calls that haven't been evaluated yet.
+        validateVariableReferences();
         return result;
+    }
+
+    private void validateVariableReferences() throws ValidationException {
+        // Extract variable names (identifiers NOT followed by '('), and check against defined vars
+        Set<String> undefinedVars = new HashSet<>();
+
+        // Regex: match identifiers NOT followed by '('
+        Pattern varPattern = Pattern.compile("\\b([a-zA-Z_][a-zA-Z0-9_]*)(?!\\()");
+        var matcher = varPattern.matcher(expression);
+
+        // Built-in coordinate variables that don't need to be defined
+        Set<String> builtins = Set.of("x", "y", "z", "seed");
+
+        while(matcher.find()) {
+            String identifier = matcher.group(1);
+            // If it's not a built-in and not in the vars map, flag it as undefined
+            if(!builtins.contains(identifier) && !vars.containsKey(identifier)) {
+                undefinedVars.add(identifier);
+            }
+        }
+
+        if(!undefinedVars.isEmpty()) {
+            throw new ValidationException(
+                "Expression references undefined variables (check 'variables:' — undefined variables become 0 silently):\n"
+                + "  Expression: " + expression.strip().lines().findFirst().orElse("(empty)") + "\n"
+                + "  Undefined variables: " + undefinedVars + "\n"
+                + "  Defined variables: " + vars.keySet());
+        }
     }
 
     @Override
