@@ -13,7 +13,6 @@ import com.dfsek.paralithic.sampler.normalizer.ExpressionNormalizer;
 import com.dfsek.seismic.type.sampler.Sampler;
 import com.dfsek.tectonic.api.config.template.annotations.Default;
 import com.dfsek.tectonic.api.config.template.annotations.Value;
-import com.dfsek.tectonic.api.exception.ValidationException;
 
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -58,21 +57,6 @@ public class ExpressionNormalizerTemplate extends NormalizerTemplate<ExpressionN
         this.globalFunctions = globalFunctions;
         this.parseOptions = parseOptions;
         this.deferCompilation = deferCompilation;
-    }
-
-    @Override
-    public boolean validate() throws ValidationException {
-        boolean result = super.validate();
-        // Only warn if variables map is completely empty — this catches YAML merge failures.
-        // If vars has any content, we trust that the later DeferredExpressionSampler compilation
-        // will catch any actual undefined variable errors with full parse context.
-        if(vars.isEmpty() && !expression.isBlank()) {
-            throw new ValidationException(
-                "Expression normalizer has no variables defined. Check that 'variables:' uses the correct YAML merge path:\n"
-                + "  Expression: " + expression.strip().lines().findFirst().orElse("(empty)") + "\n"
-                + "  variables: block is empty");
-        }
-        return result;
     }
 
     @Override

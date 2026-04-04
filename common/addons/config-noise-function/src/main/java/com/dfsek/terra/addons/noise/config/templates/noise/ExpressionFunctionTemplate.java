@@ -19,8 +19,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import com.dfsek.tectonic.api.exception.ValidationException;
-
 import com.dfsek.terra.addons.noise.config.DimensionApplicableSampler;
 import com.dfsek.terra.addons.noise.config.sampler.DeferredExpressionSampler;
 import com.dfsek.terra.addons.noise.config.templates.FunctionTemplate;
@@ -55,21 +53,6 @@ public class ExpressionFunctionTemplate extends SamplerTemplate<ExpressionNoiseF
         this.globalFunctions = globalFunctions;
         this.parseOptions = parseOptions;
         this.deferCompilation = deferCompilation;
-    }
-
-    @Override
-    public boolean validate() throws ValidationException {
-        boolean result = super.validate();
-        // Only warn if variables map is completely empty — this catches YAML merge failures.
-        // If vars has any content, we trust that the later DeferredExpressionSampler compilation
-        // will catch any actual undefined variable errors with full parse context.
-        if(vars.isEmpty() && !expression.isBlank()) {
-            throw new ValidationException(
-                "Expression has no variables defined. Check that 'variables:' uses the correct YAML merge path:\n"
-                + "  Expression: " + expression.strip().lines().findFirst().orElse("(empty)") + "\n"
-                + "  variables: block is empty");
-        }
-        return result;
     }
 
     @Override
