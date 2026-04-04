@@ -19,6 +19,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import com.dfsek.tectonic.api.exception.ValidationException;
+
 import com.dfsek.terra.addons.noise.config.DimensionApplicableSampler;
 import com.dfsek.terra.addons.noise.config.sampler.DeferredExpressionSampler;
 import com.dfsek.terra.addons.noise.config.templates.FunctionTemplate;
@@ -53,6 +55,26 @@ public class ExpressionFunctionTemplate extends SamplerTemplate<ExpressionNoiseF
         this.globalFunctions = globalFunctions;
         this.parseOptions = parseOptions;
         this.deferCompilation = deferCompilation;
+    }
+
+    @Override
+    public boolean validate() throws ValidationException {
+        boolean result = super.validate();
+        // Eagerly attempt compilation so undefined-variable errors surface at pack load
+        // rather than silently producing 0 at runtime.
+        DeferredExpressionSampler deferred = new DeferredExpressionSampler(
+            globalSamplers, globalFunctions, samplers, functions, expression, vars, parseOptions);
+        try {
+            deferred.validate();
+        } catch(RuntimeException e) {
+            throw new ValidationException(
+                "Expression failed to compile (check 'variables:' — undefined variables become 0 silently):\n"
+                + "  Expression: " + expression.strip().lines().findFirst().orElse("(empty)") + "\n"
+                + "  Defined variables: " + vars.keySet() + "\n"
+                + "  Error: " + (e.getCause() != null ? e.getCause().getMessage() : e.getMessage()),
+                e);
+        }
+        return result;
     }
 
     @Override

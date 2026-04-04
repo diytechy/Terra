@@ -194,7 +194,7 @@ public class NoiseAddon implements AddonInitializer {
                         try {
                             deferred.validate();
                         } catch(RuntimeException e) {
-                            validationErrors.add(name + ": " + e.getCause().getMessage());
+                            validationErrors.add(name + ": " + (e.getCause() != null ? e.getCause().getMessage() : e.getMessage()));
                         }
                     }
                 });

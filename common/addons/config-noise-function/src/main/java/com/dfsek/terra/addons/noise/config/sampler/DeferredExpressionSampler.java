@@ -114,7 +114,9 @@ public class DeferredExpressionSampler implements Sampler {
                 }
                 return compiled;
             } catch(ParseException e) {
-                throw new RuntimeException("Failed to parse deferred expression.", e);
+                throw new RuntimeException(
+                    "Failed to parse expression: " + expression.strip().lines().findFirst().orElse("(empty)")
+                    + "\n  Error: " + e.getMessage(), e);
             }
         }
     }

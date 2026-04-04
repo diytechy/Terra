@@ -13,6 +13,7 @@ import com.dfsek.paralithic.sampler.normalizer.ExpressionNormalizer;
 import com.dfsek.seismic.type.sampler.Sampler;
 import com.dfsek.tectonic.api.config.template.annotations.Default;
 import com.dfsek.tectonic.api.config.template.annotations.Value;
+import com.dfsek.tectonic.api.exception.ValidationException;
 
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -57,6 +58,26 @@ public class ExpressionNormalizerTemplate extends NormalizerTemplate<ExpressionN
         this.globalFunctions = globalFunctions;
         this.parseOptions = parseOptions;
         this.deferCompilation = deferCompilation;
+    }
+
+    @Override
+    public boolean validate() throws ValidationException {
+        boolean result = super.validate();
+        // Eagerly attempt compilation so undefined-variable errors surface at pack load
+        // rather than silently producing 0 at runtime.
+        DeferredExpressionSampler deferred = new DeferredExpressionSampler(
+            globalSamplers, globalFunctions, samplers, functions, expression, vars, parseOptions, function);
+        try {
+            deferred.validate();
+        } catch(RuntimeException e) {
+            throw new ValidationException(
+                "Expression normalizer failed to compile (check 'variables:' — undefined variables become 0 silently):\n"
+                + "  Expression: " + expression.strip().lines().findFirst().orElse("(empty)") + "\n"
+                + "  Defined variables: " + vars.keySet() + "\n"
+                + "  Error: " + (e.getCause() != null ? e.getCause().getMessage() : e.getMessage()),
+                e);
+        }
+        return result;
     }
 
     @Override
