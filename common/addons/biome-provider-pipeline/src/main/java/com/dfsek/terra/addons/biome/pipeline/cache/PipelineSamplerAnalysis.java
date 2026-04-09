@@ -130,8 +130,10 @@ public final class PipelineSamplerAnalysis {
 
         if (selected.isEmpty()) {
             String msg = "Pipeline sampler caching: no samplers selected (none used in pipeline or budget exhausted)";
-            if (debugProfiler) System.out.println("[PipelineSamplerAnalysis] " + msg);
-            logger.info(msg);
+            if (debugProfiler) {
+                System.out.println("[PipelineSamplerAnalysis] " + msg);
+                logger.info(msg);
+            }
             return;
         }
 
@@ -165,8 +167,10 @@ public final class PipelineSamplerAnalysis {
         }
 
         String output = sb.toString();
-        if (debugProfiler) System.out.println("[PipelineSamplerAnalysis] " + output.replace("\n", "\n[PipelineSamplerAnalysis] "));
-        logger.info(output);
+        if (debugProfiler) {
+            System.out.println("[PipelineSamplerAnalysis] " + output.replace("\n", "\n[PipelineSamplerAnalysis] "));
+            logger.info(output);
+        }
     }
 
     /**
