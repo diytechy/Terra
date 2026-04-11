@@ -483,7 +483,19 @@ Update plugin.yml:8 -  Update api-version to 26.1
 Forge: https://github.com/MinecraftForge/MinecraftForge, 26.1
 Fabric: https://github.com/FabricMC/fabric-api, 26.1 (API)
 
+#####################################
 
+Recently this plugin should have been updated for Fabric and Forge compatibility with minecraft 26.1.  Now please create a plan to update it for compatibility with paper minecraft given the following information:
 
+Release announcement:
 
+ **Alpha** builds for Paper 26.1.1 are now available on our website (<https://papermc.io/downloads/paper>) and downloads API! This comes with a change to our versioning scheme, e.g. our 8th build for 26.1.1 is published under: `26.1.1.build.8-alpha` instead of the legacy `-R0.1-SNAPSHOT` suffix that hasn't carried any meaning in many years. This also means they're published to the releases repository instead of snapshots (which will automatically work if you already use `https://repo.papermc.io/repository/maven-public/`).
 
+To automatically resolve the latest build of a version in Gradle, you can use `26.1.1.build.+`.
+<@&1077384171258908743>
+
+Source repository is at:
+https://github.com/PaperMC/Paper/tree/dev/26.1#
+
+A local branch with some modifications is at (though I assume this is not needed):
+C:\Projects\Paper

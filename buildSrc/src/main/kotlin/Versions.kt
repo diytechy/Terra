@@ -61,15 +61,13 @@ object Versions {
 //    }
     
     object Bukkit {
-        const val minecraft = "1.21.11"
-        const val nms = "$minecraft-R0.1"
-        const val paperBuild = "$nms-20260310.030221-86"
-        const val paper = paperBuild
+        const val minecraft = "26.1"
+        const val paper = "26.1.1.build.+"
+        const val paperDevBundle = paper
         const val paperLib = "1.0.8"
         const val reflectionRemapper = "0.1.3"
-        const val paperDevBundle = paperBuild
         const val runPaper = "2.3.1"
-        const val paperWeight = "2.0.0-beta.19"
+        const val paperWeight = "2.0.0-beta.21"
         const val cloud = "2.0.0-beta.12"
         const val multiverse = "5.3.0"
     }
