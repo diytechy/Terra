@@ -157,7 +157,7 @@ public class ChunkInterpolator {
                                         .get(noisePropertiesKey);
                                     double sample = properties.noiseHolder().getNoise(properties.samplers().base(), absoluteX, scaledY, absoluteZ, seed);
                                     runningNoise += sample * properties.samplers().blendWeight();
-                                    runningDiv += properties.blendWeight();
+                                    runningDiv += properties.samplers().blendWeight();
                                 }
                             }
 

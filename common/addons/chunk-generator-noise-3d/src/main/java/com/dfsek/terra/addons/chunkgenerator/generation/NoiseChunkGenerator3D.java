@@ -81,7 +81,7 @@ public class NoiseChunkGenerator3D implements ChunkGenerator {
             .getBiomeProvider()
             .stream()
             .map(biome -> biome.getContext().get(noisePropertiesKey))
-            .mapToInt(properties -> properties.blendDistance() * properties.blendStep())
+            .mapToInt(properties -> properties.samplers().blendDistance() * properties.samplers().blendStep())
             .max()
             .orElse(0);
 

@@ -7,10 +7,9 @@ object Versions {
     }
     
     object Libraries {
-        // Resolves in order: mavenLocal (local dev) → Repsy diytechy → solo-studios/CodeMC (upstream).
-        // diytechy builds use the "-diytechy" suffix; upstream builds use a plain version number.
-        // Override via systemProp.tectonicVersion in gradle.properties (e.g. "4.3.2-diytechy" for local dev).
-        val tectonic: String = System.getProperty("tectonicVersion") ?: "4.3.1"
+        // Requires the diytechy Tectonic branch — Terra calls ConfigLoader.beginSession()/endSession()
+        // which do not exist in upstream Tectonic. Resolved from mavenLocal (local dev) or Repsy diytechy (CI).
+        const val tectonic = "4.3.2-diytechy"
         const val paralithic = "2.0.1"
         const val strata = "1.3.2"
         const val seismic = "2.5.7"
