@@ -33,6 +33,9 @@ if "%DIRNAME%"=="" set DIRNAME=.
 set APP_BASE_NAME=%~n0
 set APP_HOME=%DIRNAME%
 
+@rem Force Java 21
+set JAVA_HOME=C:\JAVA\jdk-21
+
 @rem Resolve any "." and ".." in APP_HOME to make it shorter.
 for %%i in ("%APP_HOME%") do set APP_HOME=%%~fi
 
@@ -79,16 +82,16 @@ if errorlevel 1 (
 	goto check_git
 )
 powershell -NoLogo -NoProfile -Command ^
-  "$line = (& '%JAVA_EXE%' -version 2>&1 | Select-String 'version').ToString(); write-host $line; if ($line -match 'version\s+""?([0-9]+)') { $maj = [int]$Matches[1]; } else { exit 4 }; if ($maj -gt 24) { exit 3 }; if ($maj -lt 23) { exit 2 }"
+  "$line = (& '%JAVA_EXE%' -version 2>&1 | Select-String 'version').ToString(); write-host $line; if ($line -match 'version\s+""?([0-9]+)') { $maj = [int]$Matches[1]; } else { exit 4 }; if ($maj -gt 24) { exit 3 }; if ($maj -lt 21) { exit 2 }"
 
 
 if %ERRORLEVEL%==3 (
-    echo ERROR: Java version appears to exceed 24.  Using java version 23 or 24.  Cannot continue.
+    echo ERROR: Java version appears to exceed 24.  Using java version 21-24.  Cannot continue.
     exit /b 1
 )
 
 if %ERRORLEVEL%==2 (
-    echo WARNING: Java version appears to be below 23.  Some generators may not load due to L32X64MixRandom in certain versions of Java.
+    echo WARNING: Java version appears to be below 21.  Some generators may not load due to L32X64MixRandom in certain versions of Java.
 	goto check_git
 )
 
