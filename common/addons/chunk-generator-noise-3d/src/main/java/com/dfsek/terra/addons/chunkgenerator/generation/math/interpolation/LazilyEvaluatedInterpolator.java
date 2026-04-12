@@ -57,6 +57,7 @@ public class LazilyEvaluatedInterpolator {
                 .getBiome(xi, y, zi, seed)
                 .getContext()
                 .get(noisePropertiesKey)
+                .samplers()
                 .carving()
                 .getSample(seed, xi, y, zi);
             samples[index] = sample;

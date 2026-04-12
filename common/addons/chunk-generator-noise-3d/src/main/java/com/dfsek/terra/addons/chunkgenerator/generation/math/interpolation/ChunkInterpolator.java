@@ -67,7 +67,7 @@ public class ChunkInterpolator {
                 for(int y = 0; y < size; y++) {
                     int scaledY = (y << 2) + min;
                     BiomeNoiseProperties props = col.get(scaledY).getContext().get(noisePropertiesKey);
-                    int localBlend = props.blendDistance() * props.blendStep();
+                    int localBlend = props.samplers().blendDistance() * props.samplers().blendStep();
                     if(localBlend > localMaxBlend) localMaxBlend = localBlend;
                 }
             }
@@ -103,15 +103,15 @@ public class ChunkInterpolator {
                         .getContext()
                         .get(noisePropertiesKey);
 
-                    int step = generationSettings.blendStep();
-                    int blend = generationSettings.blendDistance();
+                    int step = generationSettings.samplers().blendStep();
+                    int blend = generationSettings.samplers().blendDistance();
 
                     double noise;
 
                     if(blend == 0 || scaledY < blendMinY || scaledY > blendMaxY) {
                         // Blend disabled: either the biome has blendDistance=0, or this Y level is
                         // outside the pack-configured blend range. Use center sample directly.
-                        noise = generationSettings.noiseHolder().getNoise(generationSettings.base(), absoluteX, scaledY, absoluteZ, seed);
+                        noise = generationSettings.noiseHolder().getNoise(generationSettings.samplers().base(), absoluteX, scaledY, absoluteZ, seed);
                     } else {
                         // Option 4: Single-pass fetch + homogeneity check.
                         // Fetch all blend columns (lazily cached for subsequent y-levels) while
@@ -139,7 +139,7 @@ public class ChunkInterpolator {
                         if(homogeneous) {
                             // All neighbors are the same biome: blending is a weighted average of
                             // identical values, so the result equals the center sample directly.
-                            noise = generationSettings.noiseHolder().getNoise(generationSettings.base(), absoluteX, scaledY, absoluteZ, seed);
+                            noise = generationSettings.noiseHolder().getNoise(generationSettings.samplers().base(), absoluteX, scaledY, absoluteZ, seed);
                         } else {
                             // Heterogeneous blend zone: all columns already fetched above,
                             // evaluate noise for each and compute weighted average.
@@ -155,8 +155,8 @@ public class ChunkInterpolator {
                                         .get(scaledY)
                                         .getContext()
                                         .get(noisePropertiesKey);
-                                    double sample = properties.noiseHolder().getNoise(properties.base(), absoluteX, scaledY, absoluteZ, seed);
-                                    runningNoise += sample * properties.blendWeight();
+                                    double sample = properties.noiseHolder().getNoise(properties.samplers().base(), absoluteX, scaledY, absoluteZ, seed);
+                                    runningNoise += sample * properties.samplers().blendWeight();
                                     runningDiv += properties.blendWeight();
                                 }
                             }

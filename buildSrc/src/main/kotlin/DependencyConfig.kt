@@ -29,6 +29,10 @@ fun Project.configureDependencies() {
 
     repositories {
         mavenLocal()
+        // diytechy fork of Tectonic — try local then Repsy before falling back to upstream.
+        maven("https://repo.repsy.io/mvn/diytechy/tectonic") {
+            name = "RepsyTectonic"
+        }
         mavenCentral()
         gradlePluginPortal()
         maven("https://maven.solo-studios.ca/releases") {

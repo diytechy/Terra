@@ -34,6 +34,14 @@ public class PaletteHolder {
         return builder.build();
     }
 
+    public Palette[] getPalettes() {
+        return palettes;
+    }
+
+    public int getOffset() {
+        return offset;
+    }
+
     public Palette getPalette(int y) {
         int index = y + offset;
         return index >= 0

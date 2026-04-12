@@ -7,7 +7,10 @@ object Versions {
     }
     
     object Libraries {
-        const val tectonic = "4.3.1"
+        // Resolves in order: mavenLocal (local dev) → Repsy diytechy → solo-studios/CodeMC (upstream).
+        // diytechy builds use the "-diytechy" suffix; upstream builds use a plain version number.
+        // Override via systemProp.tectonicVersion in gradle.properties (e.g. "4.3.2-diytechy" for local dev).
+        val tectonic: String = System.getProperty("tectonicVersion") ?: "4.3.1"
         const val paralithic = "2.0.1"
         const val strata = "1.3.2"
         const val seismic = "2.5.7"
