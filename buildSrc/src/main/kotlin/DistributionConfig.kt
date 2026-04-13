@@ -3,6 +3,8 @@ import io.papermc.paperweight.util.path
 import java.io.File
 import java.io.FileWriter
 import java.net.URL
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 import java.nio.file.FileSystems
 import java.nio.file.Path
 import org.gradle.api.DefaultTask
@@ -141,9 +143,8 @@ fun Project.configureDistribution() {
                     githubFallbackUrl = URL("https://github.com/PolyhedralDev/Tartarus/releases/download/" + Versions.Terra.tartarusConfig + "/Tartarus.zip")
                 )
 
-                // DefaultMetapack — unchanged, always from PolyhedralDev GitHub
-                val defaultPackUrl = URL("https://github.com/PolyhedralDev/DefaultMetapack/releases/download/" + Versions.Terra.defaultConfig + "/default.zip")
-                downloadPack(defaultPackUrl, project, true)
+                // Generate custom metapack mapping CHIMERA to the overworld
+                generateDefaultMetapack(project)
             } catch (_: Exception) {
             }
         }
@@ -261,6 +262,35 @@ fun Project.configureDistribution() {
     tasks.named<DefaultTask>("build") {
         dependsOn(tasks["shadowJar"])
     }
+}
+
+/**
+ * Generates a custom default.zip metapack that maps Minecraft dimensions to the correct
+ * custom pack IDs. CHIMERA replaces the original OVERWORLD pack for the overworld dimension.
+ */
+fun generateDefaultMetapack(project: Project) {
+    val metapackDir = File("${project.buildDir}/resources/main/metapacks/")
+    metapackDir.mkdirs()
+    val zipFile = File(metapackDir, "default.zip")
+
+    val metapackContent = """
+        id: DEFAULT
+        version: 1.0.0
+        author: "diytechy"
+
+        packs:
+          "minecraft:overworld": "CHIMERA:CHIMERA"
+          "minecraft:the_nether": "TARTARUS:TARTARUS"
+          "minecraft:the_end": "REIMAGEND:REIMAGEND"
+    """.trimIndent()
+
+    project.logger.lifecycle("Generating custom default metapack (CHIMERA overworld)...")
+    ZipOutputStream(zipFile.outputStream()).use { zos ->
+        zos.putNextEntry(ZipEntry("metapack.yml"))
+        zos.write(metapackContent.toByteArray(Charsets.UTF_8))
+        zos.closeEntry()
+    }
+    project.logger.lifecycle("  Metapack written: ${zipFile.absolutePath}")
 }
 
 fun downloadPack(packUrl: URL, project: Project, metapack: Boolean = false) {

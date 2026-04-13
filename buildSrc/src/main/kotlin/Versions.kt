@@ -3,7 +3,6 @@ object Versions {
         const val chimeraConfig = "2.0.1"
         const val reimagENDConfig = "3.0.0"
         const val tartarusConfig = "1.0.0"
-        const val defaultConfig = "latest"
     }
     
     object Libraries {
