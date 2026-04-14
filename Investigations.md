@@ -499,3 +499,17 @@ https://github.com/PaperMC/Paper/tree/dev/26.1#
 
 A local branch with some modifications is at (though I assume this is not needed):
 C:\Projects\Paper
+
+#######################################################################
+
+There is a new error being produced when I attempt to run the shadow jar file in papermc:
+
+[19:08:42 ERROR]: [com.dfsek.terra.bukkit.NMSInitializer] You are running your server on Minecraft version v26.1.2 which is not supported by this version of Terra.
+[19:08:42 ERROR]: [com.dfsek.terra.bukkit.NMSInitializer] Because of this **TERRA HAS BEEN DISABLED**.
+[19:08:42 ERROR]: [com.dfsek.terra.bukkit.NMSInitializer] Do not come ask us why it is not working.
+[19:08:42 ERROR]: [com.dfsek.terra.bukkit.NMSInitializer] If you wish to proceed anyways, you can add the JVM System Property "IKnowThereAreNoNMSBindingsForv26_1_2ButIWillProceedAnyway" to enable the plugin.
+
+This error indicates there are no nms bindings for 26.1, but we previously updated this version of terra for 26.1 compatability.  Can you help me understand if this error is just residual or if it's indicating nms biome injection will fail with paper 26.1 despite the updates made?
+
+A local paper branch that is attempting to run this Terra plugin is at:
+C:\Projects\Paper

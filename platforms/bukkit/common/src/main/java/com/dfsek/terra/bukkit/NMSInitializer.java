@@ -3,20 +3,27 @@ package com.dfsek.terra.bukkit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.List;
-
 import com.dfsek.terra.bukkit.util.VersionUtil;
+import com.dfsek.terra.bukkit.util.VersionUtil.MinecraftVersionInfo;
 
 
 public interface NMSInitializer {
-    List<String> SUPPORTED_VERSIONS = List.of("v26.1", "v26.1.1");
-    String MINECRAFT_VERSION = VersionUtil.getMinecraftVersionInfo().toString();
+    int MINIMUM_MAJOR = 26;
+    int MINIMUM_MINOR = 1;
+    MinecraftVersionInfo MINECRAFT_VERSION_INFO = VersionUtil.getMinecraftVersionInfo();
+    String MINECRAFT_VERSION = MINECRAFT_VERSION_INFO.toString();
     String TERRA_PACKAGE = NMSInitializer.class.getPackageName();
+
+    private static boolean isVersionSupported() {
+        int major = MINECRAFT_VERSION_INFO.getMajor();
+        int minor = MINECRAFT_VERSION_INFO.getMinor();
+        return major > MINIMUM_MAJOR || (major == MINIMUM_MAJOR && minor >= MINIMUM_MINOR);
+    }
 
     static PlatformImpl init(TerraBukkitPlugin plugin) {
         Logger logger = LoggerFactory.getLogger(NMSInitializer.class);
 
-        if(!SUPPORTED_VERSIONS.contains(MINECRAFT_VERSION)) {
+        if(!isVersionSupported()) {
             logger.error("You are running your server on Minecraft version {} which is not supported by this version of Terra.",
                 MINECRAFT_VERSION);
 
