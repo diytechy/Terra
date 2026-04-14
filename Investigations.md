@@ -513,3 +513,11 @@ This error indicates there are no nms bindings for 26.1, but we previously updat
 
 A local paper branch that is attempting to run this Terra plugin is at:
 C:\Projects\Paper
+
+#######################################################################
+
+Create a plan for Terra (C:/Projects/Terra) to issue a warning for the bukkit / paper platform:
+
+1. When world generation starts issue a warning world creation may take a long time and the player may be disconnected.  Also check the "timeout-time" in spigot.yml and recommend it to be at least 1800 mS for world creation to complete if the value is not already greater than 1800.
+
+2. On plugin load, issue a warning if the "timeout-time" in spigot.yml is less than 1800 mS and recommend it to be at least 1800 mS for world creation to be successful.  Note also that the warning can be ignored if the user does not intend to generate any new worlds with Terra in the current session.
