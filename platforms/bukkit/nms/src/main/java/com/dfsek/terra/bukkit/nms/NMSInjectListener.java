@@ -18,14 +18,13 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import com.dfsek.terra.api.config.ConfigPack;
 import com.dfsek.terra.bukkit.generator.BukkitChunkGeneratorWrapper;
-import com.dfsek.terra.bukkit.util.SpigotConfigUtil;
+import com.dfsek.terra.bukkit.util.PreExistingWorlds;
 
 
 public class NMSInjectListener implements Listener {
     private static final Logger LOGGER = LoggerFactory.getLogger(NMSInjectListener.class);
     private static final Set<World> INJECTED = new HashSet<>();
     private static final ReentrantLock INJECT_LOCK = new ReentrantLock();
-    private static boolean timeoutWarningIssued = false;
 
     @EventHandler
     public void onWorldInit(WorldInitEvent event) {
@@ -34,15 +33,10 @@ public class NMSInjectListener implements Listener {
             INJECT_LOCK.lock();
             INJECTED.add(event.getWorld());
             LOGGER.info("Preparing to take over the world: {}", event.getWorld().getName());
-            LOGGER.warn("World creation for '{}' may take a long time. Players may experience disconnections during this process.",
-                event.getWorld().getName());
-            if(!timeoutWarningIssued && SpigotConfigUtil.isTimeoutTooLow()) {
-                timeoutWarningIssued = true;
-                LOGGER.warn("""
-                            Your spigot.yml timeout-time is set to {} seconds. \
-                            It is recommended to set timeout-time to at least {} seconds (30 minutes) \
-                            in spigot.yml to prevent the server watchdog from killing the server during world creation.""".strip(),
-                    SpigotConfigUtil.getTimeoutTime(), SpigotConfigUtil.RECOMMENDED_TIMEOUT);
+            if(PreExistingWorlds.isNewWorld(event.getWorld().getName())) {
+                LOGGER.warn("Creating new world '{}'. World generation may take a long time; " +
+                            "players may experience disconnections during this process.",
+                    event.getWorld().getName());
             }
             CraftWorld craftWorld = (CraftWorld) event.getWorld();
             ServerLevel serverWorld = craftWorld.getHandle();
