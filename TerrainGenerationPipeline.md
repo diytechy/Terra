@@ -628,60 +628,73 @@ All paths relative to `c:\Projects\Terra\`.
 ## Summary: The Complete Density-to-Block Pipeline
 
 ```
-                    ┌─────────────────────────┐
-                    │    BiomeProvider         │
-                    │  (determines biome at    │
-                    │   each x, y, z)          │
-                    └──────────┬──────────────┘
-                               │
-        ┌──────────────────────┼──────────────────────┐
-        ▼                      ▼                       ▼
-┌───────────────┐   ┌──────────────────┐   ┌──────────────────┐
-│ terrain.      │   │ terrain.         │   │ terrain.         │
-│ sampler       │   │ sampler-floor    │   │ sampler-2d       │
-│ (3D noise)    │   │ (3D pre-         │   │ (2D elevation)   │
-│               │   │  interpolation   │   │                  │
-│               │   │  density floor)  │   │                  │
-└───────┬───────┘   └────────┬─────────┘   └────────┬─────────┘
-        │                    │                       │
-        │            ┌───────▼───────────┐   ┌───────▼──────────┐
-        └───────────►│ ChunkInterpolator │   │ Elevation        │
-                     │  sparse grid:     │   │ Interpolator     │
-                     │  blend 3D noise,  │   │ (block-res +     │
-                     │  apply floor vs   │   │  2D biome blend) │
-                     │  3D + 2D, then    │   └────────┬─────────┘
-                     │  trilinear        │            │
-                     │  interpolation    │            │
-                     └────────┬──────────┘            │
-                              │                       │
-                              └──────────┬────────────┘
-                                         ▼
-                                 ┌───────────────┐
-                                 │  Sampler3D    │
-                                 │  density =    │
-                                 │  3D + 2D      │
-                                 └───────┬───────┘
-                                         │
-                                 ┌───────▼───────┐        ┌──────────────┐
-                                 │ min-density   │        │ carving.     │
-                                 │ floor (post-  │        │ sampler      │
-                                 │ interpolation,│        │ (3D caves)   │
-                                 │ per-biome or  │        └──────┬───────┘
-                                 │ pack-level)   │               │
-                                 └───────┬───────┘               │
-                                         │                       │
-                                         ▼                       ▼
-                              ┌─────────────────────────────────────┐
-                              │         Block Placement              │
-                              │                                      │
-                              │  if density > 0:                     │
-                              │    if carving <= 0:                   │
-                              │      → solid block (from palette)    │
-                              │    else:                              │
-                              │      → air (carved)                  │
-                              │  else if y <= seaLevel:              │
-                              │    → water (from ocean palette)      │
-                              │  else:                                │
-                              │    → air                             │
-                              └─────────────────────────────────────┘
+                         ┌─────────────────────────┐
+                         │    BiomeProvider         │
+                         │  (determines biome at    │
+                         │   each x, y, z)          │
+                         └──────────┬──────────────┘
+                                    │
+         ┌──────────────────────────┼──────────────────────────┐
+         ▼                          ▼                           ▼
+ ┌───────────────┐      ┌──────────────────┐      ┌────────────────────┐
+ │ *A*           │      │ *B*              │      │ *C*                │
+ │ terrain.      │      │ terrain.         │      │ terrain.sampler-2d │
+ │ sampler       │      │ sampler-floor    │      │ (2D elevation)     │
+ │ (3D noise)    │      │ (3D pre-         │      │                    │
+ │               │      │  interpolation   │      │                    │
+ │               │      │  density floor)  │      │                    │
+ └───────┬───────┘      └────────┬─────────┘      └──────────┬─────────┘
+         │                       │                            │
+         │                       │                     ┌──────▼──────────────┐
+         │                       │           ┌────────►│ *E*                 │
+         │                       │           │         │ ElevationInterpolator│
+         │                       │           │         │ (block-res +        │
+         │                       │           │         │  2D biome blend)    │
+         │                       │           │         └──────────┬──────────┘
+         │                       │           │                    │
+         │               ┌───────▼───────────┴──┐                │ (full-res
+         └──────────────►│ *D*                  │◄───────────────┘  elevation
+                         │ ChunkInterpolator    │  (elevation at    per block)
+                         │  sparse grid:        │   sparse XZ pts
+                         │  blend A+B, subtract │   for floor
+                         │  E to compare floor  │   subtraction)
+                         │  vs 3D+2D, trilinear │
+                         │  interpolation       │
+                         └──────────┬───────────┘
+                                    │ (interpolated
+                                    │  3D, floor-adjusted,
+                                    │  per block)
+                                    │
+                              ┌─────▼──────┐    ┌────────────────────────┐
+                              │            │◄───┤ *E* Elevation          │
+                              │ *F*        │    │ Interpolator           │
+                              │            │    │ (same instance,        │
+                              │ Sampler3D  │    │  re-used at full       │
+                              │ density =  │    │  block resolution)     │
+                              │ D + E      │    └────────────────────────┘
+                              └─────┬──────┘
+                                    │
+                            ┌───────▼───────┐        ┌──────────────┐
+                            │ *G*           │        │ carving.     │
+                            │ min-density   │        │ sampler      │
+                            │ floor (post-  │        │ (3D caves)   │
+                            │ interpolation,│        └──────┬───────┘
+                            │ per-biome or  │               │
+                            │ pack-level)   │               │
+                            └───────┬───────┘               │
+                                    │                       │
+                                    ▼                       ▼
+                         ┌─────────────────────────────────────┐
+                         │         Block Placement              │
+                         │                                      │
+                         │  if density > 0:                     │
+                         │    if carving <= 0:                   │
+                         │      → solid block (from palette)    │
+                         │    else:                              │
+                         │      → air (carved)                  │
+                         │  else if y <= seaLevel:              │
+                         │    → water (from ocean palette)      │
+                         │  else:                                │
+                         │    → air                             │
+                         └─────────────────────────────────────┘
 ```

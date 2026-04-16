@@ -521,3 +521,29 @@ Create a plan for Terra (C:/Projects/Terra) to issue a warning for the bukkit / 
 1. When world generation starts issue a warning world creation may take a long time and the player may be disconnected.  Also check the "timeout-time" in spigot.yml and recommend it to be at least 1800 mS for world creation to complete if the value is not already greater than 1800.
 
 2. On plugin load, issue a warning if the "timeout-time" in spigot.yml is less than 1800 mS and recommend it to be at least 1800 mS for world creation to be successful.  Note also that the warning can be ignored if the user does not intend to generate any new worlds with Terra in the current session.
+
+####################################3
+
+Now looking at the most  recent changes there are some issues.  Please investigate both:
+
+1. The startup warning on plugin load ideally would wait to actually issue the warning until all other plugins are loaded and the server is fully running so it is easy for the user to see.  It would also be good for that warning to banded (Like "*****************************" or "=======================") to help the user notice the warning in the console window and in the log.
+
+2. The warning that's intended for new world creation is occurring while packs are being loaded.  Perhaps this warning cannot be issued by Terra, as Terra may not be able to distinguish a new world being requested for creation vs just generating chunks for an existing world.
+
+############################
+
+What configurable caches exist in the project?  There is a biome cache with a default I believe set to 256, are there others that could be tweaked to improve performance?
+
+####################################3
+
+Okay, so the critical issue here is that we have a sampler3d+2d which are both blended in slightly different ways, which can cause issues depending on their definition. when they come to biome borders.
+
+This is esspecially true in rearth biomes where the 3d sampler is used extensively to give detailed terrain, but this doesn't merge well with other biomes who rely on the 2d sampler to give a smooth transition between biomes.
+
+Create a plan to introduce yet another optional per-biome sampler, this time defining the minimum pre interpolated density, whose value can be compared to the current sum of the 3d+2d.  This sampler should follow the same blending definitions as the current 3d sampler, but the key here is that it will NOT be added to the 2d sampler.
+
+If the new sampler exists / is defined, it will act as a floor against the sum of the 2d+3d samplers and hence affect the interpolated result, else all computations will remain the same.
+
+#############################################3
+
+TBD: The recent implementation is incorrect (the latest commit), the flow should be:

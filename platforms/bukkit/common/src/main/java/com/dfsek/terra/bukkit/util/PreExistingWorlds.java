@@ -23,8 +23,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.Set;
+import java.util.TreeSet;
 
 
 /**
@@ -46,7 +46,7 @@ public final class PreExistingWorlds {
      * is initialized.
      */
     public static void snapshot() {
-        Set<String> found = new HashSet<>();
+        Set<String> found = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
         try {
             File container = Bukkit.getWorldContainer();
             File[] entries = container.listFiles();
@@ -62,14 +62,16 @@ public final class PreExistingWorlds {
         }
         snapshot = Collections.unmodifiableSet(found);
         snapshotTaken = true;
-        LOGGER.debug("Recorded {} pre-existing world folder(s): {}", snapshot.size(), snapshot);
+        LOGGER.info("Recorded {} pre-existing world folder(s): {}", snapshot.size(), snapshot);
     }
 
     /**
      * @return true if the given world name was not present on disk when the snapshot was taken.
+     *         Comparison is case-insensitive (world folders on Windows are case-insensitive,
+     *         and Bukkit's in-memory world name may not match the folder case).
      *         Returns false if no snapshot was taken (fails safe — no warning).
      */
     public static boolean isNewWorld(String worldName) {
-        return snapshotTaken && !snapshot.contains(worldName);
+        return snapshotTaken && worldName != null && !snapshot.contains(worldName);
     }
 }
