@@ -158,13 +158,11 @@ public class ChunkInterpolator {
                             // evaluate noise for each and compute weighted average.
                             double runningNoise = 0;
                             double runningDiv = 0;
-                            // The floor is only applied if the CENTER biome defines one.
-                            // This prevents floor structures from bleeding into neighboring
-                            // biomes whose sparse grid points don't opt in to a floor.
-                            // Non-floor neighbors still contribute to runningDiv so that the
-                            // floor fades naturally toward the border inside the floor biome,
-                            // reducing the value that trilinear interpolation carries outward.
-                            boolean centerHasFloor = generationSettings.samplers().densityFloor() != null;
+                            // Floor is only applied if EVERY biome in the blend neighborhood
+                            // defines terrain.sampler-floor. Any missing floor sampler cancels
+                            // the entire floor contribution at this sparse point, preventing
+                            // border artifacts from interpolating into non-floor biomes.
+                            boolean allHaveFloor = true;
                             double floorNumerator = 0;
 
                             for(int xi = -blend; xi <= blend; xi++) {
@@ -184,12 +182,14 @@ public class ChunkInterpolator {
                                     Sampler floorSampler = samplers.densityFloor();
                                     if(floorSampler != null) {
                                         floorNumerator += floorSampler.getSample(seed, absoluteX, scaledY, absoluteZ) * weight;
+                                    } else {
+                                        allHaveFloor = false;
                                     }
                                 }
                             }
 
                             noise = runningNoise / runningDiv;
-                            if(centerHasFloor) {
+                            if(allHaveFloor) {
                                 double elevation = elevationInterpolator.getElevation(scaledX, scaledZ);
                                 noise = Math.max(noise, floorNumerator / runningDiv - elevation);
                             }
