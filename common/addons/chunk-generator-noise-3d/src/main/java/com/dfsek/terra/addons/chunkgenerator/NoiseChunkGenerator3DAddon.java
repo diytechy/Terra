@@ -106,7 +106,9 @@ public class NoiseChunkGenerator3DAddon implements AddonInitializer {
                         BiomeNoiseSamplers s = props.samplers();
                         props = new BiomeNoiseProperties(
                             new BiomeNoiseSamplers(s.base(), s.elevation(), s.carving(),
-                                0, s.blendStep(), s.blendWeight(), s.elevationWeight()),
+                                0, s.blendStep(), s.blendWeight(), s.elevationWeight(),
+                                s.minDensity(), s.minDensitySmooth(), s.minDensitySmoothK(),
+                                s.densityFloor()),
                             props.noiseHolder()
                         );
                     }

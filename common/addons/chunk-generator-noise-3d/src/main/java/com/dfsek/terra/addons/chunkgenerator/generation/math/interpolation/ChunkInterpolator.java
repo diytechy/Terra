@@ -7,7 +7,10 @@
 
 package com.dfsek.terra.addons.chunkgenerator.generation.math.interpolation;
 
+import com.dfsek.seismic.type.sampler.Sampler;
+
 import com.dfsek.terra.addons.chunkgenerator.config.noise.BiomeNoiseProperties;
+import com.dfsek.terra.addons.chunkgenerator.config.noise.BiomeNoiseSamplers;
 import com.dfsek.terra.api.properties.PropertyKey;
 import com.dfsek.terra.api.util.Column;
 import com.dfsek.terra.api.world.biome.Biome;
@@ -35,7 +38,7 @@ public class ChunkInterpolator {
      */
     public ChunkInterpolator(long seed, int chunkX, int chunkZ, BiomeProvider provider, int min, int max,
                              PropertyKey<BiomeNoiseProperties> noisePropertiesKey, int maxBlend,
-                             int blendMinY, int blendMaxY) {
+                             int blendMinY, int blendMaxY, ElevationInterpolator elevationInterpolator) {
         this.min = min;
         this.max = max;
 
@@ -53,7 +56,7 @@ public class ChunkInterpolator {
         // Option 5: Pre-scan the 5x5 center grid to compute the local max blend for this chunk.
         // This allows allocating a smaller columns array when high-blend outlier biomes are absent
         // from this chunk, avoiding the memory overhead of the global maximum.
-        @SuppressWarnings("unchecked")
+        @SuppressWarnings({"unchecked", "rawtypes"})
         Column<Biome>[] centerColumns = new Column[25];
         int localMaxBlend = 0;
         for(int x = 0; x < 5; x++) {
@@ -112,6 +115,11 @@ public class ChunkInterpolator {
                         // Blend disabled: either the biome has blendDistance=0, or this Y level is
                         // outside the pack-configured blend range. Use center sample directly.
                         noise = generationSettings.noiseHolder().getNoise(generationSettings.samplers().base(), absoluteX, scaledY, absoluteZ, seed);
+                        Sampler floor = generationSettings.samplers().densityFloor();
+                        if(floor != null) {
+                            double elevation = elevationInterpolator.getElevation(scaledX, scaledZ);
+                            noise = Math.max(noise, floor.getSample(seed, absoluteX, scaledY, absoluteZ) - elevation);
+                        }
                     } else {
                         // Option 4: Single-pass fetch + homogeneity check.
                         // Fetch all blend columns (lazily cached for subsequent y-levels) while
@@ -140,11 +148,18 @@ public class ChunkInterpolator {
                             // All neighbors are the same biome: blending is a weighted average of
                             // identical values, so the result equals the center sample directly.
                             noise = generationSettings.noiseHolder().getNoise(generationSettings.samplers().base(), absoluteX, scaledY, absoluteZ, seed);
+                            Sampler floor = generationSettings.samplers().densityFloor();
+                            if(floor != null) {
+                                double elevation = elevationInterpolator.getElevation(scaledX, scaledZ);
+                                noise = Math.max(noise, floor.getSample(seed, absoluteX, scaledY, absoluteZ) - elevation);
+                            }
                         } else {
                             // Heterogeneous blend zone: all columns already fetched above,
                             // evaluate noise for each and compute weighted average.
                             double runningNoise = 0;
                             double runningDiv = 0;
+                            double floorNumerator = 0;
+                            boolean hasFloor = false;
 
                             for(int xi = -blend; xi <= blend; xi++) {
                                 for(int zi = -blend; zi <= blend; zi++) {
@@ -155,13 +170,24 @@ public class ChunkInterpolator {
                                         .get(scaledY)
                                         .getContext()
                                         .get(noisePropertiesKey);
-                                    double sample = properties.noiseHolder().getNoise(properties.samplers().base(), absoluteX, scaledY, absoluteZ, seed);
-                                    runningNoise += sample * properties.samplers().blendWeight();
-                                    runningDiv += properties.samplers().blendWeight();
+                                    BiomeNoiseSamplers samplers = properties.samplers();
+                                    double sample = properties.noiseHolder().getNoise(samplers.base(), absoluteX, scaledY, absoluteZ, seed);
+                                    double weight = samplers.blendWeight();
+                                    runningNoise += sample * weight;
+                                    runningDiv += weight;
+                                    Sampler floorSampler = samplers.densityFloor();
+                                    if(floorSampler != null) {
+                                        floorNumerator += floorSampler.getSample(seed, absoluteX, scaledY, absoluteZ) * weight;
+                                        hasFloor = true;
+                                    }
                                 }
                             }
 
                             noise = runningNoise / runningDiv;
+                            if(hasFloor) {
+                                double elevation = elevationInterpolator.getElevation(scaledX, scaledZ);
+                                noise = Math.max(noise, floorNumerator / runningDiv - elevation);
+                            }
                         }
                     }
 

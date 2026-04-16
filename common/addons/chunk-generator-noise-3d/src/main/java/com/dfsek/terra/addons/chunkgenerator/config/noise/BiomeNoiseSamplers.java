@@ -2,6 +2,8 @@ package com.dfsek.terra.addons.chunkgenerator.config.noise;
 
 import com.dfsek.seismic.type.sampler.Sampler;
 
+import org.jetbrains.annotations.Nullable;
+
 
 /**
  * Immutable, cacheable record holding the shareable sampler configuration for a biome.
@@ -17,5 +19,9 @@ public record BiomeNoiseSamplers(
     int blendDistance,
     int blendStep,
     double blendWeight,
-    double elevationWeight
+    double elevationWeight,
+    @Nullable Sampler minDensity,
+    boolean minDensitySmooth,
+    double minDensitySmoothK,
+    @Nullable Sampler densityFloor
 ) {}

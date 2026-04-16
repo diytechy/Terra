@@ -9,6 +9,9 @@ import com.dfsek.terra.api.config.meta.Meta;
 
 
 public class BiomeNoiseConfigTemplate implements ObjectTemplate<BiomeNoiseProperties> {
+    private static final Sampler NO_MIN_DENSITY_SAMPLER = Sampler.zero();
+    private static final Sampler NO_FLOOR_SAMPLER = Sampler.zero();
+
     @Value("terrain.sampler")
     private @Meta Sampler baseSampler;
 
@@ -36,6 +39,22 @@ public class BiomeNoiseConfigTemplate implements ObjectTemplate<BiomeNoiseProper
     @Default
     private @Meta double elevationWeight;
 
+    @Value("terrain.min-density.sampler")
+    @Default
+    private @Meta Sampler minDensitySampler = NO_MIN_DENSITY_SAMPLER;
+
+    @Value("terrain.min-density.smooth")
+    @Default
+    private @Meta boolean minDensitySmooth = false;
+
+    @Value("terrain.min-density.smooth-k")
+    @Default
+    private @Meta double minDensitySmoothK = 1.0;
+
+    @Value("terrain.sampler-floor")
+    @Default
+    private @Meta Sampler densityFloor = NO_FLOOR_SAMPLER;
+
     public BiomeNoiseConfigTemplate(int defaultBlendDistance, int defaultBlendStep,
                                     double defaultBlendWeight, double defaultElevationWeight) {
         this.blendDistance   = defaultBlendDistance;
@@ -47,7 +66,9 @@ public class BiomeNoiseConfigTemplate implements ObjectTemplate<BiomeNoiseProper
     @Override
     public BiomeNoiseProperties get() {
         return new BiomeNoiseProperties(
-            new BiomeNoiseSamplers(baseSampler, elevationSampler, carvingSampler, blendDistance, blendStep, blendWeight, elevationWeight),
+            new BiomeNoiseSamplers(baseSampler, elevationSampler, carvingSampler, blendDistance, blendStep, blendWeight, elevationWeight,
+                minDensitySampler == NO_MIN_DENSITY_SAMPLER ? null : minDensitySampler, minDensitySmooth, minDensitySmoothK,
+                densityFloor == NO_FLOOR_SAMPLER ? null : densityFloor),
             new ThreadLocalNoiseHolder());
     }
 }

@@ -16,6 +16,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import com.dfsek.terra.addons.chunkgenerator.config.noise.BiomeNoiseProperties;
+import com.dfsek.terra.addons.chunkgenerator.config.noise.BiomeNoiseSamplers;
 import com.dfsek.terra.addons.chunkgenerator.generation.math.SlantCalculationMethod;
 import com.dfsek.terra.addons.chunkgenerator.generation.math.interpolation.LazilyEvaluatedInterpolator;
 import com.dfsek.terra.addons.chunkgenerator.generation.math.samplers.Sampler3D;
@@ -146,7 +147,10 @@ public class NoiseChunkGenerator3D implements ChunkGenerator {
                 Biome lastSeaBiome = null;
                 int computedSea = 0;
                 Biome lastMinDensityBiome = null;
-                boolean skipMinDensity = false;
+                boolean skipPackMinDensity = false;
+                Sampler biomeMinDensitySampler = null;
+                boolean biomeMinDensitySmooth = false;
+                double biomeMinDensitySmoothK = 1.0;
                 for(int y = world.getMaxHeight() - 1; y >= world.getMinHeight(); y--) {
                     Biome biome = biomeColumn.get(y);
 
@@ -164,22 +168,29 @@ public class NoiseChunkGenerator3D implements ChunkGenerator {
 
                     double density = sampler.sample(x, y, z);
 
-                    if(minDensitySampler != null) {
-                        if(biome != lastMinDensityBiome) {
-                            skipMinDensity = !minDensitySkipTags.isEmpty()
-                                && biome.getTags().stream().anyMatch(minDensitySkipTags::contains);
-                            lastMinDensityBiome = biome;
-                        }
-                        if(!skipMinDensity) {
-                            double floor = minDensitySampler.getSample(seed, cx, y, cz);
-                            if(minDensitySmooth) {
-                                double gap = Math.abs(density - floor);
-                                density = gap > 4.0 / minDensitySmoothK
-                                    ? Math.max(density, floor)
-                                    : smoothMax(density, floor, minDensitySmoothK);
-                            } else {
-                                density = Math.max(density, floor);
-                            }
+                    if(biome != lastMinDensityBiome) {
+                        BiomeNoiseSamplers biomeNoise = biome.getContext().get(noisePropertiesKey).samplers();
+                        biomeMinDensitySampler = biomeNoise.minDensity();
+                        biomeMinDensitySmooth = biomeNoise.minDensitySmooth();
+                        biomeMinDensitySmoothK = biomeNoise.minDensitySmoothK();
+                        skipPackMinDensity = biomeMinDensitySampler == null
+                            && !minDensitySkipTags.isEmpty()
+                            && biome.getTags().stream().anyMatch(minDensitySkipTags::contains);
+                        lastMinDensityBiome = biome;
+                    }
+                    Sampler activeFloor = biomeMinDensitySampler != null ? biomeMinDensitySampler
+                        : (!skipPackMinDensity ? minDensitySampler : null);
+                    if(activeFloor != null) {
+                        boolean smooth = biomeMinDensitySampler != null ? biomeMinDensitySmooth : minDensitySmooth;
+                        double smoothK = biomeMinDensitySampler != null ? biomeMinDensitySmoothK : minDensitySmoothK;
+                        double floor = activeFloor.getSample(seed, cx, y, cz);
+                        if(smooth) {
+                            double gap = Math.abs(density - floor);
+                            density = gap > 4.0 / smoothK
+                                ? Math.max(density, floor)
+                                : smoothMax(density, floor, smoothK);
+                        } else {
+                            density = Math.max(density, floor);
                         }
                     }
 
@@ -224,19 +235,31 @@ public class NoiseChunkGenerator3D implements ChunkGenerator {
 
         Palette palette = paletteAt(fdX, y, fdZ, sampler, paletteInfo, 0);
         double noise = sampler.sample(fdX, y, fdZ);
-        if(minDensitySampler != null) {
+        BiomeNoiseSamplers biomeNoise = biome.getContext().get(noisePropertiesKey).samplers();
+        Sampler biomeMinDensity = biomeNoise.minDensity();
+        Sampler activeFloor;
+        boolean smooth;
+        double smoothK;
+        if(biomeMinDensity != null) {
+            activeFloor = biomeMinDensity;
+            smooth = biomeNoise.minDensitySmooth();
+            smoothK = biomeNoise.minDensitySmoothK();
+        } else {
             boolean skip = !minDensitySkipTags.isEmpty()
                 && biome.getTags().stream().anyMatch(minDensitySkipTags::contains);
-            if(!skip) {
-                double floor = minDensitySampler.getSample(world.getSeed(), x, y, z);
-                if(minDensitySmooth) {
-                    double gap = Math.abs(noise - floor);
-                    noise = gap > 4.0 / minDensitySmoothK
-                        ? Math.max(noise, floor)
-                        : smoothMax(noise, floor, minDensitySmoothK);
-                } else {
-                    noise = Math.max(noise, floor);
-                }
+            activeFloor = skip ? null : minDensitySampler;
+            smooth = minDensitySmooth;
+            smoothK = minDensitySmoothK;
+        }
+        if(activeFloor != null) {
+            double floor = activeFloor.getSample(world.getSeed(), x, y, z);
+            if(smooth) {
+                double gap = Math.abs(noise - floor);
+                noise = gap > 4.0 / smoothK
+                    ? Math.max(noise, floor)
+                    : smoothMax(noise, floor, smoothK);
+            } else {
+                noise = Math.max(noise, floor);
             }
         }
         if(noise > 0) {

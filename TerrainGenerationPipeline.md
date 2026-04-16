@@ -2,7 +2,7 @@
 ## Complete Reference: Samplers, Density, Block Placement, and Carving
 
 > Consolidated from BiomeBlendConfig.txt, BlockPlacing.txt, and source code analysis.
-> Last updated: 2025-03-10
+> Last updated: 2026-04-16
 
 ---
 
@@ -36,28 +36,40 @@ The full generation pipeline for each chunk:
 Within step 1, per-chunk processing in `NoiseChunkGenerator3D.generateChunkData()`:
 
 ```
+Pre-chunk (once per chunk):
+  1. Build ElevationInterpolator — 2D elevation blended at block resolution
+  2. Build ChunkInterpolator — for each sparse 3D grid point:
+       a. Blend 3D noise from neighboring biomes (weighted average)
+       b. If any neighbor defines terrain.sampler-floor:
+            blend floor values with same weights
+            apply max(3D_noise, blended_floor − 2D_elevation_at_point)
+       c. Store adjusted value; trilinear interpolation is built from these
+
 For each chunk column (x, z):
-  1. Get biome column for that (x, z)
-  2. For each y level (top to bottom):
-     a. Sample 3D density = interpolated 3D noise + 2D elevation
-     b. Apply min-density floor constraint (if configured)
-     c. Sample carving
-     d. If density > 0 AND not carved → place solid block from palette
-     e. Else if y <= sea level → place water from ocean palette
-     f. Else → air
+  3. Get biome column for that (x, z)
+  4. For each y level (top to bottom):
+       a. Sample final density = interpolated 3D noise + 2D elevation
+       b. Apply per-biome terrain.min-density floor (if defined), else
+          apply pack-level terrain.min-density floor (if defined)
+       c. Sample carving
+       d. If density > 0 AND not carved → place solid block from palette
+       e. Else if y <= sea level → place water from ocean palette
+       f. Else → air
 ```
 
 ---
 
 ## 2. Sampler Architecture
 
-Each biome defines up to three samplers:
+Each biome defines up to five samplers:
 
-| Config Key | Dimensionality | Purpose |
-|-----------|---------------|---------|
-| `terrain.sampler` | 3D | Base terrain density — the main noise function |
-| `terrain.sampler-2d` | 2D | Elevation profile — added to the 3D noise to shape the surface |
-| `carving.sampler` | 3D | Cave/void generation — positive values = carved out |
+| Config Key | Dimensionality | When applied | Purpose |
+|-----------|---------------|-------------|---------|
+| `terrain.sampler` | 3D | Pre-interpolation (sparse grid) | Base terrain density — the main noise function |
+| `terrain.sampler-floor` | 3D | Pre-interpolation (sparse grid) | Optional minimum for the combined 3D+2D density, baked into interpolation |
+| `terrain.sampler-2d` | 2D | Post-interpolation (block resolution) | Elevation profile — added to the 3D noise to shape the surface |
+| `terrain.min-density.sampler` | 3D | Post-interpolation (block resolution) | Optional hard or smooth floor applied after full density is computed |
+| `carving.sampler` | 3D | Post-interpolation (block resolution) | Cave/void generation — positive values = carved out |
 
 These are configured in biome YAML under the `terrain:` and `carving:` keys, and are parsed by `BiomeNoiseConfigTemplate`.
 
@@ -211,31 +223,86 @@ terrain:
 
 ## 5. Minimum Density Constraints
 
-An optional system that enforces a density floor, preventing terrain from being eroded below a threshold.
+Two independent floor systems exist, applied at different stages of the pipeline. They can be used independently or together.
 
-**Config:**
+---
+
+### 5a. Pre-Interpolation Floor (`terrain.sampler-floor`)
+
+A per-biome sampler that defines a minimum for the combined 3D+2D density. It is applied **inside `ChunkInterpolator` at the sparse grid points**, before trilinear interpolation, so the floor effect itself is interpolated smoothly across blocks and biome borders.
+
+**Config (biome YAML):**
+```yaml
+terrain:
+  sampler-floor:
+    dimensions: 3
+    type: EXPRESSION
+    expression: ...   # returns desired minimum total density (3D + 2D)
+```
+
+**How it works at each sparse grid point:**
+
+```
+elevation       = ElevationInterpolator.getElevation(scaledX, scaledZ)
+blended_3D      = weighted average of terrain.sampler across blend neighborhood
+blended_floor   = weighted average of terrain.sampler-floor across same neighborhood
+                  (biomes without a floor contribute 0 to the numerator)
+
+stored_3D = max(blended_3D, blended_floor − elevation)
+```
+
+The subtraction of `elevation` ensures the floor targets the **total density** (3D + 2D) without double-counting the elevation component, which is added back after interpolation.
+
+**Blending behavior at biome borders:**
+- Uses the exact same blend parameters (`distance`, `step`, `weight`) as `terrain.sampler`
+- Biomes without `terrain.sampler-floor` contribute 0 to the floor numerator but their full weight to the denominator — so the floor effect fades proportionally as you move away from a floor-defining biome
+- This gives a natural, smooth transition: the floor is at full strength at the biome centre and tapers off at borders
+
+**Why use this over `terrain.min-density`?**
+The post-interpolation `min-density` applies `Math.max()` to an already-smooth interpolated value, which can produce visible step or slab artifacts at biome transitions. `terrain.sampler-floor` bakes the constraint into the sparse samples, so interpolation smooths it out. It is the preferred approach for biomes with complex 3D terrain (e.g. pillars) that need to maintain structure at biome edges.
+
+---
+
+### 5b. Post-Interpolation Floor (`terrain.min-density`)
+
+Enforces a density floor **after** full 3D+2D density is computed, at per-block resolution. Supports smooth blending.
+
+**Config — per-biome (takes precedence):**
 ```yaml
 terrain:
   min-density:
     sampler: [3D sampler defining the floor]
-    smooth: true/false      # Smooth or hard transition
-    smooth-k: 0.1           # Smoothness parameter (lower = sharper)
-    skip-tags: [biome tags to exclude]
+    smooth: false           # true = smooth exponential blend
+    smooth-k: 1.0           # smoothness factor (higher = sharper)
 ```
+
+**Config — pack-level fallback (`pack.yml`):**
+```yaml
+terrain:
+  min-density:
+    sampler: [3D sampler]
+    smooth: false
+    smooth-k: 1.0
+    skip-tags: [biome tags that opt OUT of this floor]
+```
+
+**Precedence:** if a biome defines its own `terrain.min-density.sampler`, it is used and the pack-level floor is ignored for that biome. Skip-tags only apply to the pack-level floor.
 
 **Evaluation:**
 ```java
-if (minDensitySampler != null) {
-    double floor = minDensitySampler.getSample(seed, cx, y, cz);
-    if (minDensitySmooth) {
-        density = smoothMax(density, floor, k);  // smooth exponential blend
+// per-biome floor takes precedence; falls back to pack-level if null
+Sampler activeFloor = biomeFloor != null ? biomeFloor : packFloor;
+if (activeFloor != null) {
+    double floor = activeFloor.getSample(seed, x, y, z);
+    if (smooth) {
+        density = smoothMax(density, floor, smoothK);  // exponential smooth-max
     } else {
-        density = Math.max(density, floor);       // hard floor
+        density = Math.max(density, floor);             // hard floor
     }
 }
 ```
 
-Applied after the combined 3D+2D density is computed, before carving is checked. Unlike the terrain sampler (which is trilinearly interpolated on the coarse 4-block grid), the min-density sampler is evaluated at **every block position** for full per-block precision.
+Evaluated at **every block position** — not sparse-sampled or interpolated. Applied after `Sampler3D` combines 3D+2D, before carving.
 
 ---
 
@@ -567,45 +634,54 @@ All paths relative to `c:\Projects\Terra\`.
                     │   each x, y, z)          │
                     └──────────┬──────────────┘
                                │
-              ┌────────────────┼────────────────┐
-              ▼                ▼                 ▼
-    ┌─────────────────┐ ┌──────────────┐ ┌──────────────┐
-    │ terrain.sampler  │ │ terrain.     │ │ carving.     │
-    │ (3D noise)       │ │ sampler-2d   │ │ sampler      │
-    │                  │ │ (2D elev.)   │ │ (3D caves)   │
-    └────────┬────────┘ └──────┬───────┘ └──────┬───────┘
-             │                 │                 │
-    ┌────────▼────────┐ ┌──────▼───────┐        │
-    │ ChunkInterp.    │ │ ElevationInt.│        │
-    │ (trilinear +    │ │ (block-res + │        │
-    │  3D biome blend)│ │  2D blend)   │        │
-    └────────┬────────┘ └──────┬───────┘        │
-             │                 │                 │
-             └────────┬────────┘                 │
-                      ▼                          │
-              ┌───────────────┐                  │
-              │  Sampler3D    │                  │
-              │  density =    │                  │
-              │  3D + 2D      │                  │
-              └───────┬───────┘                  │
-                      │                          │
-              ┌───────▼───────┐                  │
-              │ min-density   │                  │
-              │ floor         │                  │
-              └───────┬───────┘                  │
-                      │                          │
-                      ▼                          ▼
-              ┌─────────────────────────────────────┐
-              │         Block Placement              │
-              │                                      │
-              │  if density > 0:                     │
-              │    if carving <= 0:                   │
-              │      → solid block (from palette)    │
-              │    else:                              │
-              │      → air (carved)                  │
-              │  else if y <= seaLevel:              │
-              │    → water (from ocean palette)      │
-              │  else:                                │
-              │    → air                             │
-              └─────────────────────────────────────┘
+        ┌──────────────────────┼──────────────────────┐
+        ▼                      ▼                       ▼
+┌───────────────┐   ┌──────────────────┐   ┌──────────────────┐
+│ terrain.      │   │ terrain.         │   │ terrain.         │
+│ sampler       │   │ sampler-floor    │   │ sampler-2d       │
+│ (3D noise)    │   │ (3D pre-         │   │ (2D elevation)   │
+│               │   │  interpolation   │   │                  │
+│               │   │  density floor)  │   │                  │
+└───────┬───────┘   └────────┬─────────┘   └────────┬─────────┘
+        │                    │                       │
+        │            ┌───────▼───────────┐   ┌───────▼──────────┐
+        └───────────►│ ChunkInterpolator │   │ Elevation        │
+                     │  sparse grid:     │   │ Interpolator     │
+                     │  blend 3D noise,  │   │ (block-res +     │
+                     │  apply floor vs   │   │  2D biome blend) │
+                     │  3D + 2D, then    │   └────────┬─────────┘
+                     │  trilinear        │            │
+                     │  interpolation    │            │
+                     └────────┬──────────┘            │
+                              │                       │
+                              └──────────┬────────────┘
+                                         ▼
+                                 ┌───────────────┐
+                                 │  Sampler3D    │
+                                 │  density =    │
+                                 │  3D + 2D      │
+                                 └───────┬───────┘
+                                         │
+                                 ┌───────▼───────┐        ┌──────────────┐
+                                 │ min-density   │        │ carving.     │
+                                 │ floor (post-  │        │ sampler      │
+                                 │ interpolation,│        │ (3D caves)   │
+                                 │ per-biome or  │        └──────┬───────┘
+                                 │ pack-level)   │               │
+                                 └───────┬───────┘               │
+                                         │                       │
+                                         ▼                       ▼
+                              ┌─────────────────────────────────────┐
+                              │         Block Placement              │
+                              │                                      │
+                              │  if density > 0:                     │
+                              │    if carving <= 0:                   │
+                              │      → solid block (from palette)    │
+                              │    else:                              │
+                              │      → air (carved)                  │
+                              │  else if y <= seaLevel:              │
+                              │    → water (from ocean palette)      │
+                              │  else:                                │
+                              │    → air                             │
+                              └─────────────────────────────────────┘
 ```
