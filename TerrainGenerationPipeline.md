@@ -255,8 +255,14 @@ The subtraction of `elevation` ensures the floor targets the **total density** (
 
 **Blending behavior at biome borders:**
 - Uses the exact same blend parameters (`distance`, `step`, `weight`) as `terrain.sampler`
-- Biomes without `terrain.sampler-floor` contribute 0 to the floor numerator but their full weight to the denominator — so the floor effect fades proportionally as you move away from a floor-defining biome
-- This gives a natural, smooth transition: the floor is at full strength at the biome centre and tapers off at borders
+- The floor is only applied at a sparse grid point if the **center biome** defines `terrain.sampler-floor`. Neighbors cannot impose a floor on a center that does not opt in.
+- Non-floor biomes are excluded from **both** the floor numerator and the floor denominator. Only biomes that define a floor contribute to the blended floor value:
+  ```
+  effective_floor = Σ(floor_i × weight_i  for floor biomes only)
+                  / Σ(weight_i             for floor biomes only)
+  ```
+- This means the floor value stays strong throughout the interior of the floor-defining biome (non-floor neighbors do not dilute it), and drops sharply to inactive at the first sparse grid point belonging to a non-floor biome. Trilinear interpolation then smooths that boundary over ~4 blocks.
+- Floor structures cannot bleed into neighboring biomes that do not define `terrain.sampler-floor`.
 
 **Why use this over `terrain.min-density`?**
 The post-interpolation `min-density` applies `Math.max()` to an already-smooth interpolated value, which can produce visible step or slab artifacts at biome transitions. `terrain.sampler-floor` bakes the constraint into the sparse samples, so interpolation smooths it out. It is the preferred approach for biomes with complex 3D terrain (e.g. pillars) that need to maintain structure at biome edges.

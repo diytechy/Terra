@@ -158,8 +158,14 @@ public class ChunkInterpolator {
                             // evaluate noise for each and compute weighted average.
                             double runningNoise = 0;
                             double runningDiv = 0;
+                            // Floor blend uses its own divisor: only biomes that define a
+                            // densityFloor participate. Non-floor biomes are excluded from
+                            // both the numerator and denominator so they do not dilute the
+                            // floor value and cannot inherit it from their neighbors.
+                            // The floor is only applied at all if the CENTER biome defines one.
+                            boolean centerHasFloor = generationSettings.samplers().densityFloor() != null;
                             double floorNumerator = 0;
-                            boolean hasFloor = false;
+                            double floorDiv = 0;
 
                             for(int xi = -blend; xi <= blend; xi++) {
                                 for(int zi = -blend; zi <= blend; zi++) {
@@ -178,15 +184,15 @@ public class ChunkInterpolator {
                                     Sampler floorSampler = samplers.densityFloor();
                                     if(floorSampler != null) {
                                         floorNumerator += floorSampler.getSample(seed, absoluteX, scaledY, absoluteZ) * weight;
-                                        hasFloor = true;
+                                        floorDiv += weight;
                                     }
                                 }
                             }
 
                             noise = runningNoise / runningDiv;
-                            if(hasFloor) {
+                            if(centerHasFloor) {
                                 double elevation = elevationInterpolator.getElevation(scaledX, scaledZ);
-                                noise = Math.max(noise, floorNumerator / runningDiv - elevation);
+                                noise = Math.max(noise, floorNumerator / floorDiv - elevation);
                             }
                         }
                     }
