@@ -117,8 +117,7 @@ public class ChunkInterpolator {
                         noise = generationSettings.noiseHolder().getNoise(generationSettings.samplers().base(), absoluteX, scaledY, absoluteZ, seed);
                         Sampler floor = generationSettings.samplers().densityFloor();
                         if(floor != null) {
-                            double elevation = elevationInterpolator.getElevation(scaledX, scaledZ);
-                            noise = Math.max(noise, floor.getSample(seed, absoluteX, scaledY, absoluteZ) - elevation);
+                            noise = Math.max(noise, floor.getSample(seed, absoluteX, scaledY, absoluteZ));
                         }
                     } else {
                         // Option 4: Single-pass fetch + homogeneity check.
@@ -147,11 +146,12 @@ public class ChunkInterpolator {
                         if(homogeneous) {
                             // All neighbors are the same biome: blending is a weighted average of
                             // identical values, so the result equals the center sample directly.
+                            // Apply floor only if this single biome defines terrain.sampler-floor.
+                            // (In a homogeneous zone, "all neighbors" is just the one repeated biome.)
                             noise = generationSettings.noiseHolder().getNoise(generationSettings.samplers().base(), absoluteX, scaledY, absoluteZ, seed);
                             Sampler floor = generationSettings.samplers().densityFloor();
                             if(floor != null) {
-                                double elevation = elevationInterpolator.getElevation(scaledX, scaledZ);
-                                noise = Math.max(noise, floor.getSample(seed, absoluteX, scaledY, absoluteZ) - elevation);
+                                noise = Math.max(noise, floor.getSample(seed, absoluteX, scaledY, absoluteZ));
                             }
                         } else {
                             // Heterogeneous blend zone: all columns already fetched above,
@@ -190,8 +190,7 @@ public class ChunkInterpolator {
 
                             noise = runningNoise / runningDiv;
                             if(allHaveFloor) {
-                                double elevation = elevationInterpolator.getElevation(scaledX, scaledZ);
-                                noise = Math.max(noise, floorNumerator / runningDiv - elevation);
+                                noise = Math.max(noise, floorNumerator / runningDiv);
                             }
                         }
                     }
