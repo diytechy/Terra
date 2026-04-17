@@ -117,7 +117,10 @@ public class ChunkInterpolator {
                         noise = generationSettings.noiseHolder().getNoise(generationSettings.samplers().base(), absoluteX, scaledY, absoluteZ, seed);
                         Sampler floor = generationSettings.samplers().densityFloor();
                         if(floor != null) {
-                            noise = Math.max(noise, floor.getSample(seed, absoluteX, scaledY, absoluteZ));
+                            // Subtract elevation so that after Sampler3D adds it back, the total
+                            // density (3D + 2D) meets the floor target: max(3D+elev, floor).
+                            noise = Math.max(noise, floor.getSample(seed, absoluteX, scaledY, absoluteZ)
+                                - elevationInterpolator.getElevation(scaledX, scaledZ));
                         }
                     } else {
                         // Option 4: Single-pass fetch + homogeneity check.
@@ -151,7 +154,10 @@ public class ChunkInterpolator {
                             noise = generationSettings.noiseHolder().getNoise(generationSettings.samplers().base(), absoluteX, scaledY, absoluteZ, seed);
                             Sampler floor = generationSettings.samplers().densityFloor();
                             if(floor != null) {
-                                noise = Math.max(noise, floor.getSample(seed, absoluteX, scaledY, absoluteZ));
+                                // Subtract elevation so that after Sampler3D adds it back, the total
+                                // density (3D + 2D) meets the floor target: max(3D+elev, floor).
+                                noise = Math.max(noise, floor.getSample(seed, absoluteX, scaledY, absoluteZ)
+                                    - elevationInterpolator.getElevation(scaledX, scaledZ));
                             }
                         } else {
                             // Heterogeneous blend zone: all columns already fetched above,
@@ -190,7 +196,12 @@ public class ChunkInterpolator {
 
                             noise = runningNoise / runningDiv;
                             if(allHaveFloor) {
-                                noise = Math.max(noise, floorNumerator / runningDiv);
+                                // Subtract elevation so that after Sampler3D adds it back, the total
+                                // density (3D + 2D) meets the blended floor target: max(3D+elev, floor).
+                                // allHaveFloor ensures this only fires when every blend neighbor defines
+                                // terrain.sampler-floor, so floor effect is cancelled at biome borders.
+                                noise = Math.max(noise, floorNumerator / runningDiv
+                                    - elevationInterpolator.getElevation(scaledX, scaledZ));
                             }
                         }
                     }
