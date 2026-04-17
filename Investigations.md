@@ -544,6 +544,38 @@ Create a plan to introduce yet another optional per-biome sampler, this time def
 
 If the new sampler exists / is defined, it will act as a floor against the sum of the 2d+3d samplers and hence affect the interpolated result, else all computations will remain the same.
 
+##################################3
+TBD:
+
+I've rolled back a commit to bd97e66da939d0e6cdf9051cfc676617cd60ad9e because the whole biome was getting filled with solid blocks up to y-max.
+
+When a sparse sample is being computed for a biome and one of the neighbors to blend doesn't have a defined sampler-floor, how is that influencing the weights and the minimum value that is applied?
+
+
 #############################################3
 
-TBD: The recent implementation is incorrect (the latest commit), the flow should be:
+The last changes that were made improved things slightly, but I think ultimately the limitation is in the interpolation.  There is a 1-block wide wall occuring in the terrain, indicating the surrounding sparse samples are getting negative values that are high enough that all other points interpolated within the sparse cube sample points is forcing every interpolation below 0.
+
+When the sampler-floor is evaluating neighbors and it encounters a biome that does not have a defined sampler-floor, what is the value it's using instead? Is it falling back to the sampler provided value?
+
+The standard sampler get's very large negative values the higher up the y-value chain the system goes (-y + base).  Do we just need a pack-level sampler that can define the sampler-floor sampler to use when a biome does not define one?
+
+********************************************
+
+To determine final interpolated block density, the final computation should be (for each individual coordinate, not the sparse coordinates):
+
+
+
+If sampler-floor-interpolated hits a biome without a sampler-floor while calculating the sparse value, it would result in -infinity or just not get used ihe max value.
+
+Can you confirm the above is what is occuring?
+
+It looks better, but I'm once again seeing columns indicating the density is computing to >0 at certain times, despite the pack level sampler-floor is always returning <0.  This means when the sampler-floor is subtracted by the elevation for the sparse points, when it's added back in at the actual position, it's getting pushed above 0, most likely when there is a spike in elevation that exists within a sparse region.
+
+The only alternative I see is to separate the two computation paths, but I think this will require the sparse block density to  be cached for both the current 3d sampler and for the sampler-floor separately to prevent interactions with the elevation component.  Perhaps it is simplist to just add another element to the same cache to house the sampler-floor values.  Both the sampler-3d and sampler-floor values could also be stored in single instead of double precision to reduce memory consumption.
+
+Then the final interpolated position is just the maximum value of available terrain constructors:
+
+max(sampler_floor_interpolated_value(x,y,z),sampler3D-interpolated-value(x,y,z)+ElevationInterpolator(x,z),min_density(x,y,z) {If configured})
+
+Please explore this and create a plan if there are no comments or questions.

@@ -23,6 +23,8 @@ import com.dfsek.terra.api.world.biome.generation.BiomeProvider;
  */
 public class ChunkInterpolator {
     private final Interpolator3[][][] interpGrid;
+    private final Interpolator3[][][] floorGrid; // null when no sparse point carries a floor value
+    private final boolean hasFloor;
 
     private final int min;
     private final int max;
@@ -38,7 +40,7 @@ public class ChunkInterpolator {
      */
     public ChunkInterpolator(long seed, int chunkX, int chunkZ, BiomeProvider provider, int min, int max,
                              PropertyKey<BiomeNoiseProperties> noisePropertiesKey, int maxBlend,
-                             int blendMinY, int blendMaxY, ElevationInterpolator elevationInterpolator) {
+                             int blendMinY, int blendMaxY) {
         this.min = min;
         this.max = max;
 
@@ -51,7 +53,11 @@ public class ChunkInterpolator {
 
         interpGrid = new Interpolator3[4][size][4];
 
-        double[][][] noiseStorage = new double[5][5][size + 1];
+        // Sparse storage uses float (32-bit) to halve memory vs double.
+        // Interpolator3 accepts double; Java auto-widens float at the call site.
+        float[][][] noiseStorage = new float[5][5][size + 1];
+        // Float.NEGATIVE_INFINITY is the sentinel meaning "no floor defined at this sparse point".
+        float[][][] floorStorage = new float[5][5][size + 1];
 
         // Option 5: Pre-scan the 5x5 center grid to compute the local max blend for this chunk.
         // This allows allocating a smaller columns array when high-blend outlier biomes are absent
@@ -110,18 +116,16 @@ public class ChunkInterpolator {
                     int blend = generationSettings.samplers().blendDistance();
 
                     double noise;
+                    float floorValue;
 
                     if(blend == 0 || scaledY < blendMinY || scaledY > blendMaxY) {
                         // Blend disabled: either the biome has blendDistance=0, or this Y level is
                         // outside the pack-configured blend range. Use center sample directly.
                         noise = generationSettings.noiseHolder().getNoise(generationSettings.samplers().base(), absoluteX, scaledY, absoluteZ, seed);
                         Sampler floor = generationSettings.samplers().densityFloor();
-                        if(floor != null) {
-                            // Subtract elevation so that after Sampler3D adds it back, the total
-                            // density (3D + 2D) meets the floor target: max(3D+elev, floor).
-                            noise = Math.max(noise, floor.getSample(seed, absoluteX, scaledY, absoluteZ)
-                                - elevationInterpolator.getElevation(scaledX, scaledZ));
-                        }
+                        floorValue = (floor != null)
+                            ? (float) floor.getSample(seed, absoluteX, scaledY, absoluteZ)
+                            : Float.NEGATIVE_INFINITY;
                     } else {
                         // Option 4: Single-pass fetch + homogeneity check.
                         // Fetch all blend columns (lazily cached for subsequent y-levels) while
@@ -149,25 +153,22 @@ public class ChunkInterpolator {
                         if(homogeneous) {
                             // All neighbors are the same biome: blending is a weighted average of
                             // identical values, so the result equals the center sample directly.
-                            // Apply floor only if this single biome defines terrain.sampler-floor.
-                            // (In a homogeneous zone, "all neighbors" is just the one repeated biome.)
                             noise = generationSettings.noiseHolder().getNoise(generationSettings.samplers().base(), absoluteX, scaledY, absoluteZ, seed);
                             Sampler floor = generationSettings.samplers().densityFloor();
-                            if(floor != null) {
-                                // Subtract elevation so that after Sampler3D adds it back, the total
-                                // density (3D + 2D) meets the floor target: max(3D+elev, floor).
-                                noise = Math.max(noise, floor.getSample(seed, absoluteX, scaledY, absoluteZ)
-                                    - elevationInterpolator.getElevation(scaledX, scaledZ));
-                            }
+                            floorValue = (floor != null)
+                                ? (float) floor.getSample(seed, absoluteX, scaledY, absoluteZ)
+                                : Float.NEGATIVE_INFINITY;
                         } else {
                             // Heterogeneous blend zone: all columns already fetched above,
                             // evaluate noise for each and compute weighted average.
                             double runningNoise = 0;
                             double runningDiv = 0;
-                            // Floor is only applied if EVERY biome in the blend neighborhood
-                            // defines terrain.sampler-floor. Any missing floor sampler cancels
-                            // the entire floor contribution at this sparse point, preventing
-                            // border artifacts from interpolating into non-floor biomes.
+                            // Floor is accumulated separately from noise. It is only applied if
+                            // EVERY biome in the blend neighborhood defines terrain.sampler-floor
+                            // (or receives the pack-level fallback). Any missing floor sampler
+                            // cancels the floor at this sparse point (stored as NEGATIVE_INFINITY),
+                            // preventing border artifacts. With a pack-level fallback configured,
+                            // allHaveFloor will always remain true.
                             boolean allHaveFloor = true;
                             double floorNumerator = 0;
 
@@ -195,20 +196,20 @@ public class ChunkInterpolator {
                             }
 
                             noise = runningNoise / runningDiv;
-                            if(allHaveFloor) {
-                                // Subtract elevation so that after Sampler3D adds it back, the total
-                                // density (3D + 2D) meets the blended floor target: max(3D+elev, floor).
-                                // allHaveFloor ensures this only fires when every blend neighbor defines
-                                // terrain.sampler-floor, so floor effect is cancelled at biome borders.
-                                noise = Math.max(noise, floorNumerator / runningDiv
-                                    - elevationInterpolator.getElevation(scaledX, scaledZ));
-                            }
+                            // The floor is stored as a raw blended value with no elevation component.
+                            // Sampler3D will compare it against the final (3D + elevation) density at
+                            // the actual block position, where elevation is exact rather than sparse.
+                            floorValue = allHaveFloor
+                                ? (float) (floorNumerator / runningDiv)
+                                : Float.NEGATIVE_INFINITY;
                         }
                     }
 
-                    noiseStorage[x][z][y] = noise;
+                    noiseStorage[x][z][y] = (float) noise;
+                    floorStorage[x][z][y] = floorValue;
                     if(y == size - 1) {
-                        noiseStorage[x][z][size] = noise;
+                        noiseStorage[x][z][size] = (float) noise;
+                        floorStorage[x][z][size] = floorValue;
                     }
                 }
             }
@@ -228,6 +229,44 @@ public class ChunkInterpolator {
                         noiseStorage[x + 1][z + 1][y + 1]);
                 }
             }
+        }
+
+        // Determine whether any sparse point carries a real floor value.
+        // NEGATIVE_INFINITY sentinel means "no floor" at that point.
+        boolean anyFloor = false;
+        outer:
+        for(int x = 0; x < 5; x++) {
+            for(int z = 0; z < 5; z++) {
+                for(int y = 0; y <= size; y++) {
+                    if(floorStorage[x][z][y] != Float.NEGATIVE_INFINITY) {
+                        anyFloor = true;
+                        break outer;
+                    }
+                }
+            }
+        }
+        this.hasFloor = anyFloor;
+
+        if(anyFloor) {
+            Interpolator3[][][] fGrid = new Interpolator3[4][size][4];
+            for(int x = 0; x < 4; x++) {
+                for(int z = 0; z < 4; z++) {
+                    for(int y = 0; y < size; y++) {
+                        fGrid[x][y][z] = new Interpolator3(
+                            floorStorage[x    ][z    ][y    ],
+                            floorStorage[x + 1][z    ][y    ],
+                            floorStorage[x    ][z    ][y + 1],
+                            floorStorage[x + 1][z    ][y + 1],
+                            floorStorage[x    ][z + 1][y    ],
+                            floorStorage[x + 1][z + 1][y    ],
+                            floorStorage[x    ][z + 1][y + 1],
+                            floorStorage[x + 1][z + 1][y + 1]);
+                    }
+                }
+            }
+            this.floorGrid = fGrid;
+        } else {
+            this.floorGrid = null;
         }
     }
 
@@ -252,8 +291,30 @@ public class ChunkInterpolator {
     public double getNoise(int x, int y, int z) {
         return interpGrid[x / 4][(y - min) / 4][z / 4].trilerp(
             (double) (x & 3) / 4, // x & 3 == x % 4
-            (double) (y & 3) / 4, // x & 3 == x % 4
-            (double) (z & 3) / 4  // x & 3 == x % 4
+            (double) (y & 3) / 4,
+            (double) (z & 3) / 4
+        );
+    }
+
+    /**
+     * Returns true if any sparse point in this chunk has a floor value configured.
+     * When false, {@link #getFloor(int, int, int)} must not be called.
+     */
+    public boolean hasFloor() {
+        return floorGrid != null;
+    }
+
+    /**
+     * Gets the interpolated floor density at internal chunk coordinates.
+     * Only valid when {@link #hasFloor()} returns true.
+     * The returned value is the raw floor target for total density (3D + elevation);
+     * callers should compare it against the final combined density, not against the 3D component alone.
+     */
+    public double getFloor(int x, int y, int z) {
+        return floorGrid[x / 4][(y - min) / 4][z / 4].trilerp(
+            (double) (x & 3) / 4,
+            (double) (y & 3) / 4,
+            (double) (z & 3) / 4
         );
     }
 }

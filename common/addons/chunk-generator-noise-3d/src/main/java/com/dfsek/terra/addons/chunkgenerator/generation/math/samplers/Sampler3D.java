@@ -24,15 +24,24 @@ public class Sampler3D {
                      PropertyKey<BiomeNoiseProperties> noisePropertiesKey, int maxBlend, int blendMinY, int blendMaxY) {
         this.elevationInterpolator = new ElevationInterpolator(seed, x, z, provider, elevationSmooth, noisePropertiesKey);
         this.interpolator = new ChunkInterpolator(seed, x, z, provider,
-            minHeight, maxHeight, noisePropertiesKey, maxBlend, blendMinY, blendMaxY, this.elevationInterpolator);
+            minHeight, maxHeight, noisePropertiesKey, maxBlend, blendMinY, blendMaxY);
     }
 
     public double sample(double x, double y, double z) {
-        return interpolator.getNoise(x, y, z) + elevationInterpolator.getElevation(FloatingPointFunctions.round(x),
-            FloatingPointFunctions.round(z));
+        int rx = FloatingPointFunctions.round(x);
+        int rz = FloatingPointFunctions.round(z);
+        double density = interpolator.getNoise(x, y, z) + elevationInterpolator.getElevation(rx, rz);
+        if(interpolator.hasFloor()) {
+            density = Math.max(density, interpolator.getFloor(rx, FloatingPointFunctions.round(y), rz));
+        }
+        return density;
     }
 
     public double sample(int x, int y, int z) {
-        return interpolator.getNoise(x, y, z) + elevationInterpolator.getElevation(x, z);
+        double density = interpolator.getNoise(x, y, z) + elevationInterpolator.getElevation(x, z);
+        if(interpolator.hasFloor()) {
+            density = Math.max(density, interpolator.getFloor(x, y, z));
+        }
+        return density;
     }
 }
