@@ -70,7 +70,7 @@ public class NoiseChunkGeneratorPackConfigTemplate implements ConfigTemplate, Pr
     @Default
     private @Meta List<@Meta String> minDensitySkipTags = new ArrayList<>();
 
-    @Value("terrain.sampler-floor")
+    @Value("blend.sampler-floor")
     @Default
     private @Meta Sampler packDensityFloor = NO_FLOOR_SAMPLER;
 

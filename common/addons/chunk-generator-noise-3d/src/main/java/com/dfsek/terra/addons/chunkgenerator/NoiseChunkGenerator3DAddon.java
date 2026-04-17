@@ -14,6 +14,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.dfsek.terra.addons.chunkgenerator.config.NoiseChunkGeneratorPackConfigTemplate;
 import com.dfsek.terra.addons.chunkgenerator.config.noise.BiomeNoiseConfigTemplate;
 import com.dfsek.terra.addons.chunkgenerator.config.noise.BiomeNoiseSamplers;
@@ -41,6 +44,8 @@ import com.dfsek.terra.api.world.chunk.generation.util.provider.ChunkGeneratorPr
 
 
 public class NoiseChunkGenerator3DAddon implements AddonInitializer {
+    private static final Logger logger = LoggerFactory.getLogger(NoiseChunkGenerator3DAddon.class);
+
     @Inject
     private Platform platform;
 
@@ -62,6 +67,11 @@ public class NoiseChunkGenerator3DAddon implements AddonInitializer {
 
                 NoiseChunkGeneratorPackConfigTemplate config = event.loadTemplate(new NoiseChunkGeneratorPackConfigTemplate());
                 event.getPack().getContext().put(config);
+
+                if(config.getPackDensityFloor() != null) {
+                    logger.info("[chunk-generator-noise-3d] Pack-level blend.sampler-floor detected; " +
+                        "biomes without terrain.sampler-floor will use this as their floor fallback.");
+                }
 
                 event.getPack()
                     .getOrCreateRegistry(ChunkGeneratorProvider.class)
