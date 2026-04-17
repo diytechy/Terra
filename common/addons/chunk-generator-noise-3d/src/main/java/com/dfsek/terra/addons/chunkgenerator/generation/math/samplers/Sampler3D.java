@@ -32,7 +32,7 @@ public class Sampler3D {
         int rz = FloatingPointFunctions.round(z);
         double density = interpolator.getNoise(x, y, z) + elevationInterpolator.getElevation(rx, rz);
         if(interpolator.hasFloor()) {
-            density = Math.max(density, interpolator.getFloor(rx, FloatingPointFunctions.round(y), rz));
+            density = Math.max(density, interpolator.getFloor(x, y, z));
         }
         return density;
     }

@@ -317,4 +317,10 @@ public class ChunkInterpolator {
             (double) (z & 3) / 4
         );
     }
+
+    public double getFloor(double x, double y, double z) {
+        return floorGrid[reRange(((int) x) / 4, 3)][(Math.max(Math.min(((int) y), max), min) - min) / 4][reRange(((int) z) / 4,
+            3)].trilerp(
+            (x % 4) / 4, (y % 4) / 4, (z % 4) / 4);
+    }
 }
