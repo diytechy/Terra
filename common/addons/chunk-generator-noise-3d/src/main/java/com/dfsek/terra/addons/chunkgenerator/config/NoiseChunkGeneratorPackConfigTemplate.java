@@ -18,6 +18,7 @@ import com.dfsek.terra.api.properties.Properties;
 
 public class NoiseChunkGeneratorPackConfigTemplate implements ConfigTemplate, Properties {
     private static final Sampler NO_MIN_DENSITY_SAMPLER = Sampler.zero();
+    private static final Sampler NO_FLOOR_SAMPLER = Sampler.zero();
 
     @Value("blend.terrain.elevation")
     @Default
@@ -68,6 +69,10 @@ public class NoiseChunkGeneratorPackConfigTemplate implements ConfigTemplate, Pr
     @Value("terrain.min-density.skip-tags")
     @Default
     private @Meta List<@Meta String> minDensitySkipTags = new ArrayList<>();
+
+    @Value("terrain.sampler-floor")
+    @Default
+    private @Meta Sampler packDensityFloor = NO_FLOOR_SAMPLER;
 
     @Value("carving.resolution.horizontal")
     @Default
@@ -147,5 +152,9 @@ public class NoiseChunkGeneratorPackConfigTemplate implements ConfigTemplate, Pr
 
     public List<String> getMinDensitySkipTags() {
         return minDensitySkipTags;
+    }
+
+    public @Nullable Sampler getPackDensityFloor() {
+        return packDensityFloor == NO_FLOOR_SAMPLER ? null : packDensityFloor;
     }
 }

@@ -98,7 +98,8 @@ public class NoiseChunkGenerator3DAddon implements AddonInitializer {
                         config.getDefaultBlendDistance(),
                         config.getDefaultBlendStep(),
                         config.getDefaultBlendWeight(),
-                        config.getDefaultElevationWeight()
+                        config.getDefaultElevationWeight(),
+                        config.getPackDensityFloor()
                     )).get();
 
                     List<String> noBlendTags = config.getNoBlendTags();

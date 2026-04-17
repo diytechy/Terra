@@ -56,11 +56,18 @@ public class BiomeNoiseConfigTemplate implements ObjectTemplate<BiomeNoiseProper
     private @Meta Sampler densityFloor = NO_FLOOR_SAMPLER;
 
     public BiomeNoiseConfigTemplate(int defaultBlendDistance, int defaultBlendStep,
-                                    double defaultBlendWeight, double defaultElevationWeight) {
+                                    double defaultBlendWeight, double defaultElevationWeight,
+                                    @org.jetbrains.annotations.Nullable Sampler packDensityFloor) {
         this.blendDistance   = defaultBlendDistance;
         this.blendStep       = defaultBlendStep;
         this.blendWeight     = defaultBlendWeight;
         this.elevationWeight = defaultElevationWeight;
+        // If the pack defines a fallback floor sampler, use it as the per-biome default so that
+        // allHaveFloor stays true at blend borders. Biomes that define terrain.sampler-floor
+        // in their own YAML will override this via the @Value/@Default Tectonic mechanism.
+        if(packDensityFloor != null) {
+            this.densityFloor = packDensityFloor;
+        }
     }
 
     @Override
