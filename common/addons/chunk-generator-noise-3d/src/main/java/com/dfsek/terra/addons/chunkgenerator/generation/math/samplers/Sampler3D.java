@@ -9,6 +9,7 @@ package com.dfsek.terra.addons.chunkgenerator.generation.math.samplers;
 
 import com.dfsek.seismic.math.floatingpoint.FloatingPointFunctions;
 
+import com.dfsek.terra.addons.chunkgenerator.SamplerFloorFeature;
 import com.dfsek.terra.addons.chunkgenerator.config.noise.BiomeNoiseProperties;
 import com.dfsek.terra.addons.chunkgenerator.generation.math.interpolation.ChunkInterpolator;
 import com.dfsek.terra.addons.chunkgenerator.generation.math.interpolation.ElevationInterpolator;
@@ -31,7 +32,7 @@ public class Sampler3D {
         int rx = FloatingPointFunctions.round(x);
         int rz = FloatingPointFunctions.round(z);
         double density = interpolator.getNoise(x, y, z) + elevationInterpolator.getElevation(rx, rz);
-        if(interpolator.hasFloor()) {
+        if(SamplerFloorFeature.ENABLED && interpolator.hasFloor()) {
             density = Math.max(density, interpolator.getFloor(x, y, z));
         }
         return density;
@@ -39,7 +40,7 @@ public class Sampler3D {
 
     public double sample(int x, int y, int z) {
         double density = interpolator.getNoise(x, y, z) + elevationInterpolator.getElevation(x, z);
-        if(interpolator.hasFloor()) {
+        if(SamplerFloorFeature.ENABLED && interpolator.hasFloor()) {
             density = Math.max(density, interpolator.getFloor(x, y, z));
         }
         return density;

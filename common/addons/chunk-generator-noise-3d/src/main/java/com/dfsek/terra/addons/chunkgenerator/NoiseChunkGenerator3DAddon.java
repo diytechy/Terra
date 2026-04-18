@@ -68,7 +68,10 @@ public class NoiseChunkGenerator3DAddon implements AddonInitializer {
                 NoiseChunkGeneratorPackConfigTemplate config = event.loadTemplate(new NoiseChunkGeneratorPackConfigTemplate());
                 event.getPack().getContext().put(config);
 
-                if(config.getPackDensityFloor() != null) {
+                if(!SamplerFloorFeature.ENABLED) {
+                    logger.info("[chunk-generator-noise-3d] Sampler-floor feature is compile-time disabled; " +
+                        "terrain.sampler-floor and blend.sampler-floor values will be ignored at generation time.");
+                } else if(config.getPackDensityFloor() != null) {
                     logger.info("[chunk-generator-noise-3d] Pack-level blend.sampler-floor detected; " +
                         "biomes without terrain.sampler-floor will use this as their floor fallback.");
                 }
@@ -109,7 +112,7 @@ public class NoiseChunkGenerator3DAddon implements AddonInitializer {
                         config.getDefaultBlendStep(),
                         config.getDefaultBlendWeight(),
                         config.getDefaultElevationWeight(),
-                        config.getPackDensityFloor()
+                        SamplerFloorFeature.ENABLED ? config.getPackDensityFloor() : null
                     )).get();
 
                     List<String> noBlendTags = config.getNoBlendTags();

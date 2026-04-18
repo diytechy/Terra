@@ -579,3 +579,5 @@ Then the final interpolated position is just the maximum value of available terr
 max(sampler_floor_interpolated_value(x,y,z),sampler3D-interpolated-value(x,y,z)+ElevationInterpolator(x,z),min_density(x,y,z) {If configured})
 
 Please explore this and create a plan if there are no comments or questions.
+
+#########################################
