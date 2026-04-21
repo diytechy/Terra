@@ -2,14 +2,20 @@ package com.dfsek.terra.addons.chunkgenerator.generation.math.interpolation;
 
 import com.dfsek.seismic.math.floatingpoint.FloatingPointFunctions;
 import com.dfsek.seismic.math.numericanalysis.interpolation.InterpolationFunctions;
+import com.dfsek.seismic.type.sampler.Sampler;
+
+import java.util.IdentityHashMap;
+import java.util.Map;
 
 import com.dfsek.terra.addons.chunkgenerator.config.noise.BiomeNoiseProperties;
 import com.dfsek.terra.api.properties.PropertyKey;
+import com.dfsek.terra.api.world.biome.Biome;
 import com.dfsek.terra.api.world.biome.generation.BiomeProvider;
 
 
 public class LazilyEvaluatedInterpolator {
-    private final Double[] samples; //
+    private final Double[] samples;
+    private final Map<Biome, Sampler> carvingSamplerCache = new IdentityHashMap<>();
 
     private final int chunkX;
     private final int chunkZ;
@@ -50,16 +56,13 @@ public class LazilyEvaluatedInterpolator {
         if(sample == null) {
             int xi = ox + chunkX;
             int zi = oz + chunkZ;
-
             int y = Math.min(max, oy);
 
-            sample = biomeProvider
-                .getBiome(xi, y, zi, seed)
-                .getContext()
-                .get(noisePropertiesKey)
-                .samplers()
-                .carving()
-                .getSample(seed, xi, y, zi);
+            Biome biome = biomeProvider.getBiome(xi, y, zi, seed);
+            Sampler carver = carvingSamplerCache.computeIfAbsent(
+                biome, b -> b.getContext().get(noisePropertiesKey).samplers().carving());
+
+            sample = carver.getSample(seed, xi, y, zi);
             samples[index] = sample;
         }
         return sample;
