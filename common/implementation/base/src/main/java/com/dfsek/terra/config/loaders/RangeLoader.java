@@ -19,7 +19,6 @@ package com.dfsek.terra.config.loaders;
 
 import com.dfsek.tectonic.api.config.template.annotations.Value;
 import com.dfsek.tectonic.api.config.template.object.ObjectTemplate;
-import com.dfsek.tectonic.api.depth.DepthTracker;
 import com.dfsek.tectonic.api.exception.LoadException;
 import com.dfsek.tectonic.api.loader.ConfigLoader;
 import com.dfsek.tectonic.api.loader.type.TypeLoader;
@@ -36,8 +35,8 @@ import com.dfsek.terra.api.util.range.Range;
 
 public class RangeLoader implements TypeLoader<Range> {
     @Override
-    public Range load(@NotNull AnnotatedType type, @NotNull Object o, @NotNull ConfigLoader configLoader, DepthTracker depthTracker)
-    throws LoadException {
+    public Range load(@NotNull AnnotatedType type, @NotNull Object o, @NotNull ConfigLoader configLoader) throws LoadException {
+        var depthTracker = ConfigLoader.CURRENT_DEPTH.get();
         if(o instanceof Map) {
             return configLoader.load(new RangeMapTemplate(), new MapConfiguration((Map<String, Object>) o), depthTracker).get();
         } else {

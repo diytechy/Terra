@@ -2,6 +2,7 @@ package com.dfsek.terra.bukkit.nms;
 
 import com.dfsek.tectonic.api.TypeRegistry;
 import com.dfsek.tectonic.api.exception.LoadException;
+import com.dfsek.tectonic.api.loader.ConfigLoader;
 import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.Music;
 import net.minecraft.sounds.SoundEvent;
@@ -52,22 +53,22 @@ public class NMSPlatform extends PlatformImpl {
     @Override
     public void register(TypeRegistry registry) {
         super.register(registry);
-        registry.registerLoader(PlatformBiome.class, (type, o, loader, depthTracker) -> parseBiome((String) o, depthTracker))
-            .registerLoader(Identifier.class, (type, o, loader, depthTracker) -> {
+        registry.registerLoader(PlatformBiome.class, (type, o, loader) -> parseBiome((String) o, ConfigLoader.CURRENT_DEPTH.get()))
+            .registerLoader(Identifier.class, (type, o, loader) -> {
                 Identifier identifier = Identifier.tryParse((String) o);
                 if(identifier == null)
-                    throw new LoadException("Invalid identifier: " + o, depthTracker);
+                    throw new LoadException("Invalid identifier: " + o, ConfigLoader.CURRENT_DEPTH.get());
                 return identifier;
             })
-            .registerLoader(Precipitation.class, (type, o, loader, depthTracker) -> Precipitation.valueOf(((String) o).toUpperCase(
+            .registerLoader(Precipitation.class, (type, o, loader) -> Precipitation.valueOf(((String) o).toUpperCase(
                 Locale.ROOT)))
             .registerLoader(GrassColorModifier.class,
-                (type, o, loader, depthTracker) -> GrassColorModifier.valueOf(((String) o).toUpperCase(
+                (type, o, loader) -> GrassColorModifier.valueOf(((String) o).toUpperCase(
                     Locale.ROOT)))
             .registerLoader(GrassColorModifier.class,
-                (type, o, loader, depthTracker) -> TemperatureModifier.valueOf(((String) o).toUpperCase(
+                (type, o, loader) -> TemperatureModifier.valueOf(((String) o).toUpperCase(
                     Locale.ROOT)))
-            .registerLoader(MobCategory.class, (type, o, loader, depthTracker) -> MobCategory.valueOf((String) o))
+            .registerLoader(MobCategory.class, (type, o, loader) -> MobCategory.valueOf((String) o))
             .registerLoader(AmbientParticle.class, BiomeParticleConfigTemplate::new)
             .registerLoader(SoundEvent.class, SoundEventTemplate::new)
             .registerLoader(AmbientMoodSettings.class, BiomeMoodSoundTemplate::new)

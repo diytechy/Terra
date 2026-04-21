@@ -17,7 +17,6 @@
 
 package com.dfsek.terra.config.loaders;
 
-import com.dfsek.tectonic.api.depth.DepthTracker;
 import com.dfsek.tectonic.api.exception.LoadException;
 import com.dfsek.tectonic.api.loader.ConfigLoader;
 import com.dfsek.tectonic.api.loader.type.TypeLoader;
@@ -32,18 +31,19 @@ import java.util.Map;
 @SuppressWarnings("unchecked")
 public class LinkedHashMapLoader implements TypeLoader<LinkedHashMap<Object, Object>> {
     @Override
-    public LinkedHashMap<Object, Object> load(@NotNull AnnotatedType t, @NotNull Object c, @NotNull ConfigLoader loader,
-                                              DepthTracker depthTracker) throws LoadException {
+    public LinkedHashMap<Object, Object> load(@NotNull AnnotatedType t, @NotNull Object c,
+                                              @NotNull ConfigLoader loader) throws LoadException {
         Map<String, Object> config = (Map<String, Object>) c;
         LinkedHashMap<Object, Object> map = new LinkedHashMap<>();
         if(t instanceof AnnotatedParameterizedType pType) {
             AnnotatedType key = pType.getAnnotatedActualTypeArguments()[0];
             AnnotatedType value = pType.getAnnotatedActualTypeArguments()[1];
+            var depthTracker = ConfigLoader.CURRENT_DEPTH.get();
             for(Map.Entry<String, Object> entry : config.entrySet()) {
                 map.put(loader.loadType(key, entry.getKey(), depthTracker.entry(entry.getKey())),
                     loader.loadType(value, entry.getValue(), depthTracker.entry(entry.getKey())));
             }
-        } else throw new LoadException("Unable to load config", depthTracker);
+        } else throw new LoadException("Unable to load config", ConfigLoader.CURRENT_DEPTH.get());
 
         return map;
     }

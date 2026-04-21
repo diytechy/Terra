@@ -63,7 +63,7 @@ public class NoiseChunkGenerator3DAddon implements AddonInitializer {
             .then(event -> {
 
                 event.getPack().applyLoader(SlantCalculationMethod.class,
-                    (type, o, loader, depthTracker) -> SlantCalculationMethod.valueOf((String) o));
+                    (type, o, loader) -> SlantCalculationMethod.valueOf((String) o));
 
                 NoiseChunkGeneratorPackConfigTemplate config = event.loadTemplate(new NoiseChunkGeneratorPackConfigTemplate());
                 event.getPack().getContext().put(config);

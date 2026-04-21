@@ -66,9 +66,9 @@ public class ImageLibraryAddon implements AddonInitializer {
             .then(event -> {
                 event.getPack()
                     .applyLoader(DistanceTransform.CostFunction.class,
-                        (type, o, loader, depthTracker) -> DistanceTransform.CostFunction.valueOf((String) o))
+                        (type, o, loader) -> DistanceTransform.CostFunction.valueOf((String) o))
                     .applyLoader(DistanceTransform.Normalization.class,
-                        (type, o, loader, depthTracker) -> DistanceTransform.Normalization.valueOf((String) o))
+                        (type, o, loader) -> DistanceTransform.Normalization.valueOf((String) o))
                     .applyLoader(ColorString.class, new ColorLoader());
 
                 CheckedRegistry<Supplier<ObjectTemplate<Sampler>>> noiseRegistry = event.getPack().getOrCreateRegistry(

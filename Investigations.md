@@ -582,9 +582,48 @@ Please explore this and create a plan if there are no comments or questions.
 
 #########################################
 
+FIRST:
 
-Please investigate the terrain generation pipeline, I see in the terra chimera pack (C:/Projects/Origen2) when I change the sampler-d in such a way to REDUCE material / block height, it is somehow resulting in material getting added (biomes\abstract\terrain\aquatic\eq_submerged_spikes.yml, commit b453c8870eadaa6440ccd1a95ac9e7eb0af2ccc4 added an expression to reduce material / lower terrain height, but is somehow resulting in higher terrain than in commit 5aa428b39665f468945caf5262235ba7ca675ac1)
+Does Terra output a temperature property for the biome?  For example, I see the following in some template files, what does it do? Does it just report the information to the caller?==>
 
-#########################################
 
-Please do a deep dive to investigate methods to improve the biome provider pipeline.  Are there places where computations are being repeated?  Are samplers for replace stages called even if the current biome is not in the "from" designation in the replace list?  Issues with the current cache design?
+climate:
+  precipitation: false
+  temperature: 2.0
+  downfall: 0.0
+
+  ***
+
+I want to create a plan and support scripts to optimize and hopefully greatly improve the speed of Terra's pipeline generation process and other aspects if feasible.
+
+Right now I'm looking for 3 outcomes, but recommendations are welcome:
+
+1. An investigation of BiomeTool to verify if there may be aspects of it's tooling that will affect / invalidate evaluation of the biome pipeline in Terra (if there are overrides in it's logic that would cause it to evaluate biome placement in a way that is not normal to Terra)
+2. A plan file that outlines each of the aspects of Terra and it's dependencies that should be explored for deeper optimization.  This way those aspects can be attacked one by one and improvements verified.  This will require deeper analysis of each of the dependencies to understand what aspects should be evaluated.  Are there places where computations are being repeated?  Are samplers for replace stages called even if the current biome is not in the "from" designation in the replace list?  Are there places where sampler values are still not being cached or locations in the code where samplers are getting instanced instead of using a single cached sampler?  Are there places where Java 25 could be taken advantage of to improve speed?  Consider 3 primary performance related metrics:
+
+
+A. Biome pipeline speed (the most important attribute)
+B. Terra pack load speed (would be nice if this could be improved)
+C. Chunk generation speed (lowest priority, harder to test, but would be good to understand if there are spaces where improvements could be made)
+
+
+3. Consider the process to update all dependencies in the chain to rebuild the BiomeTool to test changes in the benchmark when changes are made in different dependency packages:
+   a. If tectonic has changed (C:/Projects/Tectonic), recompile and make sure the local maven repo is updated.
+   b. If Chimera is updated (C:/Projects/Origen2), it is NOT necessary to publish this to LocalMaven, since the BiomeTool's benchmarking bat script will copy the content over before running.
+   c. If terra is updated or tectonic has changed, recompile and make sure the local maven repo is updated.
+   d. If terra has been recompiled due to new changes / new dependencies, recompile BiomeTool with updated dependencies.
+   e. Finally, runs BiomeTool's "C:\Projects\BiomeTool\RunBenchmark.bat" benchmark to output a csv "benchmark_results.csv" at it's root directory that can be read after the benchmark completes to verify the latest results of the benchmark, and will give an indication of the pipeline generation performance and if the changes made expected improvements.
+
+
+
+
+Investigate the Terra biome pipeline generation calculations to see where optimizations can be made to improve speed.  
+
+Perform deep analysis, implement improvements, commit changes in each dependencies local repo, and test those changes through the benchmark.  Add debugs where necessary, but make sure those debugs are easily able to be disabled in the future once optimizations are complete.
+
+
+In order to facilitate design iteration and testing, I think it would make sense to design a single launching script that compiles all the dependencies (only as needed if content has changed) and then runs the benchmark too.
+
+1. 
+
+2. 

@@ -99,11 +99,11 @@ public class NoiseAddon implements AddonInitializer {
                     NOISE_SAMPLER_TOKEN);
                 event.getPack()
                     .applyLoader(DistanceFunction.class,
-                        (type, o, loader, depthTracker) -> DistanceFunction.valueOf((String) o))
+                        (type, o, loader) -> DistanceFunction.valueOf((String) o))
                     .applyLoader(CellularStyleSampler.CellularReturnType.class,
-                        (type, o, loader, depthTracker) -> CellularStyleSampler.CellularReturnType.valueOf((String) o))
+                        (type, o, loader) -> CellularStyleSampler.CellularReturnType.valueOf((String) o))
                     .applyLoader(DistanceFunction.class,
-                        (type, o, loader, depthTracker) -> DistanceFunction.valueOf((String) o))
+                        (type, o, loader) -> DistanceFunction.valueOf((String) o))
                     .applyLoader(DimensionApplicableSampler.class, DimensionApplicableSampler::new)
                     .applyLoader(FunctionTemplate.class, () -> new FunctionTemplate(expressionParseOptions))
                     .applyLoader(CubicSpline.Point.class, CubicSplinePointTemplate::new)

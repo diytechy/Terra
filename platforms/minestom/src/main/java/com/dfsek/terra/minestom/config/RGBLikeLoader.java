@@ -1,6 +1,5 @@
 package com.dfsek.terra.minestom.config;
 
-import com.dfsek.tectonic.api.depth.DepthTracker;
 import com.dfsek.tectonic.api.exception.LoadException;
 import com.dfsek.tectonic.api.loader.ConfigLoader;
 import com.dfsek.tectonic.api.loader.type.TypeLoader;
@@ -17,11 +16,10 @@ public class RGBLikeLoader implements TypeLoader<RGBLike> {
     public RGBLike load(
         @NotNull AnnotatedType annotatedType,
         @NotNull Object o,
-        @NotNull ConfigLoader configLoader,
-        DepthTracker depthTracker
+        @NotNull ConfigLoader configLoader
     ) throws LoadException {
         if(!(o instanceof @Subst("a:o")Integer value)) {
-            throw new LoadException("Value is not an integer", depthTracker);
+            throw new LoadException("Value is not an integer", ConfigLoader.CURRENT_DEPTH.get());
         }
         return new Color(value);
     }

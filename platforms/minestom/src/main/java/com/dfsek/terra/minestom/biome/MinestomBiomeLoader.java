@@ -1,6 +1,5 @@
 package com.dfsek.terra.minestom.biome;
 
-import com.dfsek.tectonic.api.depth.DepthTracker;
 import com.dfsek.tectonic.api.exception.LoadException;
 import com.dfsek.tectonic.api.loader.ConfigLoader;
 import com.dfsek.tectonic.api.loader.type.TypeLoader;
@@ -16,8 +15,8 @@ import com.dfsek.terra.api.world.biome.PlatformBiome;
 
 public class MinestomBiomeLoader implements TypeLoader<PlatformBiome> {
     @Override
-    public PlatformBiome load(@NotNull AnnotatedType annotatedType, @NotNull Object o, @NotNull ConfigLoader configLoader,
-                              DepthTracker depthTracker) throws LoadException {
+    public PlatformBiome load(@NotNull AnnotatedType annotatedType, @NotNull Object o,
+                              @NotNull ConfigLoader configLoader) throws LoadException {
         @Subst("name:value")
         String id = (String) o;
         Key key = Key.key(id);
