@@ -41,31 +41,14 @@ public class ElevationInterpolator {
                 double noise = 0;
                 double div = 0;
 
-                BiomeNoiseProperties center = gens[x + 1 + smooth][z + 1 + smooth];
-                boolean same = true;
-
                 for(int xi = -smooth; xi <= smooth; xi++) {
                     for(int zi = -smooth; zi <= smooth; zi++) {
-                        if(gens[x + 1 + smooth + xi][z + 1 + smooth + zi] !=
-                           center) { // test referential equality because thats all we need to know
-                            same = false;
-                            break;
-                        }
+                        BiomeNoiseProperties gen = gens[x + 1 + smooth + xi][z + 1 + smooth + zi];
+                        noise += gen.samplers().elevation().getSample(seed, xOrigin + x, zOrigin + z) * gen.samplers().elevationWeight();
+                        div += gen.samplers().elevationWeight();
                     }
                 }
-
-                if(same) {
-                    values[x + 1][z + 1] = center.samplers().elevation().getSample(seed, xOrigin + x, zOrigin + z); // no weighting needed!
-                } else {
-                    for(int xi = -smooth; xi <= smooth; xi++) {
-                        for(int zi = -smooth; zi <= smooth; zi++) {
-                            BiomeNoiseProperties gen = gens[x + 1 + smooth + xi][z + 1 + smooth + zi];
-                            noise += gen.samplers().elevation().getSample(seed, xOrigin + x, zOrigin + z) * gen.samplers().elevationWeight();
-                            div += gen.samplers().elevationWeight();
-                        }
-                    }
-                    values[x + 1][z + 1] = noise / div;
-                }
+                values[x + 1][z + 1] = noise / div;
             }
         }
     }
