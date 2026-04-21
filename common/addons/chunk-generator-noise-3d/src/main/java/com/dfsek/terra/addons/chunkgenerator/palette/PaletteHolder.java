@@ -61,21 +61,14 @@ public class PaletteHolder {
         }
 
         public PaletteHolder build() {
-
-            int min = Math.min(paletteMap.keySet().stream().min(Integer::compareTo).orElse(0), 0);
-            int max = Math.max(paletteMap.keySet().stream().max(Integer::compareTo).orElse(255), 255);
+            int min = Math.min(paletteMap.firstKey(), 0);
+            int max = Math.max(paletteMap.lastKey(), 255);
 
             Palette[] palettes = new Palette[paletteMap.lastKey() + 1 - min];
-            for(int y = min; y <= Math.max(paletteMap.lastKey(), max); y++) {
-                Palette d = null;
-                for(Entry<Integer, Palette> e : paletteMap.entrySet()) {
-                    if(e.getKey() >= y) {
-                        d = e.getValue();
-                        break;
-                    }
-                }
-                if(d == null) throw new IllegalArgumentException("No palette for Y=" + y);
-                palettes[y - min] = d;
+            for(int y = min; y <= max; y++) {
+                Entry<Integer, Palette> e = paletteMap.ceilingEntry(y);
+                if(e == null) throw new IllegalArgumentException("No palette for Y=" + y);
+                palettes[y - min] = e.getValue();
             }
             return new PaletteHolder(palettes, -min);
         }

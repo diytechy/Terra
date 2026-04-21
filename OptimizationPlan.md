@@ -108,19 +108,14 @@ across chunk generations on the same thread. Requires clearing the array at the 
 
 ---
 
-### A4 — ProbabilityCollection: Dead HashMap in Hot Path
-**IMPACT: MEDIUM | EFFORT: S | Category: A**
+### ~~A4 — ProbabilityCollection: Dead HashMap in Hot Path~~ (INVALIDATED)
+~~**IMPACT: MEDIUM | EFFORT: S | Category: A**~~
 
-**Files:**
-- [ProbabilityCollection.java:29–32](common/api/src/main/java/com/dfsek/terra/api/util/collection/ProbabilityCollection.java#L29)
-
-**Problem:**
-`ProbabilityCollection` holds a `HashMap<E, MutableInteger>` that is populated during construction
-but never consulted during the hot-path `get(Sampler, x, z, seed)` call. The map is dead weight
-held in memory for every instance and adds to heap GC pressure.
-
-**Fix:** Remove the `cont` HashMap entirely, or make it lazy (only instantiated if callers actually
-need it). The array-based sampling path is complete without it.
+**Finding after code review:** `cont` is NOT dead weight. It is actively used by six Collection
+interface methods (`contains`, `iterator`, `toArray`, `containsAll`, `getContents`, `toString`) and
+`getProbability()`. Removing it would break the public API. The hot-path `get(Sampler, ...)` methods
+don't use it, but it serves a legitimate purpose as the backing store for distinct-item tracking and
+probability counts. **No action required.**
 
 ---
 
@@ -280,7 +275,7 @@ scalar code before committing.
 | # | Item | Category | Impact | Effort | Notes |
 |---|------|----------|--------|--------|-------|
 | 1 | A1 — Fix stream tag matching | A + C | HIGH | S | Guaranteed win; no risk |
-| 2 | A4 — Remove dead HashMap | A | MEDIUM | S | Trivial cleanup |
+| 2 | ~~A4 — Remove dead HashMap~~ | — | — | — | INVALIDATED: cont is actively used |
 | 3 | B2 — TreeMap API fix | B | LOW | S | 15-min fix |
 | 4 | C2 — Inline slant math | C | MEDIUM | M | Zero-allocation win if slant enabled |
 | 5 | C5 — Cache carving sampler | C | MEDIUM | S | Small scope, clear benefit |
