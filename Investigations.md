@@ -627,3 +627,15 @@ In order to facilitate design iteration and testing, I think it would make sense
 1. 
 
 2. 
+
+###########################
+
+Because Terra is versioned by it's short commit hash, the rebuild script called out in the optimization plan should be updated (C:\Projects\BiomeTool\RebuildDepsAndBenchmark.bat):
+
+To build Terra and prepare to bring it into the BiomeTool, the tool must:
+1. Compile Terra to verify compilation without publishing to LocalMaven.
+2. Commit the changes.
+3. Recompile Terra and publish to local maven to ensure it is available with the new short-hash.
+4. Update "terraGITHash" in C:\Projects\BiomeTool\build.gradle.kts to the newly available short hash of the Terra build.
+
+Note if any dependency fails to build during RebuildDepsAndBenchmark.bat the entire process should exit wih an error so the person / tool making edits will know what broke and can investigate the fix.

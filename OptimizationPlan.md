@@ -269,8 +269,9 @@ removing the cache entirely (saves the comparison overhead). If > 20%, expand to
 | **Primitive value types** (preview) | Vector3, Interpolator | Eliminate heap allocation for small math objects |
 | **Sequenced collections** | TreeMap accesses in PaletteHolder (B2) | Cleaner API (`getFirst()`, `getLast()`) |
 
-Note: Java 25 is a standard release (not LTS). Ensure target JVM is locked to 25 before adopting
-preview features. Vector API is still incubating — benchmark against scalar code before committing.
+Note: Java 25 is an LTS release (the successor to Java 21 LTS, following the 11 → 17 → 21 → 25
+cadence). It is a stable long-term target. Vector API is still incubating — benchmark against
+scalar code before committing.
 
 ---
 
@@ -301,11 +302,21 @@ automated dependency-chain rebuild and benchmark runner.
 Manual steps if selective rebuild is needed:
 
 ```
-1. (If Tectonic changed)   cd C:\Projects\Tectonic   && gradlew.bat publishToMavenLocal
-2. (If Terra changed)      cd C:\Projects\Terra       && gradlew.bat publishToMavenLocal
+1. (If Tectonic changed)
+      cd C:\Projects\Tectonic && gradlew.bat publishToMavenLocal
+
+2. (If Terra changed — Terra is versioned by its git short hash)
+   a. cd C:\Projects\Terra && gradlew.bat build          (verify compile, no publish)
+   b. git add -A && git commit -m "your message"         (hash changes after this)
+   c. gradlew.bat publishToMavenLocal                    (publishes under new hash)
+   d. In C:\Projects\BiomeTool\build.gradle.kts, update:
+        val terraGitHash = "<new short hash from git rev-parse --short HEAD>"
+
 3. (If BiomeTool changed or Terra/Tectonic republished)
-                           cd C:\Projects\BiomeTool   && gradlew.bat build
-4.                         C:\Projects\BiomeTool\RunBenchmark.bat
+      cd C:\Projects\BiomeTool && gradlew.bat build
+
+4.    C:\Projects\BiomeTool\RunBenchmark.bat
+
 5. Read: C:\Projects\BiomeTool\benchmark_*.csv
 ```
 
