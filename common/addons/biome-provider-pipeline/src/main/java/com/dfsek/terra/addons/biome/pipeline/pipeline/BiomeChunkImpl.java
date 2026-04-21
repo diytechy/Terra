@@ -2,6 +2,7 @@ package com.dfsek.terra.addons.biome.pipeline.pipeline;
 
 import com.dfsek.seismic.math.floatingpoint.FloatingPointFunctions;
 
+import java.util.Arrays;
 import java.util.List;
 
 import com.dfsek.terra.addons.biome.pipeline.api.BiomeChunk;
@@ -14,10 +15,25 @@ import com.dfsek.terra.api.util.cache.SeededVector2Key;
 
 public class BiomeChunkImpl implements BiomeChunk {
 
+    private static final ThreadLocal<PipelineBiome[]> BIOMES_BUF = new ThreadLocal<>();
+    private static final ThreadLocal<PipelineBiome[]> LOOKUP_BUF = new ThreadLocal<>();
+
+    private static PipelineBiome[] acquireBuffer(ThreadLocal<PipelineBiome[]> pool, int len) {
+        PipelineBiome[] buf = pool.get();
+        if(buf == null || buf.length < len) {
+            buf = new PipelineBiome[len];
+            pool.set(buf);
+        } else {
+            Arrays.fill(buf, 0, len, null);
+        }
+        return buf;
+    }
+
     private final SeededVector2Key worldOrigin;
     private final int chunkOriginArrayIndex;
     private final int worldCoordinateScale;
     private final int size;
+    private final int chunkSize;
     private PipelineBiome[] biomes;
 
     public BiomeChunkImpl(SeededVector2Key worldOrigin, PipelineImpl pipeline) {
@@ -27,15 +43,17 @@ public class BiomeChunkImpl implements BiomeChunk {
         this.worldCoordinateScale = pipeline.getResolution();
 
         this.size = pipeline.getArraySize();
+        this.chunkSize = pipeline.getChunkSize();
 
         Profiler profiler = pipeline.getProfiler();
 
         int expanderCount = pipeline.getExpanderCount();
         int expansionsApplied = 0;
 
-        // Allocate working arrays
-        this.biomes = new PipelineBiome[size * size];
-        PipelineBiome[] lookupArray = new PipelineBiome[size * size];
+        // Use thread-local working arrays to avoid per-chunk allocation
+        int arrayLen = size * size;
+        PipelineBiome[] biomes = acquireBuffer(BIOMES_BUF, arrayLen);
+        PipelineBiome[] lookupArray = acquireBuffer(LOOKUP_BUF, arrayLen);
         // A second lookup array is required such that stage application doesn't affect lookups, otherwise application may cascade
 
         // Construct working grid
@@ -97,6 +115,16 @@ public class BiomeChunkImpl implements BiomeChunk {
         }
 
         profiler.pop("biome_pipeline_generate");
+
+        // Compact result into a minimal chunkSize×chunkSize array so the working buffers can be reused
+        PipelineBiome[] compactBiomes = new PipelineBiome[chunkSize * chunkSize];
+        for(int x = 0; x < chunkSize; x++) {
+            int xIndex = x + chunkOriginArrayIndex;
+            for(int z = 0; z < chunkSize; z++) {
+                compactBiomes[x * chunkSize + z] = biomes[(xIndex * size) + (z + chunkOriginArrayIndex)];
+            }
+        }
+        this.biomes = compactBiomes;
     }
 
     protected static int initialSizeToArraySize(int expanderCount, int initialSize) {
@@ -150,9 +178,7 @@ public class BiomeChunkImpl implements BiomeChunk {
 
     @Override
     public PipelineBiome get(int xInChunk, int zInChunk) {
-        int xIndex = xInChunk + chunkOriginArrayIndex;
-        int zIndex = zInChunk + chunkOriginArrayIndex;
-        return biomes[(xIndex * size) + zIndex];
+        return biomes[xInChunk * chunkSize + zInChunk];
     }
 
     private int xIndexToWorldCoordinate(int xIndex) {

@@ -13,6 +13,17 @@ import com.dfsek.terra.api.world.biome.generation.BiomeProvider;
 
 
 public class ElevationInterpolator {
+    private static final ThreadLocal<BiomeNoiseProperties[][]> GENS_POOL = new ThreadLocal<>();
+
+    private static BiomeNoiseProperties[][] acquireGens(int size) {
+        BiomeNoiseProperties[][] arr = GENS_POOL.get();
+        if(arr == null || arr.length < size) {
+            arr = new BiomeNoiseProperties[size][size];
+            GENS_POOL.set(arr);
+        }
+        return arr;
+    }
+
     private final double[][] values = new double[18][18];
 
     public ElevationInterpolator(long seed, int chunkX, int chunkZ, BiomeProvider provider, int smooth,
@@ -20,7 +31,7 @@ public class ElevationInterpolator {
         int xOrigin = chunkX << 4;
         int zOrigin = chunkZ << 4;
 
-        BiomeNoiseProperties[][] gens = new BiomeNoiseProperties[18 + 2 * smooth][18 + 2 * smooth];
+        BiomeNoiseProperties[][] gens = acquireGens(18 + 2 * smooth);
 
         // Precompute generators.
         for(int x = -1 - smooth; x <= 16 + smooth; x++) {

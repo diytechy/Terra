@@ -226,16 +226,14 @@ the current chunk. Cost: one map lookup per cache miss vs. a 4-call chain.
 
 ---
 
-### C4 — ChunkInterpolator: Unnecessary Intermediate Array Copy
-**IMPACT: LOW | EFFORT: S | Category: C**
+### ~~C4 — ChunkInterpolator: Unnecessary Intermediate Array Copy~~ (INVALIDATED)
+~~**IMPACT: LOW | EFFORT: S | Category: C**~~
 
-**Files:**
-- [ChunkInterpolator.java:69–101](common/addons/chunk-generator-noise-3d/src/main/java/com/dfsek/terra/addons/chunkgenerator/generation/math/interpolation/ChunkInterpolator.java#L69)
-
-**Problem:**
-`centerColumns[25]` is filled then copied into the larger `columns` array in a second pass.
-
-**Fix:** Populate `columns` directly during the first loop, eliminating the intermediate array.
+**Finding after code review:** The two-loop structure is intentional ("Option 5" comment). `columns` can only
+be allocated after `localMaxBlend` is known, which requires the first loop to complete. Eliminating
+`centerColumns` would require either re-fetching 25 columns a second time or allocating `columns` at
+the global `maxBlend` size upfront, both of which are regressions. The 25-element copy loop is
+negligible. **No action required.**
 
 ---
 
