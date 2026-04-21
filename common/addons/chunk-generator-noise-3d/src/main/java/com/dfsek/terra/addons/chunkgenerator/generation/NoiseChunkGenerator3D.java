@@ -8,6 +8,7 @@
 package com.dfsek.terra.addons.chunkgenerator.generation;
 
 
+import java.util.Collections;
 import java.util.List;
 
 import com.dfsek.seismic.type.sampler.Sampler;
@@ -175,7 +176,7 @@ public class NoiseChunkGenerator3D implements ChunkGenerator {
                         biomeMinDensitySmoothK = biomeNoise.minDensitySmoothK();
                         skipPackMinDensity = biomeMinDensitySampler == null
                             && !minDensitySkipTags.isEmpty()
-                            && biome.getTags().stream().anyMatch(minDensitySkipTags::contains);
+                            && !Collections.disjoint(biome.getTags(), minDensitySkipTags);
                         lastMinDensityBiome = biome;
                     }
                     Sampler activeFloor = biomeMinDensitySampler != null ? biomeMinDensitySampler
@@ -246,7 +247,7 @@ public class NoiseChunkGenerator3D implements ChunkGenerator {
             smoothK = biomeNoise.minDensitySmoothK();
         } else {
             boolean skip = !minDensitySkipTags.isEmpty()
-                && biome.getTags().stream().anyMatch(minDensitySkipTags::contains);
+                && !Collections.disjoint(biome.getTags(), minDensitySkipTags);
             activeFloor = skip ? null : minDensitySampler;
             smooth = minDensitySmooth;
             smoothK = minDensitySmoothK;

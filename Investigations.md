@@ -639,3 +639,7 @@ To build Terra and prepare to bring it into the BiomeTool, the tool must:
 4. Update "terraGITHash" in C:\Projects\BiomeTool\build.gradle.kts to the newly available short hash of the Terra build.
 
 Note if any dependency fails to build during RebuildDepsAndBenchmark.bat the entire process should exit wih an error so the person / tool making edits will know what broke and can investigate the fix.
+
+#####################################
+
+Now impliment along the attack order each fix 1 by 1, each time testing compilation and committing seperately for each fix.  So for each change, in general I would expect a Terra commit, a rebuild of BiomeTool and rerun of the benchmark just to verify stability of the latest changes, and a commit in BiomeTool for tracability.  Start with attack order item #1, and confirm with me before starting another item on the list.
