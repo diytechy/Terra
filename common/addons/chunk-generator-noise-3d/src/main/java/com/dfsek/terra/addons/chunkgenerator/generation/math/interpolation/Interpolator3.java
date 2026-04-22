@@ -12,33 +12,27 @@ import com.dfsek.seismic.math.numericanalysis.interpolation.InterpolationFunctio
 
 
 /**
- * Class for bilinear interpolation of values arranged on a unit square.
+ * Trilinear interpolator storing 8 corner values on a unit cube.
+ * Delegates to {@link InterpolationFunctions#triLerp} which uses FMA internally.
  */
 public class Interpolator3 {
-    private final Interpolator bottom;
-    private final Interpolator top;
+    private final double _000, _100, _010, _110, _001, _101, _011, _111;
 
-    /**
-     * Constructs an interpolator with given values as vertices of a unit cube.
-     * * @param _000 The value at <code>(t, u, v) = (0, 0, 0)</code>.
-     * * @param _100 The value at <code>(t, u, v) = (1, 0, 0)</code>.
-     * * @param _010 The value at <code>(t, u, v) = (0, 1, 0)</code>.
-     * * @param _110 The value at <code>(t, u, v) = (1, 1, 0)</code>.
-     * * @param _001 The value at <code>(t, u, v) = (0, 0, 1)</code>.
-     * * @param _101 The value at <code>(t, u, v) = (1, 0, 1)</code>.
-     * * @param _011 The value at <code>(t, u, v) = (0, 1, 1)</code>.
-     * * @param _111 The value at <code>(t, u, v) = (1, 1, 1)</code>.
-     */
     public Interpolator3(double _000, double _100,
                          double _010, double _110,
                          double _001, double _101,
                          double _011, double _111) {
-        this.top = new Interpolator(_000, _010, _001, _011);
-        this.bottom = new Interpolator(_100, _110, _101, _111);
+        this._000 = _000;
+        this._100 = _100;
+        this._010 = _010;
+        this._110 = _110;
+        this._001 = _001;
+        this._101 = _101;
+        this._011 = _011;
+        this._111 = _111;
     }
 
-    //TODO this system is not very good, replace it wholesale
     public double trilerp(double x, double y, double z) {
-        return InterpolationFunctions.lerp(top.bilerp(y, z), bottom.bilerp(y, z), x);
+        return InterpolationFunctions.triLerp(_000, _100, _010, _110, _001, _101, _011, _111, y, z, x);
     }
 }
