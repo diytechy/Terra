@@ -33,6 +33,6 @@ public class Interpolator3 {
     }
 
     public double trilerp(double x, double y, double z) {
-        return InterpolationFunctions.triLerp(_000, _100, _010, _110, _001, _101, _011, _111, y, z, x);
+        return InterpolationFunctions.triLerp(_000, _100, _010, _110, _001, _101, _011, _111, x, y, z);
     }
 }
