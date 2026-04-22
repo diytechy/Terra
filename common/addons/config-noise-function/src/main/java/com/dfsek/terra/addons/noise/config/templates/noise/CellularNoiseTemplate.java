@@ -15,6 +15,7 @@ import com.dfsek.seismic.type.sampler.Sampler;
 import com.dfsek.tectonic.api.config.template.annotations.Default;
 import com.dfsek.tectonic.api.config.template.annotations.Value;
 
+import com.dfsek.terra.addons.noise.config.sampler.MultiSlotCacheSampler;
 import com.dfsek.terra.api.config.meta.Meta;
 
 
@@ -42,8 +43,7 @@ public class CellularNoiseTemplate extends NoiseTemplate<CellularSampler> {
 
     @Override
     public Sampler get() {
-        CellularSampler sampler = new CellularSampler(frequency, salt, lookup, cellularDistanceFunction, cellularReturnType, cellularJitter,
-            saltLookup);
-        return sampler;
+        return new CellularSampler(frequency, salt, new MultiSlotCacheSampler(lookup), cellularDistanceFunction, cellularReturnType,
+            cellularJitter, saltLookup);
     }
 }
