@@ -265,8 +265,9 @@ scalar code before committing.
 | 8 | ~~A2 — Replace-stage short-circuit~~ | — | — | — | INVALIDATED: sampler must be called to determine SELF vs real biome |
 | 9 | ~~B1 — RWLock for expression compile~~ | — | — | — | INVALIDATED: volatile DCL already gives zero-overhead concurrent reads |
 | 10 | B3 — Remove reflection in pipeline init | B | LOW | M | Clean up, low urgency |
-| 11 | C6 — Profile + tune noise cache | C | LOW | M | Measure before acting |
-| 12 | Java 25 SIMD / value types | A + C | HIGH (potential) | L | Validate JVM version first |
+| 11 | C6 — Remove ThreadLocalNoiseHolder | C | LOW | M | Removed — always-miss overhead on non-blend path |
+| 12 | Java 25: Inline Interpolator3 + triLerp | C | MEDIUM | S | DONE — eliminates 2 allocs/cell; FMA already in Seismic |
+| 12b | Java 25: Vector API (SIMD) for triLerp | C | HIGH (potential) | L | Future — needs `--add-modules jdk.incubator.vector`, Gradle config, benchmarking |
 
 ---
 
