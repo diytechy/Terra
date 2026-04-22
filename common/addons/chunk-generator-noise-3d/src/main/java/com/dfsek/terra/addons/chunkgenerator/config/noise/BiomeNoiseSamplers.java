@@ -8,9 +8,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Immutable, cacheable record holding the shareable sampler configuration for a biome.
  * Separated from {@link BiomeNoiseProperties} so that Tectonic's session-scoped type-load cache
- * can deduplicate instances across biomes that inherit the same sampler config from a shared parent,
- * while keeping {@link ThreadLocalNoiseHolder} (which must remain unique per biome) outside the
- * cacheable record.
+ * can deduplicate instances across biomes that inherit the same sampler config from a shared parent.
  */
 public record BiomeNoiseSamplers(
     Sampler base,

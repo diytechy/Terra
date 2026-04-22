@@ -126,7 +126,7 @@ public class ChunkInterpolator {
                     if(blend == 0 || scaledY < blendMinY || scaledY > blendMaxY) {
                         // Blend disabled: either the biome has blendDistance=0, or this Y level is
                         // outside the pack-configured blend range. Use center sample directly.
-                        noise = generationSettings.noiseHolder().getNoise(generationSettings.samplers().base(), absoluteX, scaledY, absoluteZ, seed);
+                        noise = generationSettings.samplers().base().getSample(seed, absoluteX, scaledY, absoluteZ);
                         if(SamplerFloorFeature.ENABLED) {
                             Sampler floor = generationSettings.samplers().densityFloor();
                             floorValue = (floor != null)
@@ -160,7 +160,7 @@ public class ChunkInterpolator {
                         if(homogeneous) {
                             // All neighbors are the same biome: blending is a weighted average of
                             // identical values, so the result equals the center sample directly.
-                            noise = generationSettings.noiseHolder().getNoise(generationSettings.samplers().base(), absoluteX, scaledY, absoluteZ, seed);
+                            noise = generationSettings.samplers().base().getSample(seed, absoluteX, scaledY, absoluteZ);
                             if(SamplerFloorFeature.ENABLED) {
                                 Sampler floor = generationSettings.samplers().densityFloor();
                                 floorValue = (floor != null)
@@ -191,7 +191,7 @@ public class ChunkInterpolator {
                                         .getContext()
                                         .get(noisePropertiesKey);
                                     BiomeNoiseSamplers samplers = properties.samplers();
-                                    double sample = properties.noiseHolder().getNoise(samplers.base(), absoluteX, scaledY, absoluteZ, seed);
+                                    double sample = samplers.base().getSample(seed, absoluteX, scaledY, absoluteZ);
                                     double weight = samplers.blendWeight();
                                     runningNoise += sample * weight;
                                     runningDiv += weight;

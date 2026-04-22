@@ -75,7 +75,6 @@ public class BiomeNoiseConfigTemplate implements ObjectTemplate<BiomeNoiseProper
         return new BiomeNoiseProperties(
             new BiomeNoiseSamplers(baseSampler, elevationSampler, carvingSampler, blendDistance, blendStep, blendWeight, elevationWeight,
                 minDensitySampler == NO_MIN_DENSITY_SAMPLER ? null : minDensitySampler, minDensitySmooth, minDensitySmoothK,
-                densityFloor == NO_FLOOR_SAMPLER ? null : densityFloor),
-            new ThreadLocalNoiseHolder());
+                densityFloor == NO_FLOOR_SAMPLER ? null : densityFloor));
     }
 }
