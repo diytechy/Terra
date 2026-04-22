@@ -69,26 +69,18 @@ skipPackMinDensity = biomeMinDensitySampler == null && skip;
 
 ---
 
-### A2 — Replace Stage: Sampler Called Even When Result Would Be "Self"
-**IMPACT: MEDIUM | EFFORT: M | Category: A**
+### ~~A2 — Replace Stage: Sampler Called Even When Result Would Be "Self"~~ (INVALIDATED)
+~~**IMPACT: MEDIUM | EFFORT: M | Category: A**~~
 
-**Files:**
-- [ReplaceStage.java:34–40](common/addons/biome-provider-pipeline/src/main/java/com/dfsek/terra/addons/biome/pipeline/stage/mutators/ReplaceStage.java#L34)
+**Finding after code review:** No viable optimization path exists:
+1. `ProbabilityCollection.get()` must call the sampler to index into its backing array — SELF vs real biome
+   cannot be determined without the sampler output.
+2. `ProbabilityCollection.Singleton` already short-circuits the sampler for single-entry collections.
+3. The tag check is already the main guard — sampler is only called when the tag matches.
+4. Each grid point is processed exactly once per stage — no repeated evaluations to cache.
 
-**Problem:**
-When a biome does match the `replaceableTag`, `replace.get(sampler, x, z, seed)` is called to get
-the replacement biome. If the sampler maps to "self" (keep original biome), the sampler evaluation
-was still paid for. Additionally, the sampler is evaluated even when it could be predicted to always
-return the same result.
-
-**Investigate:**
-1. How often do replace stages resolve to "self" in CHIMERA? If high frequency, add a
-   short-circuit pre-check.
-2. Can sampler evaluation be deferred until after a fast biome-presence check?
-3. Are any replace-stage samplers pure constants? If so, fold them at pack load time.
-
-**Fix approach:** Add a cache at the `BiomeChunkImpl` level for sampler results at (x, z) so
-repeated queries within the same chunk grid don't re-evaluate. Profile first to confirm real impact.
+CHIMERA has 117 SELF entries in replace stages (e.g., SELF:5 vs real biome:1 ≈ 83% SELF), but the
+sampler must still be called to determine which bucket a given (x,z) falls into. **No action required.**
 
 ---
 
@@ -121,24 +113,15 @@ probability counts. **No action required.**
 
 ## CATEGORY B — Pack Load Speed
 
-### B1 — DeferredExpressionSampler: Synchronized Block Under Parallel Load
-**IMPACT: MEDIUM | EFFORT: M | Category: B**
+### ~~B1 — DeferredExpressionSampler: Synchronized Block Under Parallel Load~~ (INVALIDATED)
+~~**IMPACT: MEDIUM | EFFORT: M | Category: B**~~
 
-**Files:**
-- [DeferredExpressionSampler.java:98–122](common/addons/config-noise-function/src/main/java/com/dfsek/terra/addons/noise/config/sampler/DeferredExpressionSampler.java#L98)
-
-**Problem:**
-The double-checked locking pattern uses `synchronized(this)` for lazy expression compilation.
-During pack loading with parallel threads, multiple threads compete for individual sampler locks,
-degrading load throughput.
-
-**Fix:**
-Replace `synchronized` with `ReentrantReadWriteLock`. Compiled samplers are read far more than they
-are written (compiled once, read many times). A read-write lock allows concurrent reads after first
-compilation.
-
-For Java 21+ (which is already in use): also evaluate `VarHandle.compareAndSet()` for a lockless
-approach.
+**Finding after code review:** The current implementation is already optimal. The `volatile` +
+double-checked locking pattern means the `synchronized` block is **never entered** after the first
+compilation. Post-compilation reads take the fast path (`volatile` read + null check) with zero lock
+overhead — concurrent reads already work without any lock. A `ReentrantReadWriteLock` would be
+slower for the dominant read case, as read-lock acquire/release costs more than a single `volatile`
+read. **No action required.**
 
 ---
 
@@ -279,8 +262,8 @@ scalar code before committing.
 | 5 | C5 — Cache carving sampler | C | MEDIUM | S | Small scope, clear benefit |
 | 6 | C4 — Remove column copy | C | LOW | S | Trivial |
 | 7 | A3 + C1 — ThreadLocal array pools | A + C | MEDIUM | M | Same pattern, do together |
-| 8 | A2 — Replace-stage short-circuit | A | MEDIUM | M | Profile first |
-| 9 | B1 — RWLock for expression compile | B | MEDIUM | M | Pack load only |
+| 8 | ~~A2 — Replace-stage short-circuit~~ | — | — | — | INVALIDATED: sampler must be called to determine SELF vs real biome |
+| 9 | ~~B1 — RWLock for expression compile~~ | — | — | — | INVALIDATED: volatile DCL already gives zero-overhead concurrent reads |
 | 10 | B3 — Remove reflection in pipeline init | B | LOW | M | Clean up, low urgency |
 | 11 | C6 — Profile + tune noise cache | C | LOW | M | Measure before acting |
 | 12 | Java 25 SIMD / value types | A + C | HIGH (potential) | L | Validate JVM version first |

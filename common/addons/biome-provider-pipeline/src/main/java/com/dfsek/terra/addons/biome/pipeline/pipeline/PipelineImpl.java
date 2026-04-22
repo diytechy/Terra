@@ -16,6 +16,8 @@ import com.dfsek.terra.addons.biome.pipeline.api.Stage;
 import com.dfsek.terra.addons.biome.pipeline.cache.ChunkGenerationContext;
 import com.dfsek.terra.addons.biome.pipeline.cache.ChunkScopedCacheSampler;
 import com.dfsek.terra.addons.biome.pipeline.cache.PipelineSamplerAnalysis;
+import com.dfsek.terra.api.noise.DelegateSampler;
+import com.dfsek.terra.api.noise.SamplerWrapper;
 import com.dfsek.terra.api.profiler.Profiler;
 import com.dfsek.terra.api.util.cache.SeededVector2Key;
 
@@ -107,31 +109,32 @@ public class PipelineImpl implements Pipeline {
                 Sampler selectedSampler = selected.sampler;
 
                 // Unwrap DimensionApplicableSampler to get the LastValueSampler inside
-                // (Check by class simple name to avoid cross-addon dependency)
                 Sampler sampler = selectedSampler;
-                if (selectedSampler.getClass().getSimpleName().equals("DimensionApplicableSampler")) {
-                    sampler = unwrapDimensionApplicableSampler(selectedSampler);
+                if (selectedSampler instanceof SamplerWrapper wrapper) {
+                    sampler = wrapper.getSampler();
                     if (sampler == null) {
-                        if (debugProfiler) logger.warn("Could not unwrap DimensionApplicableSampler for {}", selected.name);
+                        if (debugProfiler) logger.warn("Could not unwrap SamplerWrapper for {}", selected.name);
                         continue;
                     }
                 }
 
-                // Get the inner sampler that the LastValueSampler currently wraps
-                // (LastValueSampler wraps DeferredExpressionSampler or other compiled samplers)
-                Sampler innerSampler = getLastValueSamplerDelegate(sampler);
+                // Get the inner sampler that the DelegateSampler currently wraps
+                if (!(sampler instanceof DelegateSampler delegateSampler)) {
+                    if (debugProfiler) logger.warn("Expected DelegateSampler for {}, got {}", selected.name, sampler.getClass().getSimpleName());
+                    continue;
+                }
+                Sampler innerSampler = delegateSampler.getDelegate();
                 if (innerSampler == null) {
-                    // If we can't get the delegate, skip this sampler
-                    if (debugProfiler) logger.warn("Could not extract delegate from LastValueSampler for {}", selected.name);
+                    if (debugProfiler) logger.warn("Could not extract delegate from DelegateSampler for {}", selected.name);
                     continue;
                 }
 
                 // Wrap the inner sampler in the cache
                 ChunkScopedCacheSampler cacheSampler = new ChunkScopedCacheSampler(innerSampler, chunkContextLocal, selected.slot);
 
-                // Replace the delegate in the LastValueSampler with the cache wrapper
-                // Now: DimensionApplicableSampler → LastValueSampler → ChunkScopedCacheSampler → (original inner sampler)
-                setLastValueSamplerDelegate(sampler, cacheSampler);
+                // Replace the delegate with the cache wrapper
+                // Now: SamplerWrapper → DelegateSampler → ChunkScopedCacheSampler → (original inner sampler)
+                delegateSampler.setDelegate(cacheSampler);
             }
             this.numCachedSamplers = analysisResult.numSlots;
         } else {
@@ -210,53 +213,4 @@ public class PipelineImpl implements Pipeline {
         return profiler;
     }
 
-    /**
-     * Extract the delegate from a LastValueSampler wrapper via reflection.
-     * Returns the inner sampler that the LastValueSampler currently delegates to.
-     */
-    /**
-     * Unwrap a DimensionApplicableSampler to get the inner sampler via reflection.
-     * DimensionApplicableSampler wraps a single Sampler and stores it in a private field.
-     * This method extracts that inner sampler without requiring a direct type reference.
-     */
-    private static Sampler unwrapDimensionApplicableSampler(Sampler dimensionApplicable) {
-        try {
-            var method = dimensionApplicable.getClass().getMethod("getSampler");
-            Object result = method.invoke(dimensionApplicable);
-            if (result instanceof Sampler) {
-                return (Sampler) result;
-            }
-        } catch (Exception e) {
-            logger.warn("Failed to unwrap DimensionApplicableSampler", e);
-        }
-        return null;
-    }
-
-    private static Sampler getLastValueSamplerDelegate(Sampler lastValueSampler) {
-        try {
-            var method = lastValueSampler.getClass().getMethod("getDelegate");
-            Object result = method.invoke(lastValueSampler);
-            if (result instanceof Sampler) {
-                return (Sampler) result;
-            }
-        } catch (Exception e) {
-            logger.warn("Failed to get LastValueSampler delegate", e);
-        }
-        return null;
-    }
-
-    /**
-     * Helper to set the delegate on a LastValueSampler wrapper via reflection.
-     * This allows swapping in a ChunkScopedCacheSampler while the LastValueSampler
-     * is held by compiled expressions (which can't be changed).
-     */
-    private static void setLastValueSamplerDelegate(Sampler lastValueSampler, Sampler newDelegate) {
-        try {
-            var method = lastValueSampler.getClass().getDeclaredMethod("setDelegate", Sampler.class);
-            method.setAccessible(true);
-            method.invoke(lastValueSampler, newDelegate);
-        } catch (Exception e) {
-            logger.warn("Failed to set LastValueSampler delegate", e);
-        }
-    }
 }

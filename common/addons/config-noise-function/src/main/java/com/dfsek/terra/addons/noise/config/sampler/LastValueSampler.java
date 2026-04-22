@@ -2,6 +2,8 @@ package com.dfsek.terra.addons.noise.config.sampler;
 
 import com.dfsek.seismic.type.sampler.Sampler;
 
+import com.dfsek.terra.api.noise.DelegateSampler;
+
 
 /**
  * A single-entry thread-local cache that stores the most recent 2D sample result.
@@ -13,7 +15,7 @@ import com.dfsek.seismic.type.sampler.Sampler;
  * Only wraps 2D calls; 3D calls delegate directly to the underlying sampler.
  * Memory cost: ~32 bytes per thread (seed + x + z + result).
  */
-public class LastValueSampler implements Sampler {
+public class LastValueSampler implements Sampler, DelegateSampler {
 
     private volatile Sampler delegate;
     private final ThreadLocal<LastValue> lastValue = ThreadLocal.withInitial(LastValue::new);
@@ -46,12 +48,8 @@ public class LastValueSampler implements Sampler {
         return delegate;
     }
 
-    /**
-     * Package-private method used by pipeline caching analysis to install chunk-scope caches.
-     * Replaces the delegate with a caching wrapper while maintaining call compatibility
-     * with compiled expressions that hold a reference to this LastValueSampler instance.
-     */
-    void setDelegate(Sampler newDelegate) {
+    @Override
+    public void setDelegate(Sampler newDelegate) {
         this.delegate = newDelegate;
     }
 
