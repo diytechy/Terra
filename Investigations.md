@@ -643,3 +643,15 @@ Note if any dependency fails to build during RebuildDepsAndBenchmark.bat the ent
 #####################################
 
 Now implement along the attack order each fix 1 by 1, each time testing compilation and committing separately for each fix.  So for each change, in general I would expect a Terra commit, a rebuild of BiomeTool and rerun of the benchmark just to verify stability of the latest changes, and a commit in BiomeTool for traceability.  Start with attack order item #1, and confirm with me before starting another item on the list.
+
+#######################################
+
+I now get the following errors:
+
+publishToMavenLocal blocked: working tree has uncommitted changes.
+  Commit your changes and re-run publishToMavenLocal so the published
+  version hash matches the committed state.
+  Dirty files:
+  ?? buildSrc/.kotlin/
+
+  But there are no uncommitted unignored files.  The directory above is an ignored directory.  What is the best way to address this?

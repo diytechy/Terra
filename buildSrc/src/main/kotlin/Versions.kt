@@ -16,7 +16,7 @@ object Versions {
         const val cloud = "2.0.0"
         
         const val caffeine = "3.2.2"
-        const val dendryTerra = "1.0.0-BETA-C"
+        const val dendryTerra = "1.0.0-BETA-D"
         const val bubblesOnChunkGen = "1.2.0"
 
         const val slf4j = "2.0.17"

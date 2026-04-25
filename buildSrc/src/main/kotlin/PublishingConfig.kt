@@ -17,9 +17,14 @@ fun Project.configurePublishing() {
     afterEvaluate {
         tasks.matching { it.name == "publishToMavenLocal" }.configureEach {
             doFirst {
+                // Filter out untracked files (??) — they are never part of a commit
+                // and have no effect on the commit hash.
                 val dirty = providers.exec {
                     commandLine("git", "status", "--porcelain")
-                }.standardOutput.asText.get().trim()
+                }.standardOutput.asText.get()
+                    .lines()
+                    .filter { it.isNotBlank() && !it.startsWith("??") }
+                    .joinToString("\n")
                 if (dirty.isNotEmpty()) {
                     throw GradleException(
                         "Compilation successful.\n" +
