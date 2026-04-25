@@ -299,3 +299,7 @@ Manual steps if selective rebuild is needed:
 
 ORIGEN2/Chimera changes do NOT require `publishToMavenLocal` — `CopyPacks.bat` (called by
 `RunBenchmark.bat`) handles the pack deployment automatically.
+
+#######################################
+
+Create a document in this workspace that explains how the "distributor" and "locator" properties work to locate features.  I'd like to understand how they become true to set features in a position, how it is ensured those features are spaced out so they don't intersect (or perhaps that is only restricted in distributors)
