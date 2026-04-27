@@ -664,10 +664,12 @@ publishToMavenLocal blocked: working tree has uncommitted changes.
 
   ############################################
 
-The maxArraySize is 64, does this mean if a pack config has a number of domain warping stages that expands the necessary evaluated size beyond 64x64, the biome pipeline thrashes on each lookup that jumps past the initial 64 array size?
+For the biome cache, it was noted in a separate investigation that the maxArraySize is 64, does this mean if a pack config has a number of domain warping stages that expands the necessary evaluated size beyond 64x64, the biome pipeline thrashes on each lookup that jumps past the initial 64 array size as it fills the biome cache?  I thought the biome array would expend past that soft limit if needed depending on the domain warping of the biome sampler pipeline.
 
 Separate:
 
-Can you confirm if the default overworld pack CHIMERA is using biome caching or not?
+Can you confirm if the default overworld pack CHIMERA (C:\Projects\Origen2) is using biome caching or not?
 
-A separate investigation: Note: `CachingBiomeProvider` is NOT in this chain because `biomeCache` defaults to `false`.
+A separate investigation indicated: Note: `CachingBiomeProvider` is NOT in this chain because `biomeCache` defaults to `false`.
+
+How would that impact performance?
