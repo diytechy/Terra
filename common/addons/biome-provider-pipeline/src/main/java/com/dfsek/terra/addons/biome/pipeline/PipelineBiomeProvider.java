@@ -10,6 +10,7 @@ package com.dfsek.terra.addons.biome.pipeline;
 import com.dfsek.seismic.type.sampler.Sampler;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Comparator;
 import java.util.HashSet;
@@ -38,8 +39,14 @@ public class PipelineBiomeProvider implements BiomeProvider {
     private final double noiseAmp;
     private final Set<Biome> biomes;
     private final Profiler profiler;
+    private final @Nullable StructureSearchBiomeProvider structureFastPath;
 
     public PipelineBiomeProvider(Pipeline pipeline, int resolution, Sampler mutator, double noiseAmp, Profiler profiler) {
+        this(pipeline, resolution, mutator, noiseAmp, profiler, null);
+    }
+
+    public PipelineBiomeProvider(Pipeline pipeline, int resolution, Sampler mutator, double noiseAmp, Profiler profiler,
+                                 @Nullable StructureSearchBiomeProvider structureFastPath) {
         this.profiler = profiler;
         this.resolution = resolution;
         this.mutator = mutator;
@@ -76,6 +83,13 @@ public class PipelineBiomeProvider implements BiomeProvider {
             }
             this.biomes.add(pipelineBiome.getBiome());
         });
+        this.structureFastPath = structureFastPath;
+    }
+
+    @Override
+    public Optional<Biome> getStructurePlacementBiome(int x, int z, long seed) {
+        if(structureFastPath == null) return Optional.empty();
+        return structureFastPath.getStructurePlacementBiome(x, z, seed);
     }
 
     @Override

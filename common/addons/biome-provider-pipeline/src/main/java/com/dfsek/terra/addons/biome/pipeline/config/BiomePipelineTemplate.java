@@ -12,14 +12,17 @@ import com.dfsek.tectonic.api.config.template.annotations.Default;
 import com.dfsek.tectonic.api.config.template.annotations.Description;
 import com.dfsek.tectonic.api.config.template.annotations.Value;
 import com.dfsek.tectonic.api.config.template.object.ObjectTemplate;
+import org.jspecify.annotations.Nullable;
 
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
 import com.dfsek.terra.addons.biome.pipeline.PipelineBiomeProvider;
+import com.dfsek.terra.addons.biome.pipeline.StructureSearchBiomeProvider;
 import com.dfsek.terra.addons.biome.pipeline.api.Source;
 import com.dfsek.terra.addons.biome.pipeline.api.Stage;
+import com.dfsek.terra.addons.biome.pipeline.api.biome.PipelineBiome;
 import com.dfsek.terra.addons.biome.pipeline.pipeline.PipelineImpl;
 import com.dfsek.terra.api.config.meta.Meta;
 import com.dfsek.terra.api.profiler.Profiler;
@@ -75,9 +78,46 @@ public class BiomePipelineTemplate implements ObjectTemplate<BiomeProvider> {
     @Description("A list of pipeline stages to apply to the result of #source")
     private @Meta List<@Meta Stage> stages;
 
+    @Value("structure-search.classifier")
+    @Default
+    @Description("Sampler whose sign determines structure placement eligibility. " +
+                 "Values >= threshold return the eligible biome (e.g. land); " +
+                 "values < threshold return the ineligible biome (e.g. ocean). " +
+                 "Used as a fast path during stronghold ring position computation " +
+                 "to avoid evaluating the full pipeline for every search query.")
+    private @Meta @Nullable Sampler structureSearchClassifier = null;
+
+    @Value("structure-search.threshold")
+    @Default
+    @Description("Threshold for the structure search classifier. Default 0.0.")
+    private double structureSearchThreshold = 0.0;
+
+    @Value("structure-search.eligible-biome")
+    @Default
+    @Description("Biome returned for positions classified as eligible (sampler >= threshold). " +
+                 "Must map to a vanilla biome in the structure's preferred_biomes tag.")
+    private @Meta @Nullable PipelineBiome structureSearchEligibleBiome = null;
+
+    @Value("structure-search.ineligible-biome")
+    @Default
+    @Description("Biome returned for positions classified as ineligible (sampler < threshold). " +
+                 "Must map to a vanilla biome NOT in the structure's preferred_biomes tag.")
+    private @Meta @Nullable PipelineBiome structureSearchIneligibleBiome = null;
+
     @Override
     public BiomeProvider get() {
         PipelineImpl pipeline = new PipelineImpl(source, stages, resolution, 64, profiler, packSamplers, complexityEstimator, debugProfiler);
-        return new PipelineBiomeProvider(pipeline, resolution, blendSampler, blendAmplitude, profiler);
+        StructureSearchBiomeProvider fastPath = null;
+        if(structureSearchClassifier != null
+                && structureSearchEligibleBiome != null
+                && structureSearchIneligibleBiome != null) {
+            fastPath = new StructureSearchBiomeProvider(
+                structureSearchClassifier,
+                structureSearchThreshold,
+                structureSearchEligibleBiome.getBiome(),
+                structureSearchIneligibleBiome.getBiome()
+            );
+        }
+        return new PipelineBiomeProvider(pipeline, resolution, blendSampler, blendAmplitude, profiler, fastPath);
     }
 }

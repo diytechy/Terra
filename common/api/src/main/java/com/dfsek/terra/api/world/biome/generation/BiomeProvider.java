@@ -107,4 +107,17 @@ public interface BiomeProvider {
     default int yResolution() {
         return resolution();
     }
+
+    /**
+     * Returns a biome for structure placement searching (e.g. stronghold ring position
+     * computation), bypassing expensive pipeline evaluation. Implementations may return
+     * a coarse approximation sufficient to determine whether a position is eligible for
+     * the structure (e.g. land vs ocean). Returns {@link Optional#empty()} to indicate
+     * no fast path is available; callers must fall back to {@link #getBiome}.
+     *
+     * Coordinates are in block space. Y is not used (structure searches are 2D).
+     */
+    default Optional<Biome> getStructurePlacementBiome(int x, int z, long seed) {
+        return Optional.empty();
+    }
 }
