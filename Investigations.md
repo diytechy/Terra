@@ -655,3 +655,19 @@ publishToMavenLocal blocked: working tree has uncommitted changes.
   ?? buildSrc/.kotlin/
 
   But there are no uncommitted unignored files.  The directory above is an ignored directory.  What is the best way to address this?
+
+  #########################3
+
+  There are many computation steps in Terra that involve interpolation, and I believe most of them are executed on double types.  Can you do an analysis of Terra and determine if it would make sense for many computations to instead be performed in floats instead off doubles?  This would help expand cache capabilities by being able to store more data, and in theory could help performance, especially if any  computations take advantage of AVX2.  Additionally, check to see if any cache objects could be restructured / flattened to reduce memory consumption for object headers.
+
+  Or are most of the calculations performed using seismic?  Would it be necessary to touch other code bases?
+
+  ############################################
+
+The maxArraySize is 64, does this mean if a pack config has a number of domain warping stages that expands the necessary evaluated size beyond 64x64, the biome pipeline thrashes on each lookup that jumps past the initial 64 array size?
+
+Separate:
+
+Can you confirm if the default overworld pack CHIMERA is using biome caching or not?
+
+A separate investigation: Note: `CachingBiomeProvider` is NOT in this chain because `biomeCache` defaults to `false`.
