@@ -8,9 +8,12 @@
 package com.dfsek.terra.addons.biome.pipeline;
 
 import com.dfsek.seismic.type.sampler.Sampler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.dfsek.terra.api.world.biome.Biome;
 import com.dfsek.terra.api.world.biome.generation.BiomeProvider;
@@ -25,6 +28,9 @@ import com.dfsek.terra.api.world.biome.generation.BiomeProvider;
  */
 public class StructureSearchBiomeProvider implements BiomeProvider {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(StructureSearchBiomeProvider.class);
+    private static final AtomicBoolean LOGGED_FIRST_QUERY = new AtomicBoolean(false);
+
     private final Sampler classifier;
     private final double threshold;
     private final Biome eligibleBiome;
@@ -36,6 +42,8 @@ public class StructureSearchBiomeProvider implements BiomeProvider {
         this.threshold = threshold;
         this.eligibleBiome = eligibleBiome;
         this.ineligibleBiome = ineligibleBiome;
+        LOGGER.info("[Terra] StructureSearchBiomeProvider active — eligible: {}, ineligible: {}, threshold: {}",
+            eligibleBiome.getID(), ineligibleBiome.getID(), threshold);
     }
 
     @Override
@@ -45,6 +53,9 @@ public class StructureSearchBiomeProvider implements BiomeProvider {
 
     @Override
     public Optional<Biome> getStructurePlacementBiome(int x, int z, long seed) {
+        if (LOGGED_FIRST_QUERY.compareAndSet(false, true)) {
+            LOGGER.info("[Terra] StructureSearchBiomeProvider.getStructurePlacementBiome first query at ({}, {})", x, z);
+        }
         return Optional.of(getBiome(x, 0, z, seed));
     }
 
