@@ -89,6 +89,11 @@ public class BiomeExtrusionProvider implements BiomeProvider {
     }
 
     @Override
+    public Optional<Biome> getStructurePlacementBiome(int x, int z, long seed) {
+        return delegate.getStructurePlacementBiome(x, z, seed);
+    }
+
+    @Override
     public Iterable<Biome> getBiomes() {
         return biomes;
     }
