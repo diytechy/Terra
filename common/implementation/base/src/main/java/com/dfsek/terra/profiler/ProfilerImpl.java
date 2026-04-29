@@ -67,8 +67,15 @@ public class ProfilerImpl implements Profiler {
             MutableInteger size = STACK_SIZE.get();
             size.decrement();
             if(SAFE.get()) {
-                long time = System.nanoTime();
                 Stack<Frame> stack = THREAD_STACK.get();
+                if(stack.isEmpty()) {
+                    // Profiler was started mid-chunk: the matching push ran before the profiler
+                    // was active so it never reached THREAD_STACK. Reset so the next complete
+                    // chunk is tracked correctly.
+                    SAFE.set(false);
+                    return;
+                }
+                long time = System.nanoTime();
 
                 Map<String, List<Long>> timingsMap = TIMINGS.get();
 
