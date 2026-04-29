@@ -27,7 +27,7 @@ package com.dfsek.terra.addons.chunkgenerator;
  * floor sampling; leave {@code true} (default) for packs that need it.
  */
 public final class SamplerFloorFeature {
-    public static final boolean ENABLED = false;
+    public static final boolean ENABLED = true;
 
     private SamplerFloorFeature() {}
 }

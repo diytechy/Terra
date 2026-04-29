@@ -673,3 +673,19 @@ Can you confirm if the default overworld pack CHIMERA (C:\Projects\Origen2) is u
 A separate investigation indicated: Note: `CachingBiomeProvider` is NOT in this chain because `biomeCache` defaults to `false`.
 
 How would that impact performance?
+
+################################
+
+At "TerraProfilerReference.txt" there is an output of a profiler session with this latest version of Terra.  A few notes:
+
+1. The percentage appears to be percentage of each category, ideally this parent category percentage would be a percentage of the full chain, but children percentages would remain percentages relative to their parent.
+
+2. The report appeared to get cut off / truncated, was there extrusion specific information below this that is not making it to the console?  It appeared the extrusion stage took a significant amount of time.
+
+3. When running the profiler, memory consumption increases by about 2 gb, and when performing the query another 1 gb is consumed.  This is much more than I would expect.  After I reset the profiler, the memory is not freed.  Can you investigate the profiler memory usage and optimization options?
+
+Related questions:
+
+1. During extrusion, is the loop stepped through the y coordinate before moving to the next x/z coordinate?  Or is it another order?  I ask because pack samplers will cache their last x,z coordinate, but if extrusion is stepping the y coordinate last, that cache will continue to thrash.
+
+2. During biome distribution, extrusion, and chunk generation, many of the samplers that get used are pack level samplers that also may end up with values that are cached as a part of the biome pipeline chunk.  Are their cached values from the biome pipeline chunk also available for extrusion and chunk generation?
