@@ -22,7 +22,6 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 
 import com.dfsek.terra.addons.chunkgenerator.config.noise.BiomeNoiseProperties;
 import com.dfsek.terra.api.Platform;
-import com.dfsek.terra.api.profiler.Profiler;
 import com.dfsek.terra.api.properties.PropertyKey;
 import com.dfsek.terra.api.world.biome.generation.BiomeProvider;
 import com.dfsek.terra.api.world.info.WorldProperties;
@@ -35,7 +34,6 @@ public class SamplerProvider {
     private final int maxBlend;
     private final int blendMinY;
     private final int blendMaxY;
-    private final Profiler profiler;
 
     public SamplerProvider(Platform platform, int elevationSmooth, PropertyKey<BiomeNoiseProperties> noisePropertiesKey,
                            int maxBlend, int blendMinY, int blendMaxY) {
@@ -48,7 +46,6 @@ public class SamplerProvider {
         this.maxBlend = maxBlend;
         this.blendMinY = blendMinY;
         this.blendMaxY = blendMaxY;
-        this.profiler = platform.getProfiler();
     }
 
     public Sampler3D get(int x, int z, WorldProperties world, BiomeProvider provider) {
@@ -60,7 +57,7 @@ public class SamplerProvider {
     public Sampler3D getChunk(int cx, int cz, WorldProperties world, BiomeProvider provider) {
         WorldContext context = new WorldContext(cx, cz, world.getSeed(), world.getMinHeight(), world.getMaxHeight());
         return cache.get(context, c -> new Sampler3D(c.cx, c.cz, c.seed, c.minHeight, c.maxHeight, provider,
-            elevationSmooth, noisePropertiesKey, maxBlend, blendMinY, blendMaxY, profiler));
+            elevationSmooth, noisePropertiesKey, maxBlend, blendMinY, blendMaxY));
     }
 
     private record WorldContext(int cx, int cz, long seed, int minHeight, int maxHeight) {

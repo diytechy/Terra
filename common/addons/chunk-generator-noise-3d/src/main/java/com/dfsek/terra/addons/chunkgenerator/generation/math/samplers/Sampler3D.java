@@ -13,7 +13,6 @@ import com.dfsek.terra.addons.chunkgenerator.SamplerFloorFeature;
 import com.dfsek.terra.addons.chunkgenerator.config.noise.BiomeNoiseProperties;
 import com.dfsek.terra.addons.chunkgenerator.generation.math.interpolation.ChunkInterpolator;
 import com.dfsek.terra.addons.chunkgenerator.generation.math.interpolation.ElevationInterpolator;
-import com.dfsek.terra.api.profiler.Profiler;
 import com.dfsek.terra.api.properties.PropertyKey;
 import com.dfsek.terra.api.world.biome.generation.BiomeProvider;
 
@@ -23,16 +22,10 @@ public class Sampler3D {
     private final ElevationInterpolator elevationInterpolator;
 
     public Sampler3D(int x, int z, long seed, int minHeight, int maxHeight, BiomeProvider provider, int elevationSmooth,
-                     PropertyKey<BiomeNoiseProperties> noisePropertiesKey, int maxBlend, int blendMinY, int blendMaxY,
-                     Profiler profiler) {
-        profiler.push("elevation_interpolator");
+                     PropertyKey<BiomeNoiseProperties> noisePropertiesKey, int maxBlend, int blendMinY, int blendMaxY) {
         this.elevationInterpolator = new ElevationInterpolator(seed, x, z, provider, elevationSmooth, noisePropertiesKey);
-        profiler.pop("elevation_interpolator");
-
-        profiler.push("chunk_interpolator");
         this.interpolator = new ChunkInterpolator(seed, x, z, provider,
             minHeight, maxHeight, noisePropertiesKey, maxBlend, blendMinY, blendMaxY);
-        profiler.pop("chunk_interpolator");
     }
 
     public double sample(double x, double y, double z) {
