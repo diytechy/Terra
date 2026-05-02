@@ -19,6 +19,7 @@ import com.dfsek.terra.addons.feature.locator.config.PatternLocatorTemplate;
 import com.dfsek.terra.addons.feature.locator.config.RandomLocatorTemplate;
 import com.dfsek.terra.addons.feature.locator.config.Sampler3DLocatorTemplate;
 import com.dfsek.terra.addons.feature.locator.config.SamplerLocatorTemplate;
+import com.dfsek.terra.addons.feature.locator.config.SamplerMaxYLocatorTemplate;
 import com.dfsek.terra.addons.feature.locator.config.SurfaceLocatorTemplate;
 import com.dfsek.terra.addons.feature.locator.config.TopLocatorTemplate;
 import com.dfsek.terra.addons.feature.locator.config.XorLocatorTemplate;
@@ -72,6 +73,7 @@ public class LocatorAddon implements AddonInitializer {
 
                 locatorRegistry.register(addon.key("SAMPLER"), SamplerLocatorTemplate::new);
                 locatorRegistry.register(addon.key("SAMPLER_3D"), Sampler3DLocatorTemplate::new);
+                locatorRegistry.register(addon.key("SAMPLER_MAX_Y"), SamplerMaxYLocatorTemplate::new);
 
                 locatorRegistry.register(addon.key("AND"), AndLocatorTemplate::new);
                 locatorRegistry.register(addon.key("OR"), OrLocatorTemplate::new);
