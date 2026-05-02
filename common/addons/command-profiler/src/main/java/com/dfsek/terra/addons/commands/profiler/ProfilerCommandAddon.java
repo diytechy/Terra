@@ -76,7 +76,22 @@ public class ProfilerCommandAddon implements AddonInitializer {
                                     logger.warn("Could not retrieve biome query count", e);
                                 }
 
-                                data.toString().lines().forEach(logger::info);
+                                // Log in chunks to avoid overwhelming the async logger queue
+                                // while still avoiding per-message truncation on large outputs
+                                String report = data.toString();
+                                String[] lines = report.split("\n");
+                                StringBuilder chunk = new StringBuilder();
+                                int lineCount = 0;
+                                for(String line : lines) {
+                                    if(chunk.length() > 0) chunk.append('\n');
+                                    chunk.append(line);
+                                    if(++lineCount >= 100) {
+                                        logger.info(chunk.toString());
+                                        chunk.setLength(0);
+                                        lineCount = 0;
+                                    }
+                                }
+                                if(chunk.length() > 0) logger.info(chunk.toString());
                                 context.sender().sendMessage("Profiling data dumped to console.");
                             }))
                     .command(
