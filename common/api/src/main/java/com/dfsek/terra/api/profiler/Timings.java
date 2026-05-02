@@ -81,20 +81,22 @@ public class Timings {
             .append(String.format("%.2f", (double) max() / 1000000)).append("ms max (")
             .append(count).append(" samples)");
 
-        List<String> frames = new ArrayList<>();
-        Set<Integer> newBranches = new HashSet<>(branches);
-        newBranches.add(indent);
-        subItems.forEach((id, timings) -> frames.add(id + ": " + timings.toString(indent + 1, sum(), newBranches)));
+        List<Map.Entry<String, Timings>> entries = new ArrayList<>(subItems.entrySet());
+        for(int i = 0; i < entries.size(); i++) {
+            boolean isLast = (i == entries.size() - 1);
+            // Last child does not continue the parent branch, so omit current indent from its descendants
+            Set<Integer> childBranches = new HashSet<>(branches);
+            if(!isLast) childBranches.add(indent);
 
-        for(int i = 0; i < frames.size(); i++) {
+            String frame = entries.get(i).getKey() + ": " +
+                entries.get(i).getValue().toString(indent + 1, sum(), childBranches);
+
             builder.append('\n');
             for(int j = 0; j < indent; j++) {
-                if(branches.contains(j)) builder.append("│   ");
-                else builder.append("    ");
+                builder.append(branches.contains(j) ? "│   " : "    ");
             }
-            if(i == frames.size() - 1 && !frames.get(i).contains("\n")) builder.append("└───");
-            else builder.append("├───");
-            builder.append(frames.get(i));
+            builder.append(isLast ? "└───" : "├───");
+            builder.append(frame);
         }
         return builder.toString();
     }
