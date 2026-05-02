@@ -676,11 +676,17 @@ How would that impact performance?
 
 ################################
 
+***FIRST:
+
+Design a new locator type that -similar to the new biome extrusion type "type: REPLACE_MAX_Y_SAMPLER", this locator will return true so long as the feature is above a static min and a sampler provided maximum value.
+
+***SECOND:
+
 At "TerraProfilerReference.txt" there is an output of a profiler session with this latest version of Terra.  A few notes:
 
-1. The percentage appears to be percentage of each category, ideally this parent category percentage would be a percentage of the full chain, but children percentages would remain percentages relative to their parent.
+1. The percentage of the first child metric appears to be percentage of each category (100%), ideally this parent category percentage would be a percentage of the full chain, but children percentages would remain percentages relative to their parent.
 
-2. The report appeared to get cut off / truncated, was there extrusion specific information below this that is not making it to the console?  It appeared the extrusion stage took a significant amount of time.
+2. The report appeared to get cut off / truncated at the bottom, was there extrusion specific information below this that is not making it to the console?  It appeared the extrusion stage took a significant amount of time.
 
 3. When running the profiler, memory consumption increases by about 2 gb, and when performing the query another 1 gb is consumed.  This is much more than I would expect.  After I reset the profiler, the memory is not freed.  Can you investigate the profiler memory usage and optimization options?
 
@@ -688,4 +694,20 @@ Related questions:
 
 1. During extrusion, is the loop stepped through the y coordinate before moving to the next x/z coordinate?  Or is it another order?  I ask because pack samplers will cache their last x,z coordinate, but if extrusion is stepping the y coordinate last, that cache will continue to thrash.
 
-2. During biome distribution, extrusion, and chunk generation, many of the samplers that get used are pack level samplers that also may end up with values that are cached as a part of the biome pipeline chunk.  Are their cached values from the biome pipeline chunk also available for extrusion and chunk generation?
+2. During biome distribution, extrusion, and chunk generation, many of the samplers that get used are pack level samplers that also may end up with values that are cached as a part of the biome pipeline chunk.  Are their cached values from the biome pipeline chunk also available for extrusion, chunk generation, and feature placement?  Or are they re-evaluated?
+
+####################
+
+First make a plan to address the various concerns from the profiler.  Of note the parent sections should still show their percentages, but they should be percentages of the complete whole.
+
+####################
+
+Potential improvements
+
+1. Pack level samplers get compiled with a cache tha holds information per chunk
+
+2. Review CachingBiomeProvider.md - Potentially no changes here.
+
+3. Review 3d-cache, this may be where most work is being done.
+
+4. Consider improvements to tectonic.
