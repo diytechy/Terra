@@ -104,6 +104,7 @@ Stores which y-values are valid. Lazily evaluated: the backing `boolean[]` is co
 | `GaussianRandomLocator` | Same as Random, but heights drawn from a Gaussian distribution |
 | `SamplerLocator` | Heights where a 2D sampler falls below a threshold |
 | `Sampler3DLocator` | Every y where a 3D sampler `getSample(seed, x, y, z) > 0` — returns the entire solid interior of the terrain, not just the surface transition, so it will produce multiple hits per column wherever caves or overhangs exist |
+| `SamplerMaxYLocator` | Every y in the range `[min-y, max-y-sampler(x, z)]` — the floor is a static integer, the ceiling is evaluated from a 2D sampler once per column. Mirrors the `REPLACE_MAX_Y_SAMPLER` extrusion condition, so a feature locator and a biome extrusion can share the same sampler to keep their active regions in sync |
 | `PatternLocator` | Heights where the block at y matches a block pattern |
 | `AdjacentPatternLocator` | Heights where the horizontally-adjacent blocks match a pattern (configurable: all 4, or at least 1) |
 
@@ -162,5 +163,6 @@ locator:
 | [PaddedGridDistributor.java](common/addons/config-distributors/src/main/java/com/dfsek/terra/addons/feature/distributor/distributors/PaddedGridDistributor.java) | Primary spacing distributor |
 | [SamplerDistributor.java](common/addons/config-distributors/src/main/java/com/dfsek/terra/addons/feature/distributor/distributors/SamplerDistributor.java) | Noise-based distributor |
 | [SurfaceLocator.java](common/addons/config-locators/src/main/java/com/dfsek/terra/addons/feature/locator/locators/SurfaceLocator.java) | Surface scan locator |
+| [SamplerMaxYLocator.java](common/addons/config-locators/src/main/java/com/dfsek/terra/addons/feature/locator/locators/SamplerMaxYLocator.java) | Sampler-bounded Y range locator |
 | [RandomLocator.java](common/addons/config-locators/src/main/java/com/dfsek/terra/addons/feature/locator/locators/RandomLocator.java) | Random height locator |
 | [FeatureGenerationStage.java](common/addons/generation-stage-feature/src/main/java/com/dfsek/terra/addons/generation/feature/FeatureGenerationStage.java) | Pipeline driver |
