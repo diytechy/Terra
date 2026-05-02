@@ -19,48 +19,72 @@ import java.util.Set;
 public class Timings {
     private final Map<String, Timings> subItems = new HashMap<>();
 
-    private final List<Long> timings = new ArrayList<>();
+    private long min = Long.MAX_VALUE;
+    private long max = Long.MIN_VALUE;
+    private long sum = 0;
+    private int count = 0;
 
     public void addTime(long time) {
-        timings.add(time);
+        if(time < min) min = time;
+        if(time > max) max = time;
+        sum += time;
+        count++;
+    }
+
+    public void merge(long min, long max, long sum, int count) {
+        if(count > 0) {
+            if(min < this.min) this.min = min;
+            if(max > this.max) this.max = max;
+            this.sum += sum;
+            this.count += count;
+        }
     }
 
     public double average() {
-        return (double) timings.stream().reduce(0L, Long::sum) / timings.size();
+        return count == 0 ? 0 : (double) sum / count;
     }
 
     public long max() {
-        return timings.stream().mapToLong(Long::longValue).max().orElse(0L);
+        return count == 0 ? 0 : max;
     }
 
     public long min() {
-        return timings.stream().mapToLong(Long::longValue).min().orElse(0L);
+        return count == 0 ? 0 : min;
     }
 
     public double sum() {
-        return timings.stream().mapToDouble(Long::doubleValue).sum();
+        return (double) sum;
+    }
+
+    public int count() {
+        return count;
+    }
+
+    /** Render this entry with percentage relative to an externally-supplied total (for root-level entries). */
+    public String toString(double totalNanos) {
+        return toString(1, totalNanos, Collections.emptySet());
     }
 
     @Override
     public String toString() {
-        return toString(1, this, Collections.emptySet());
+        return toString(1, sum(), Collections.emptySet());
     }
 
-    private String toString(int indent, Timings parent, Set<Integer> branches) {
+    private String toString(int indent, double parentSum, Set<Integer> branches) {
         StringBuilder builder = new StringBuilder();
 
-        double percent = (sum() / parent.sum()) * 100;
+        double percent = parentSum > 0 ? (sum() / parentSum) * 100 : 0;
         builder.append(String.format("%6.2f%%", percent))
             .append("  ")
             .append(String.format("%.2f", (double) min() / 1000000)).append("ms min / ")
             .append(String.format("%.2f", average() / 1000000)).append("ms avg / ")
             .append(String.format("%.2f", (double) max() / 1000000)).append("ms max (")
-            .append(timings.size()).append(" samples)");
+            .append(count).append(" samples)");
 
         List<String> frames = new ArrayList<>();
         Set<Integer> newBranches = new HashSet<>(branches);
         newBranches.add(indent);
-        subItems.forEach((id, timings) -> frames.add(id + ": " + timings.toString(indent + 1, this, newBranches)));
+        subItems.forEach((id, timings) -> frames.add(id + ": " + timings.toString(indent + 1, sum(), newBranches)));
 
         for(int i = 0; i < frames.size(); i++) {
             builder.append('\n');
@@ -73,10 +97,6 @@ public class Timings {
             builder.append(frames.get(i));
         }
         return builder.toString();
-    }
-
-    public List<Long> getTimings() {
-        return timings;
     }
 
     public Map<String, Timings> getSubItems() {

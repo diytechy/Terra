@@ -37,11 +37,12 @@ public class ProfilerImpl implements Profiler {
     private static final Logger logger = LoggerFactory.getLogger(ProfilerImpl.class);
 
     private static final ThreadLocal<Stack<Frame>> THREAD_STACK = ThreadLocal.withInitial(Stack::new);
-    private static final ThreadLocal<Map<String, List<Long>>> TIMINGS = ThreadLocal.withInitial(HashMap::new);
+    // long[4]: {min, max, sum, count} per frame key
+    private static final ThreadLocal<Map<String, long[]>> TIMINGS = ThreadLocal.withInitial(HashMap::new);
     private static final ThreadLocal<Boolean> SAFE = ThreadLocal.withInitial(() -> false);
     private static final ThreadLocal<MutableInteger> STACK_SIZE = ThreadLocal.withInitial(() -> new MutableInteger(0));
     private static boolean instantiated = false;
-    private final List<Map<String, List<Long>>> accessibleThreadMaps = new ArrayList<>();
+    private final List<Map<String, long[]>> accessibleThreadMaps = new ArrayList<>();
     private volatile boolean running = false;
 
     public ProfilerImpl() {
@@ -77,7 +78,7 @@ public class ProfilerImpl implements Profiler {
                 }
                 long time = System.nanoTime();
 
-                Map<String, List<Long>> timingsMap = TIMINGS.get();
+                Map<String, long[]> timingsMap = TIMINGS.get();
 
                 if(timingsMap.isEmpty()) {
                     synchronized(accessibleThreadMaps) {
@@ -89,9 +90,13 @@ public class ProfilerImpl implements Profiler {
                 if(!stack.isEmpty() ? !top.getId().endsWith("." + frame) : !top.getId().equals(frame))
                     throw new MalformedStackException("Expected " + frame + ", found " + top);
 
-                List<Long> timings = timingsMap.computeIfAbsent(top.getId(), id -> new ArrayList<>());
-
-                timings.add(time - top.getStart());
+                long elapsed = time - top.getStart();
+                long[] s = timingsMap.computeIfAbsent(top.getId(),
+                    id -> new long[]{ Long.MAX_VALUE, Long.MIN_VALUE, 0L, 0L });
+                if(elapsed < s[0]) s[0] = elapsed;
+                if(elapsed > s[1]) s[1] = elapsed;
+                s[2] += elapsed;
+                s[3]++;
             }
             if(size.get() == 0) SAFE.set(true);
         }
@@ -113,30 +118,34 @@ public class ProfilerImpl implements Profiler {
     @Override
     public void reset() {
         logger.info("Resetting Terra profiler");
-        accessibleThreadMaps.forEach(Map::clear);
+        synchronized(accessibleThreadMaps) {
+            accessibleThreadMaps.forEach(Map::clear);
+            accessibleThreadMaps.clear();
+        }
     }
 
     @Override
     public Map<String, Timings> getTimings() {
         Map<String, Timings> map = new HashMap<>();
-        List<Map<String, List<Long>>> snapshot;
+        List<Map<String, long[]>> snapshot;
         synchronized(accessibleThreadMaps) {
             snapshot = new ArrayList<>(accessibleThreadMaps);
         }
-        for(Map<String, List<Long>> smap : snapshot) {
-            Map<String, List<Long>> smapCopy;
+        for(Map<String, long[]> smap : snapshot) {
+            Map<String, long[]> smapCopy;
             try {
                 smapCopy = new HashMap<>(smap);
             } catch(ConcurrentModificationException e) {
                 continue; // Thread is actively modifying its map, skip it this cycle
             }
-            for(Map.Entry<String, List<Long>> entry : smapCopy.entrySet()) {
+            for(Map.Entry<String, long[]> entry : smapCopy.entrySet()) {
                 String[] keys = entry.getKey().split("\\.");
                 Timings timings = map.computeIfAbsent(keys[0], id -> new Timings());
                 for(int i = 1; i < keys.length; i++) {
                     timings = timings.getSubItem(keys[i]);
                 }
-                new ArrayList<>(entry.getValue()).forEach(timings::addTime);
+                long[] s = entry.getValue();
+                timings.merge(s[0], s[1], s[2], (int) s[3]);
             }
         }
         return map;
