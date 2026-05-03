@@ -42,6 +42,16 @@ public interface Profiler {
     void reset();
 
     /**
+     * Record a timing directly to the flat key map, bypassing the push/pop state machine.
+     * Safe to call from inside Caffeine cache-miss lambdas or other contexts where
+     * push/pop would corrupt STACK_SIZE mid-session-startup.
+     *
+     * @param key   Full dot-separated path, e.g. "chunk_base_3d.sampler_cache.elevation_interpolator"
+     * @param nanos Elapsed nanoseconds to record as one sample
+     */
+    default void record(String key, long nanos) {}
+
+    /**
      * Get the profiler data.
      *
      * @return Profiler data.

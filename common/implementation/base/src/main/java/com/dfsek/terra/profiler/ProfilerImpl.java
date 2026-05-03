@@ -125,6 +125,23 @@ public class ProfilerImpl implements Profiler {
     }
 
     @Override
+    public void record(String key, long nanos) {
+        if(!running) return;
+        Map<String, long[]> timingsMap = TIMINGS.get();
+        if(timingsMap.isEmpty()) {
+            synchronized(accessibleThreadMaps) {
+                accessibleThreadMaps.add(timingsMap);
+            }
+        }
+        long[] s = timingsMap.computeIfAbsent(key,
+            id -> new long[]{ Long.MAX_VALUE, Long.MIN_VALUE, 0L, 0L });
+        if(nanos < s[0]) s[0] = nanos;
+        if(nanos > s[1]) s[1] = nanos;
+        s[2] += nanos;
+        s[3]++;
+    }
+
+    @Override
     public Map<String, Timings> getTimings() {
         Map<String, Timings> map = new HashMap<>();
         List<Map<String, long[]>> snapshot;
