@@ -722,3 +722,37 @@ Please make a plan to to implement this functionality to the profiler.
 
 ####################
 
+I want to address the substantial over-evaluations of samplers for terrain in a few ways.  Please create these plans carefully and meticulously for accuracy.
+
+First:
+
+Create a plan for a column based cache that can be used for evaluating the 3d terrain construction and blend.
+
+1. Create a column based cache located by a key using Biome (hopefully this is just an index), x,z.
+
+2. It can be allocated a full sparse y-range but should be queryable per y.
+
+3. The cache should be okay to be stored in single / float datatype.
+
+4. As y requests come in, the column based cache should internally track it's evaluated y-min and y-max, and should be updated to fill new requests.  If there is a "break" in the requested y-range, it can just be filled with sampler requests.
+
+5. Investigate a method to evict this cache.
+
+Second:
+
+Make a plan for evaluating all 3d equations and converting portions of the 3d samplers to pack level samplers in a new terrain pack level sampler file.  This will allow for common x/z dependent expressions (especially those that may be reused over and over again in different samplers).  This could also include where to consider making some samplers dedicated cache-sampler expressions instead inside the same file, but pack level samplers would automatically give the benefit of caching and sharing.
+
+
+*****************
+
+2 additional question after considering these plans:
+
+1. What defines if a point is in a blend zone?
+
+2. When the biome is fetched at (absoluteX + xi*step, absoluteZ + zi*step), is that running the full biome pipeline or is it using the cached biome result from the biome pipeline if available?  (In other words, is the full biome pipeline requiring a run for each evaluation to verify the biome at the current x/y/z coordinate) 
+
+3. Instead of caching columns, wouldn't the much cheaper to determine the number of each times a biome occurs each time in the blend zone, and then loop through the biome first, then x/z, and finally y accumulating that biome's sampler value at center multiplied by it's weight *  the number of times that biome occurs in the biome zone instead of multiple evaluations?
+
+**********************
+
+Since chunky's chunk generation is so much faster than out of game, can you implement a debug logger (enabled when in the config the debug field "queries" is true, reference the current state of C:\MC\MINECRAFT_SERVER_TMP_26-1\plugins\Terra\config.yml) that will write to the current working path a file called "terra_chunk_queries_{date_logging_started}" that contains which generator was requested for a chunk, the chunk coordinates, and the time.  I will use this log and compare how chunks are getting queried directly from paper vs chunky to better understand how that's affecting performance and to understand if there should be some sort of layer intercepting papers chunk requests and reordering / reshuffling them.
