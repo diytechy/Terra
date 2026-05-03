@@ -711,3 +711,14 @@ Potential improvements
 3. Review 3d-cache, this may be where most work is being done.
 
 4. Consider improvements to tectonic.
+
+###################
+
+
+
+To get the elevation_interpolator/chunk_interpolator breakdown properly, it would need to be done outside the profiler's push/pop mechanism — for example, recording the construction times as separate Timings entries populated directly via merge() rather than through push/pop. That bypasses the SAFE/STACK_SIZE state machine entirely.
+
+Please make a plan to to implement this functionality to the profiler.
+
+####################
+
