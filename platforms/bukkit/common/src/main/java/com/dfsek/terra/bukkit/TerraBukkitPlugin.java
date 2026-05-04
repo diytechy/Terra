@@ -38,6 +38,7 @@ import com.dfsek.terra.api.command.CommandSender;
 import com.dfsek.terra.api.config.ConfigPack;
 import com.dfsek.terra.api.event.events.platform.CommandRegistrationEvent;
 import com.dfsek.terra.api.event.events.platform.PlatformInitializationEvent;
+import com.dfsek.terra.bukkit.debug.ChunkQueryLogger;
 import com.dfsek.terra.bukkit.generator.BukkitChunkGeneratorWrapper;
 import com.dfsek.terra.bukkit.listeners.CommonListener;
 import com.dfsek.terra.bukkit.listeners.ServerLoadListener;
@@ -69,6 +70,10 @@ public class TerraBukkitPlugin extends JavaPlugin {
         if(platform == null) {
             Bukkit.getPluginManager().disablePlugin(this);
             return;
+        }
+
+        if(platform.getTerraConfig().isDebugQueries()) {
+            ChunkQueryLogger.init();
         }
 
         platform.getEventManager().callEvent(new PlatformInitializationEvent());
@@ -182,6 +187,11 @@ public class TerraBukkitPlugin extends JavaPlugin {
             }
         }
         return true;
+    }
+
+    @Override
+    public void onDisable() {
+        ChunkQueryLogger.close();
     }
 
     @Override

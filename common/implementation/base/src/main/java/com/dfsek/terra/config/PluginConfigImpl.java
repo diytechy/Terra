@@ -57,6 +57,10 @@ public class PluginConfigImpl implements ConfigTemplate, PluginConfig {
     @Default
     private boolean debugLog = false;
 
+    @Value("debug.queries")
+    @Default
+    private boolean debugQueries = false;
+
     @Value("biome-search-resolution")
     @Default
     private int biomeSearch = 4;
@@ -99,6 +103,8 @@ public class PluginConfigImpl implements ConfigTemplate, PluginConfig {
             logger.info("Script debug blocks enabled.");
         if(debugLog)
             logger.info("Debug logging enabled.");
+        if(debugQueries)
+            logger.info("Chunk query logging enabled.");
     }
 
     @Override
@@ -119,6 +125,11 @@ public class PluginConfigImpl implements ConfigTemplate, PluginConfig {
     @Override
     public boolean isDebugLog() {
         return debugLog;
+    }
+
+    @Override
+    public boolean isDebugQueries() {
+        return debugQueries;
     }
 
     @Override
