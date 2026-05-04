@@ -31,6 +31,11 @@ public class ChunkInterpolator {
     private final int min;
     private final int max;
 
+    // Thread-local biome weight map reused across all (x,z) centers within a construction.
+    // Avoids per-center allocation; safe because construction is single-threaded per chunk.
+    private static final ThreadLocal<BiomeWeightMap> BLEND_MAP =
+        ThreadLocal.withInitial(BiomeWeightMap::new);
+
     /**
      * Instantiates a 3D ChunkInterpolator3D at a pair of chunk coordinates.
      *
@@ -100,23 +105,56 @@ public class ChunkInterpolator {
             }
         }
 
+        BiomeWeightMap blendMap = BLEND_MAP.get();
+
         for(int x = 0; x < 5; x++) {
-            int scaledX = x << 2;
+            int scaledX  = x << 2;
             int absoluteX = xOrigin + scaledX;
             for(int z = 0; z < 5; z++) {
-                int scaledZ = z << 2;
+                int scaledZ  = z << 2;
                 int absoluteZ = zOrigin + scaledZ;
 
                 Column<Biome> biomeColumn = centerColumns[x * 5 + z];
 
+                // Read center-biome settings once per (x,z).
+                // BiomePipelineColumn.get(y) returns the same Biome for every y,
+                // so generationSettings, blend, and step are y-invariant.
+                BiomeNoiseProperties generationSettings = biomeColumn.get(min)
+                    .getContext()
+                    .get(noisePropertiesKey);
+                int step  = generationSettings.samplers().blendStep();
+                int blend = generationSettings.samplers().blendDistance();
+
+                // Build biome weight map once per (x,z):
+                // fetch all blend columns into columns[], de-duplicate by biome identity,
+                // and accumulate each unique biome's total weight.
+                // Replaces the per-y column fetch and per-y 49-position blend loop.
+                blendMap.reset();
+                if(blend > 0) {
+                    for(int xi = -blend; xi <= blend; xi++) {
+                        for(int zi = -blend; zi <= blend; zi++) {
+                            int blendX = xi * step;
+                            int blendZ = zi * step;
+                            int localIndex = (scaledX + localMaxBlend + blendX)
+                                           + localMaxBlendAndChunk * (scaledZ + localMaxBlend + blendZ);
+                            if(columns[localIndex] == null) {
+                                columns[localIndex] = provider.getColumn(
+                                    absoluteX + blendX, absoluteZ + blendZ, seed, min, max);
+                            }
+                            // .get(min) is a free field read on BiomePipelineColumn;
+                            // result is identical for any y argument.
+                            BiomeNoiseSamplers ns = columns[localIndex].get(min)
+                                .getContext().get(noisePropertiesKey).samplers();
+                            blendMap.accumulate(ns, ns.blendWeight());
+                            if(SamplerFloorFeature.ENABLED && ns.densityFloor() == null) {
+                                blendMap.allHaveFloor = false;
+                            }
+                        }
+                    }
+                }
+
                 for(int y = 0; y < size; y++) {
                     int scaledY = (y << 2) + min;
-                    BiomeNoiseProperties generationSettings = biomeColumn.get(scaledY)
-                        .getContext()
-                        .get(noisePropertiesKey);
-
-                    int step = generationSettings.samplers().blendStep();
-                    int blend = generationSettings.samplers().blendDistance();
 
                     double noise;
                     // floorValue is only meaningful when SamplerFloorFeature.ENABLED is true;
@@ -133,88 +171,50 @@ public class ChunkInterpolator {
                                 ? (float) floor.getSample(seed, absoluteX, scaledY, absoluteZ)
                                 : Float.NEGATIVE_INFINITY;
                         }
+                    } else if(blendMap.size == 1) {
+                        // All neighbors share one biome: weighted average of identical values
+                        // equals the center sample directly.
+                        BiomeNoiseSamplers s = blendMap.samplers[0];
+                        noise = s.base().getSample(seed, absoluteX, scaledY, absoluteZ);
+                        if(SamplerFloorFeature.ENABLED) {
+                            Sampler floor = s.densityFloor();
+                            floorValue = (floor != null)
+                                ? (float) floor.getSample(seed, absoluteX, scaledY, absoluteZ)
+                                : Float.NEGATIVE_INFINITY;
+                        }
                     } else {
-                        // Option 4: Single-pass fetch + homogeneity check.
-                        // Fetch all blend columns (lazily cached for subsequent y-levels) while
-                        // simultaneously checking whether all neighbors share the center biome.
-                        // If homogeneous, one noise evaluation replaces the full blend loop.
-                        Biome centerBiome = biomeColumn.get(scaledY);
-                        boolean homogeneous = true;
+                        // Heterogeneous blend zone: iterate unique biomes (typically 2-5)
+                        // instead of all blend positions (up to 49).
+                        // Mathematically equivalent: since all blend positions sharing a biome
+                        // evaluate the sampler at identical center coordinates, their contributions
+                        // collapse to sample(biome) * accumulatedWeight(biome).
+                        double runningNoise   = 0;
+                        double floorNumerator = 0;
+                        // Floor is accumulated separately from noise. It is only applied if
+                        // EVERY biome in the blend neighborhood defines terrain.sampler-floor
+                        // (or receives the pack-level fallback). Any missing floor sampler
+                        // cancels the floor at this sparse point (stored as NEGATIVE_INFINITY),
+                        // preventing border artifacts. With a pack-level fallback configured,
+                        // allHaveFloor will always remain true.
 
-                        for(int xi = -blend; xi <= blend; xi++) {
-                            for(int zi = -blend; zi <= blend; zi++) {
-                                int blendX = xi * step;
-                                int blendZ = zi * step;
-                                int localIndex = (scaledX + localMaxBlend + blendX) + localMaxBlendAndChunk * (scaledZ + localMaxBlend + blendZ);
-                                if(columns[localIndex] == null) {
-                                    columns[localIndex] = provider.getColumn(absoluteX + blendX, absoluteZ + blendZ, seed, min, max);
-                                }
-                                // Track homogeneity but do NOT break early — remaining null columns
-                                // must still be fetched for future y-level iterations.
-                                if(homogeneous && columns[localIndex].get(scaledY) != centerBiome) {
-                                    homogeneous = false;
-                                }
+                        for(int b = 0; b < blendMap.size; b++) {
+                            BiomeNoiseSamplers s = blendMap.samplers[b];
+                            double w = blendMap.weights[b];
+                            runningNoise += s.base().getSample(seed, absoluteX, scaledY, absoluteZ) * w;
+                            if(SamplerFloorFeature.ENABLED && blendMap.allHaveFloor) {
+                                // densityFloor() is non-null for all entries when allHaveFloor is true
+                                floorNumerator += s.densityFloor().getSample(seed, absoluteX, scaledY, absoluteZ) * w;
                             }
                         }
 
-                        if(homogeneous) {
-                            // All neighbors are the same biome: blending is a weighted average of
-                            // identical values, so the result equals the center sample directly.
-                            noise = generationSettings.samplers().base().getSample(seed, absoluteX, scaledY, absoluteZ);
-                            if(SamplerFloorFeature.ENABLED) {
-                                Sampler floor = generationSettings.samplers().densityFloor();
-                                floorValue = (floor != null)
-                                    ? (float) floor.getSample(seed, absoluteX, scaledY, absoluteZ)
-                                    : Float.NEGATIVE_INFINITY;
-                            }
-                        } else {
-                            // Heterogeneous blend zone: all columns already fetched above,
-                            // evaluate noise for each and compute weighted average.
-                            double runningNoise = 0;
-                            double runningDiv = 0;
-                            // Floor is accumulated separately from noise. It is only applied if
-                            // EVERY biome in the blend neighborhood defines terrain.sampler-floor
-                            // (or receives the pack-level fallback). Any missing floor sampler
-                            // cancels the floor at this sparse point (stored as NEGATIVE_INFINITY),
-                            // preventing border artifacts. With a pack-level fallback configured,
-                            // allHaveFloor will always remain true.
-                            boolean allHaveFloor = true;
-                            double floorNumerator = 0;
-
-                            for(int xi = -blend; xi <= blend; xi++) {
-                                for(int zi = -blend; zi <= blend; zi++) {
-                                    int blendX = xi * step;
-                                    int blendZ = zi * step;
-                                    int localIndex = (scaledX + localMaxBlend + blendX) + localMaxBlendAndChunk * (scaledZ + localMaxBlend + blendZ);
-                                    BiomeNoiseProperties properties = columns[localIndex]
-                                        .get(scaledY)
-                                        .getContext()
-                                        .get(noisePropertiesKey);
-                                    BiomeNoiseSamplers samplers = properties.samplers();
-                                    double sample = samplers.base().getSample(seed, absoluteX, scaledY, absoluteZ);
-                                    double weight = samplers.blendWeight();
-                                    runningNoise += sample * weight;
-                                    runningDiv += weight;
-                                    if(SamplerFloorFeature.ENABLED) {
-                                        Sampler floorSampler = samplers.densityFloor();
-                                        if(floorSampler != null) {
-                                            floorNumerator += floorSampler.getSample(seed, absoluteX, scaledY, absoluteZ) * weight;
-                                        } else {
-                                            allHaveFloor = false;
-                                        }
-                                    }
-                                }
-                            }
-
-                            noise = runningNoise / runningDiv;
-                            if(SamplerFloorFeature.ENABLED) {
-                                // The floor is stored as a raw blended value with no elevation component.
-                                // Sampler3D will compare it against the final (3D + elevation) density at
-                                // the actual block position, where elevation is exact rather than sparse.
-                                floorValue = allHaveFloor
-                                    ? (float) (floorNumerator / runningDiv)
-                                    : Float.NEGATIVE_INFINITY;
-                            }
+                        noise = runningNoise / blendMap.totalWeight;
+                        if(SamplerFloorFeature.ENABLED) {
+                            // The floor is stored as a raw blended value with no elevation component.
+                            // Sampler3D will compare it against the final (3D + elevation) density at
+                            // the actual block position, where elevation is exact rather than sparse.
+                            floorValue = blendMap.allHaveFloor
+                                ? (float) (floorNumerator / blendMap.totalWeight)
+                                : Float.NEGATIVE_INFINITY;
                         }
                     }
 
@@ -345,5 +345,39 @@ public class ChunkInterpolator {
         return floorGrid[reRange(((int) x) / 4, 3)][(Math.max(Math.min(((int) y), max), min) - min) / 4][reRange(((int) z) / 4,
             3)].trilerp(
             (x % 4) / 4, (y % 4) / 4, (z % 4) / 4);
+    }
+
+    // Reusable per-thread structure for the biome weight map built once per (x,z) center.
+    // Capacity 64 exceeds the maximum possible blend positions (7×7 = 49).
+    // Linear scan for accumulate() is correct and fast; unique biome count is typically 1-5.
+    private static final class BiomeWeightMap {
+        static final int CAPACITY = 64;
+        final BiomeNoiseSamplers[] samplers = new BiomeNoiseSamplers[CAPACITY];
+        final double[]             weights  = new double[CAPACITY];
+        int     size;
+        double  totalWeight;
+        boolean allHaveFloor; // only meaningful when SamplerFloorFeature.ENABLED
+
+        void reset() {
+            size         = 0;
+            totalWeight  = 0.0;
+            allHaveFloor = true;
+        }
+
+        // Identity comparison is correct: BiomeNoiseSamplers objects are config singletons —
+        // two columns with the same biome return the same BiomeNoiseSamplers instance.
+        void accumulate(BiomeNoiseSamplers s, double weight) {
+            for(int i = 0; i < size; i++) {
+                if(samplers[i] == s) {
+                    weights[i] += weight;
+                    totalWeight += weight;
+                    return;
+                }
+            }
+            samplers[size] = s;
+            weights[size]  = weight;
+            size++;
+            totalWeight += weight;
+        }
     }
 }
