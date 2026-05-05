@@ -1,6 +1,6 @@
 object Versions {
     object Terra {
-        const val chimeraConfig = "2.0.1"
+        const val chimeraConfig = "2.0.2"
         const val reimagENDConfig = "3.0.0"
         const val tartarusConfig = "1.0.0"
     }
@@ -16,7 +16,7 @@ object Versions {
         const val cloud = "2.0.0"
         
         const val caffeine = "3.2.2"
-        const val dendryTerra = "1.0.0-BETA-D"
+        const val dendryTerra = "1.0.0-BETA-E"
         const val bubblesOnChunkGen = "1.2.2"
 
         const val slf4j = "2.0.17"

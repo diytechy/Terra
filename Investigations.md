@@ -776,3 +776,7 @@ Okay, now create a plan to change the order of operations from the previous mess
 ######################
 
 Since chunky's chunk generation is so much faster than in game from paper, can you implement a debug logger (enabled when in the config the debug field "queries" is true, reference the current state of C:\MC\MINECRAFT_SERVER_TMP_26-1\plugins\Terra\config.yml) that will write to the current working path a file called "terra_chunk_queries_{date_logging_started}" that contains which generator was requested for a chunk, the chunk coordinates, and the time.  I will use this log and compare how chunks are getting queried directly from paper vs chunky to better understand how that's affecting performance and to understand if there should be some sort of layer intercepting papers chunk requests and reordering / reshuffling them.
+
+#######################
+
+Is it possible sometimes pack level samplers would be slower than direct yml duplicates inside 
