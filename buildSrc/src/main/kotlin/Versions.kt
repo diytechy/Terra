@@ -1,6 +1,6 @@
 object Versions {
     object Terra {
-        const val chimeraConfig = "0.0.2"
+        const val chimeraConfig = "0.0.3"
         const val reimagENDConfig = "3.0.0"
         const val tartarusConfig = "1.0.0"
     }
