@@ -151,9 +151,10 @@ public class ChunkInterpolator {
                             }
                             // .get(min) is a free field read on BiomePipelineColumn;
                             // result is identical for any y argument.
-                            BiomeNoiseSamplers ns = columns[localIndex].get(min)
-                                .getContext().get(noisePropertiesKey).samplers();
-                            blendMap.accumulate(ns, ns.blendWeight());
+                            Biome blendBiome = columns[localIndex].get(min);
+                            BiomeNoiseSamplers ns = blendBiome.getContext().get(noisePropertiesKey).samplers();
+                            blendMap.accumulate(ns, ns.blendWeight(),
+                                debugChunk ? blendBiome.getID() : null);
                             if(SamplerFloorFeature.ENABLED && ns.densityFloor() == null) {
                                 blendMap.allHaveFloor = false;
                             }
@@ -208,7 +209,17 @@ public class ChunkInterpolator {
                         for(int b = 0; b < blendMap.size; b++) {
                             BiomeNoiseSamplers s = blendMap.samplers[b];
                             double w = blendMap.weights[b];
-                            runningNoise += s.base().getSample(seed, absoluteX, scaledY, absoluteZ) * w;
+                            double bNoise = s.base().getSample(seed, absoluteX, scaledY, absoluteZ);
+                            runningNoise += bNoise * w;
+                            if(debugChunk && TerrainDebug.isTargetY(scaledY)) {
+                                TerrainDebug.LOG.info(
+                                    "[CI-blend] ({},{},{}) biome={} weight={} of {} individualNoise={}",
+                                    xOrigin + (x << 2), scaledY, zOrigin + (z << 2),
+                                    blendMap.biomeIds[b],
+                                    String.format("%.1f", w),
+                                    String.format("%.1f", blendMap.totalWeight),
+                                    String.format("%.6f", bNoise));
+                            }
                             if(SamplerFloorFeature.ENABLED && blendMap.allHaveFloor) {
                                 // densityFloor() is non-null for all entries when allHaveFloor is true
                                 floorNumerator += s.densityFloor().getSample(seed, absoluteX, scaledY, absoluteZ) * w;
@@ -385,6 +396,8 @@ public class ChunkInterpolator {
         static final int CAPACITY = 64;
         final BiomeNoiseSamplers[] samplers = new BiomeNoiseSamplers[CAPACITY];
         final double[]             weights  = new double[CAPACITY];
+        // biomeIds[i] is non-null only when TerrainDebug.ENABLED; otherwise always null.
+        final String[]             biomeIds = new String[CAPACITY];
         int     size;
         double  totalWeight;
         boolean allHaveFloor; // only meaningful when SamplerFloorFeature.ENABLED
@@ -397,7 +410,7 @@ public class ChunkInterpolator {
 
         // Identity comparison is correct: BiomeNoiseSamplers objects are config singletons —
         // two columns with the same biome return the same BiomeNoiseSamplers instance.
-        void accumulate(BiomeNoiseSamplers s, double weight) {
+        void accumulate(BiomeNoiseSamplers s, double weight, String biomeId) {
             for(int i = 0; i < size; i++) {
                 if(samplers[i] == s) {
                     weights[i] += weight;
@@ -407,6 +420,7 @@ public class ChunkInterpolator {
             }
             samplers[size] = s;
             weights[size]  = weight;
+            biomeIds[size] = biomeId;
             size++;
             totalWeight += weight;
         }
