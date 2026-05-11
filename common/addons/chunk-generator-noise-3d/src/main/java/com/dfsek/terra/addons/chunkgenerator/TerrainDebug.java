@@ -28,7 +28,7 @@ import org.slf4j.LoggerFactory;
  */
 public final class TerrainDebug {
     /** Set to {@code true} and recompile to enable tracing. Reset to {@code false} before shipping. */
-    public static final boolean ENABLED = false;
+    public static final boolean ENABLED = true;
 
     public static final Logger LOG = LoggerFactory.getLogger("TerrainDebug");
 
