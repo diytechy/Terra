@@ -11,7 +11,7 @@ object Versions {
         const val tectonic = "4.3.2-diytechy"
         const val paralithic = "2.0.1"
         const val strata = "1.3.2"
-        const val seismic = "2.5.7"
+        const val seismic = "2.5.7-PATCHED"
         
         const val cloud = "2.0.0"
         
