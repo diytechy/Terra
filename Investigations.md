@@ -800,6 +800,9 @@ Create a plan to debug / add additional debugs for this in Terra so it can be tr
 
 ##############3
 
+I have changed many of the "OPEN_SIMPLEX_2S" samplers in the CHIMERA pack (ORIGEN2 folder) to "OPEN_SIMPLEX_2" in order to mitigate discontinuities, but now that it is fixed, I should revert those changes.  However, those sampler changes occurred over many commits, what might be the best way to identify and reset those samplers back to their original types?  Is there a scripted method to identify each commit and each file / line where "OPEN_SIMPLEX_2S" was changed to "OPEN_SIMPLEX_2"
+
 Let's plan for some changes to improve speed:
 
-1. Impliment a 
+1. Implement a 16x16 biome cache that can be built for 
+2. I want ot investigate methods to improve chunk creation time.  My thought is that many terrain samplers have sub-samplers / subfunctions that only use 2d content which is re-evaluated at every y-point (probably about 20x or more repeat computations per column depending on the complexity of the sampler).  Can you confirm the terrain specific content is not cached at any level automatically and that automatic caching only occurs for pack-level samplers.
