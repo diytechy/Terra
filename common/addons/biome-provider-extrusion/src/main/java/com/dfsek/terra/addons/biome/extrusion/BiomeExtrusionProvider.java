@@ -26,17 +26,22 @@ public class BiomeExtrusionProvider implements BiomeProvider {
     private final List<Extrusion> extrusions;
     private final int resolution;
     private final int yResolution;
-    private final Sampler blendSampler;
-    private final double blendAmplitude;
+    private final Sampler xzBlendSampler;
+    private final double xzBlendAmplitude;
+    private final Sampler yBlendSampler;
+    private final double yBlendAmplitude;
     final Profiler profiler;
 
     public BiomeExtrusionProvider(BiomeProvider delegate, List<Extrusion> extrusions, int resolution, int yResolution,
-                                  Sampler blendSampler, double blendAmplitude, Profiler profiler) {
+                                  Sampler xzBlendSampler, double xzBlendAmplitude,
+                                  Sampler yBlendSampler, double yBlendAmplitude, Profiler profiler) {
         this.delegate = delegate;
         this.extrusions = extrusions;
         this.profiler = profiler;
-        this.blendSampler = blendSampler;
-        this.blendAmplitude = blendAmplitude;
+        this.xzBlendSampler = xzBlendSampler;
+        this.xzBlendAmplitude = xzBlendAmplitude;
+        this.yBlendSampler = yBlendSampler;
+        this.yBlendAmplitude = yBlendAmplitude;
         this.biomes = delegate.stream().collect(Collectors.toSet());
         extrusions.forEach(e -> biomes.addAll(e.getBiomes()));
 
@@ -73,14 +78,22 @@ public class BiomeExtrusionProvider implements BiomeProvider {
         return extrusions;
     }
 
+    int blendX(int x, int z, long seed) {
+        return x + (int) (xzBlendSampler.getSample(seed + 1, x, z) * xzBlendAmplitude);
+    }
+
+    int blendZ(int x, int z, long seed) {
+        return z + (int) (xzBlendSampler.getSample(seed + 2, x, z) * xzBlendAmplitude);
+    }
+
     int blendY(int x, int y, int z, long seed) {
-        return y + (int) (blendSampler.getSample(seed, x, z) * blendAmplitude);
+        return y + (int) (yBlendSampler.getSample(seed, x, z) * yBlendAmplitude);
     }
 
     @Override
     public Biome getBiome(int x, int y, int z, long seed) {
         Biome delegated = delegate.getBiome(x, y, z, seed);
-        return pipeline.extrude(delegated, x, blendY(x, y, z, seed), z, seed);
+        return pipeline.extrude(delegated, blendX(x, z, seed), blendY(x, y, z, seed), blendZ(x, z, seed), seed);
     }
 
     @Override

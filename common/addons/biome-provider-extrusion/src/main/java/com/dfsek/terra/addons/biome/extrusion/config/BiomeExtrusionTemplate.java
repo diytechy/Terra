@@ -38,18 +38,29 @@ public class BiomeExtrusionTemplate implements ObjectTemplate<BiomeProvider> {
 
     @Value("blend.sampler")
     @Default
-    @Description("A sampler used to warp the Y coordinate before extrusion evaluation, producing organic vertical biome boundaries.")
-    private @Meta Sampler blendSampler = Sampler.zero();
+    @Description("Sampler for X/Z coordinate warping of extrusion boundaries, independent of the pipeline blend.")
+    private @Meta Sampler xzBlendSampler = Sampler.zero();
 
     @Value("blend.amplitude")
     @Default
-    @Description("Amplitude in blocks of the Y-coordinate warp. A value of 16 shifts boundaries up/down by up to 16 blocks.")
-    private @Meta double blendAmplitude = 0d;
+    @Description("Amplitude in blocks of the X/Z coordinate warp applied before extrusion evaluation.")
+    private @Meta double xzBlendAmplitude = 0d;
+
+    @Value("y-blend.sampler")
+    @Default
+    @Description("Sampler for Y coordinate warping of extrusion boundaries. Evaluated in 2D (X/Z plane); can use a different frequency and expression than the X/Z blend.")
+    private @Meta Sampler yBlendSampler = Sampler.zero();
+
+    @Value("y-blend.amplitude")
+    @Default
+    @Description("Amplitude in blocks of the Y coordinate warp. A value of 16 shifts vertical boundaries up/down by up to 16 blocks.")
+    private @Meta double yBlendAmplitude = 0d;
 
     @Override
     public BiomeProvider get() {
         int effectiveYResolution = yResolution > 0 ? yResolution : resolution;
         return new BiomeExtrusionProvider(provider, extrusions, resolution, effectiveYResolution,
-                                          blendSampler, blendAmplitude, profiler);
+                                          xzBlendSampler, xzBlendAmplitude,
+                                          yBlendSampler, yBlendAmplitude, profiler);
     }
 }

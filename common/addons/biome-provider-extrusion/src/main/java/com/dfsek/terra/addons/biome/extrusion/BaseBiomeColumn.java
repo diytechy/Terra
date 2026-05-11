@@ -13,6 +13,8 @@ class BaseBiomeColumn implements Column<Biome> {
     private final int x;
     private final int z;
     private final long seed;
+    private final int blendedX;
+    private final int blendedZ;
 
     protected BaseBiomeColumn(BiomeExtrusionProvider biomeProvider, Biome base, int min, int max, int x, int z, long seed) {
         this.biomeProvider = biomeProvider;
@@ -22,6 +24,8 @@ class BaseBiomeColumn implements Column<Biome> {
         this.x = x;
         this.z = z;
         this.seed = seed;
+        this.blendedX = biomeProvider.blendX(x, z, seed);
+        this.blendedZ = biomeProvider.blendZ(x, z, seed);
     }
 
     @Override
@@ -46,6 +50,7 @@ class BaseBiomeColumn implements Column<Biome> {
 
     @Override
     public Biome get(int y) {
-        return biomeProvider.pipeline.extrude(base, x, biomeProvider.blendY(x, y, z, seed), z, seed);
+        int blendedY = Math.max(min, Math.min(max - 1, biomeProvider.blendY(x, y, z, seed)));
+        return biomeProvider.pipeline.extrude(base, blendedX, blendedY, blendedZ, seed);
     }
 }
