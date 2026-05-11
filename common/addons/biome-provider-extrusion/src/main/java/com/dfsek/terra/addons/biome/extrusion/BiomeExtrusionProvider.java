@@ -1,5 +1,7 @@
 package com.dfsek.terra.addons.biome.extrusion;
 
+import com.dfsek.seismic.type.sampler.Sampler;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -24,13 +26,17 @@ public class BiomeExtrusionProvider implements BiomeProvider {
     private final List<Extrusion> extrusions;
     private final int resolution;
     private final int yResolution;
+    private final Sampler blendSampler;
+    private final double blendAmplitude;
     final Profiler profiler;
 
     public BiomeExtrusionProvider(BiomeProvider delegate, List<Extrusion> extrusions, int resolution, int yResolution,
-                                  Profiler profiler) {
+                                  Sampler blendSampler, double blendAmplitude, Profiler profiler) {
         this.delegate = delegate;
         this.extrusions = extrusions;
         this.profiler = profiler;
+        this.blendSampler = blendSampler;
+        this.blendAmplitude = blendAmplitude;
         this.biomes = delegate.stream().collect(Collectors.toSet());
         extrusions.forEach(e -> biomes.addAll(e.getBiomes()));
 
@@ -67,10 +73,14 @@ public class BiomeExtrusionProvider implements BiomeProvider {
         return extrusions;
     }
 
+    int blendY(int x, int y, int z, long seed) {
+        return y + (int) (blendSampler.getSample(seed, x, z) * blendAmplitude);
+    }
+
     @Override
     public Biome getBiome(int x, int y, int z, long seed) {
         Biome delegated = delegate.getBiome(x, y, z, seed);
-        return pipeline.extrude(delegated, x, y, z, seed);
+        return pipeline.extrude(delegated, x, blendY(x, y, z, seed), z, seed);
     }
 
     @Override
