@@ -55,8 +55,11 @@ public class ElevationInterpolator {
                 for(int xi = -smooth; xi <= smooth; xi++) {
                     for(int zi = -smooth; zi <= smooth; zi++) {
                         BiomeNoiseProperties gen = gens[x + 1 + smooth + xi][z + 1 + smooth + zi];
-                        noise += gen.samplers().elevation().getSample(seed, xOrigin + x, zOrigin + z) * gen.samplers().elevationWeight();
-                        div += gen.samplers().elevationWeight();
+                        double w = gen.samplers().elevationWeight();
+                        if(w > 0) {
+                            noise += gen.samplers().elevation().getSample(seed, xOrigin + x, zOrigin + z) * w;
+                            div += w;
+                        }
                     }
                 }
                 values[x + 1][z + 1] = noise / div;

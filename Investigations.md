@@ -780,3 +780,26 @@ Since chunky's chunk generation is so much faster than in game from paper, can y
 #######################
 
 Is it possible sometimes pack level samplers would be slower than direct yml duplicates inside 
+
+######################
+
+Now I want to dive deeper into the issue previously discussed.
+
+I'm still seeing terrain extend up to the highest point in the world, I'd like to debug it fully.  
+
+The issue is clearly in "MESA_MONUMENTS", but I believe is affecting other biomes as well.
+
+One coordinate for reference, but all around this coordinate (x and z +/- 10 world block positions) have the same terrain with solid blocks all the way to 320:
+
+seed,x,y,z
+7099699057166038826, 21, 300, -326
+
+Interestingly the BiomeTool does NOT indicate this terrain value is a positive density, which means the interpolator is either getting a positive value after blending (as the BiomeTool does not use the chunk interpolator and it's blending check) or something else is causing the wrong terrain function to get set.
+
+Create a plan to debug / add additional debugs for this in Terra so it can be traced when reproduced in minecraft.  The new debugs should be able to be enabled or disabled through a compile time option.
+
+##############3
+
+Let's plan for some changes to improve speed:
+
+1. Impliment a 
