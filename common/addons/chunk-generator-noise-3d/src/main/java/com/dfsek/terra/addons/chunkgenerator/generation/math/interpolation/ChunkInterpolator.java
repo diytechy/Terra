@@ -10,6 +10,7 @@ package com.dfsek.terra.addons.chunkgenerator.generation.math.interpolation;
 import com.dfsek.seismic.type.sampler.Sampler;
 
 import com.dfsek.terra.addons.chunkgenerator.SamplerFloorFeature;
+import com.dfsek.terra.addons.chunkgenerator.TerrainDebug;
 import com.dfsek.terra.addons.chunkgenerator.config.noise.BiomeNoiseProperties;
 import com.dfsek.terra.addons.chunkgenerator.config.noise.BiomeNoiseSamplers;
 import com.dfsek.terra.api.properties.PropertyKey;
@@ -53,6 +54,13 @@ public class ChunkInterpolator {
 
         int xOrigin = chunkX << 4;
         int zOrigin = chunkZ << 4;
+
+        final boolean debugChunk = TerrainDebug.ENABLED
+            && TerrainDebug.isTargetChunk(chunkX, chunkZ)
+            && TerrainDebug.isTargetSeed(seed);
+        if(debugChunk) {
+            TerrainDebug.LOG.info("[CI] Building ChunkInterpolator for chunk ({}, {})", chunkX, chunkZ);
+        }
 
         int range = this.max - this.min + 1;
 
@@ -222,6 +230,25 @@ public class ChunkInterpolator {
                     if(SamplerFloorFeature.ENABLED) {
                         floorStorage[x][z][y] = floorValue;
                     }
+
+                    if(debugChunk && TerrainDebug.isTargetY(scaledY)) {
+                        int absX = xOrigin + (x << 2);
+                        int absZ = zOrigin + (z << 2);
+                        String centerBiome = biomeColumn.get(scaledY).getID();
+                        String floorStr = (SamplerFloorFeature.ENABLED && floorStorage != null)
+                            ? String.format(" floor=%.6f", (double) floorStorage[x][z][y])
+                            : "";
+                        TerrainDebug.LOG.info(
+                            "[CI] sparse ({},{},{}) centerBiome={} uniqueBlendBiomes={} totalWeight={} noise={} storedFloat={}{}",
+                            absX, scaledY, absZ,
+                            centerBiome,
+                            blendMap.size,
+                            String.format("%.4f", blendMap.totalWeight),
+                            String.format("%.6f", noise),
+                            String.format("%.6f", (double) noiseStorage[x][z][y]),
+                            floorStr);
+                    }
+
                     if(y == size - 1) {
                         noiseStorage[x][z][size] = (float) noise;
                         if(SamplerFloorFeature.ENABLED) {
@@ -287,6 +314,10 @@ public class ChunkInterpolator {
             }
         } else {
             this.floorGrid = null;
+        }
+
+        if(debugChunk && SamplerFloorFeature.ENABLED) {
+            TerrainDebug.LOG.info("[CI] chunk ({},{}) hasFloor={}", chunkX, chunkZ, this.floorGrid != null);
         }
     }
 

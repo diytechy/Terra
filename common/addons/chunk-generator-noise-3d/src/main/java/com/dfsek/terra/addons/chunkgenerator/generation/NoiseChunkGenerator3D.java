@@ -16,6 +16,7 @@ import com.dfsek.seismic.type.sampler.Sampler;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import com.dfsek.terra.addons.chunkgenerator.TerrainDebug;
 import com.dfsek.terra.addons.chunkgenerator.config.noise.BiomeNoiseProperties;
 import com.dfsek.terra.addons.chunkgenerator.config.noise.BiomeNoiseSamplers;
 import com.dfsek.terra.addons.chunkgenerator.generation.math.SlantCalculationMethod;
@@ -168,6 +169,7 @@ public class NoiseChunkGenerator3D implements ChunkGenerator {
                     Palette seaPalette = paletteInfo.ocean();
 
                     double density = sampler.sample(x, y, z);
+                    double rawDensity = density; // captured before any floor/minDensity modification
 
                     if(biome != lastMinDensityBiome) {
                         BiomeNoiseSamplers biomeNoise = biome.getContext().get(noisePropertiesKey).samplers();
@@ -193,6 +195,29 @@ public class NoiseChunkGenerator3D implements ChunkGenerator {
                         } else {
                             density = Math.max(density, floor);
                         }
+                    }
+
+                    if(TerrainDebug.ENABLED
+                            && cx == TerrainDebug.TARGET_WORLD_X
+                            && cz == TerrainDebug.TARGET_WORLD_Z
+                            && TerrainDebug.isTargetY(y)
+                            && TerrainDebug.isTargetSeed(seed)) {
+                        double carverSample = carver.sample(x, y, z);
+                        String floorStr = activeFloor != null
+                            ? String.format("%.6f", activeFloor.getSample(seed, cx, y, cz))
+                            : "none";
+                        String result = density > 0
+                            ? (carverSample <= 0 ? "SOLID" : "CARVED")
+                            : (y <= sea ? "WATER" : "AIR");
+                        TerrainDebug.LOG.info(
+                            "[NCG] ({},{},{}) biome={} rawDensity={} finalDensity={} floor={} carver={} -> {}",
+                            cx, y, cz,
+                            biome.getID(),
+                            String.format("%.6f", rawDensity),
+                            String.format("%.6f", density),
+                            floorStr,
+                            String.format("%.6f", carverSample),
+                            result);
                     }
 
                     if(density > 0) {
