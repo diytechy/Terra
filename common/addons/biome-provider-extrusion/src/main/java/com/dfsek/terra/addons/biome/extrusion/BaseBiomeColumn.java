@@ -49,6 +49,11 @@ class BaseBiomeColumn implements Column<Biome> {
     }
 
     @Override
+    public Biome getSurface() {
+        return base;
+    }
+
+    @Override
     public Biome get(int y) {
         int blendedY = Math.max(min, Math.min(max - 1, biomeProvider.blendY(x, y, z, seed)));
         return biomeProvider.pipeline.extrude(base, blendedX, blendedY, blendedZ, seed);
