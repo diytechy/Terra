@@ -19,6 +19,13 @@ public interface Column<T> {
 
     T get(int y);
 
+    // Returns the surface (Y-independent) element for this column.
+    // For providers that vary with depth (e.g. extrusion), this returns the base
+    // pre-extrusion element. The default falls back to get(getMinY()).
+    default T getSurface() {
+        return get(getMinY());
+    }
+
     default void forEach(Consumer<T> consumer) {
         for(int y = getMinY(); y < getMaxY(); y++) {
             consumer.accept(get(y));
