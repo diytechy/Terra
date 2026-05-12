@@ -104,7 +104,16 @@ public class DeferredExpressionSampler implements Sampler {
             var mergedFunctions = new HashMap<>(globalFunctions);
             mergedFunctions.putAll(localFunctions);
             var mergedSamplers = new HashMap<>(globalSamplers);
-            mergedSamplers.putAll(localSamplers);
+            // Wrap local 2D samplers in LastValueSampler, mirroring what NoiseAddon does for
+            // global pack samplers. This prevents redundant re-evaluation across Y sparse-grid
+            // iterations in ChunkInterpolator for inline samplers that only vary with (x, z).
+            localSamplers.forEach((name, das) -> {
+                if(das.getDimensions() == 2) {
+                    mergedSamplers.put(name, new DimensionApplicableSampler(2, new LastValueSampler(das.getSampler())));
+                } else {
+                    mergedSamplers.put(name, das);
+                }
+            });
             try {
                 var functionMap = convertFunctionsAndSamplers(mergedFunctions, mergedSamplers);
                 if(normalizerInput != null) {
