@@ -805,4 +805,69 @@ I have changed many of the "OPEN_SIMPLEX_2S" samplers in the CHIMERA pack (ORIGE
 Let's plan for some changes to improve speed:
 
 1. Implement a 16x16 biome cache that can be built for 
-2. I want ot investigate methods to improve chunk creation time.  My thought is that many terrain samplers have sub-samplers / subfunctions that only use 2d content which is re-evaluated at every y-point (probably about 20x or more repeat computations per column depending on the complexity of the sampler).  Can you confirm the terrain specific content is not cached at any level automatically and that automatic caching only occurs for pack-level samplers.
+2. I want ot investigate methods to improve chunk creation time.  My thought is that many terrain samplers have sub-samplers / subfunctions that only use 2d content which is re-evaluated at every y-point (probably about 20x or more repeat computations per column depending on the complexity of the sampler).  Can you confirm the terrain specific content is not cached at any level automatically and that automatic caching only occurs for pack-level samplers?
+
+Please plan a method similar to the ChunkScopedCacheSampler for terrain-side samplers.
+
+####################################
+
+Okay, and now can you list the sequence of events and how they relate back to those caches?  For example, I would expect:
+
+The pack loads, and compiles all samplers, named samplers and terrain subsamplers are wrapped in "Named 2D pack sampler", cellular named samplers are wrapped in "Named multi-hit 2D sampler", and "Explicit cache: sampler" are only used if called out in the pack.
+
+"2D biome lookup" and "3D biome lookup" are configured per pack and disabled by default.
+
+Biome queries (size based on pack) fill and use the PipelineBiomeProvider, whose samplers take advantage of ChunkGenerationContext populated by ChunkScopedCacheSampler.
+
+Chunk generation uses the ChunkInterpolator blend map and Elevationinterpolator array per thread, and also use the LazilyEvaluatedInterpolator's for carving.
+
+"Chunk Sampler3D cache" is used to populate neighbor chunks if necessary to place features?  It's not clear to me what this would actually be used for.
+ 
+Finally, during block placement there is no caching, as each x/y is walked, the surface biome is calculated from the pipeline biome provider and blending, and then y-blending is performed before calling the extrusion for the specific blend-shifted y-coordinate.
+
+I assume features are placed in a loop through x,z, and y after chunk creation and pallette block placement is complete?
+
+But doesn't pipeline.extrude() need to run both for pallette placement and then again for each feature loop?  I'm trying to understand the order of operations to decordate a chunk.  Is it:
+1. Loop through X
+2. Loop through z
+3. Loop through y
+4. Loop through palette and features
+
+Or is it 
+
+1. Loop through palette and features
+2. Loop through X
+3. Loop through z
+4. Loop through y
+
+or is it something else?
+
+
+
+
+
+
+
+******************
+
+Let's plan for some larger changes here, as there are multiple re-evaluations occurring here for extrusion, I believe caching the extrusion portion should significantly reduce the overhead.
+
+1. Update the biome provider to sample from a sparse biome cache.
+
+Affected functions:
+biomeColumn.get(y) and biomeChunkCache.
+
+Concept:
+Add another element in pipelineBiome with some default indicating it is not yet constructed.  It should be able to return a "Column<Biome>" datatype, but it should store extrusion data as compactly as possible  If it stores the entire sparse column in biomeIDs, that would be 94*4 bytes= 400 bytes per sparse column.  If it stores it as biome transitions, and is limited to 4 biome transitions per column, the storage is then:
+
+2 bytes (sint 32 y locations) * 4 locations = 8 bytes
+
++ 
+
+4 bytes * 4 location biome IDs = 16 bytes, or 24 additoinal bytes per column to store extrusion definition per column.
+
+
+
+
+2. Update blending so that it is not in a square, and instead follows a pseudo circular pattern:
+A. For a step distance of n, 
