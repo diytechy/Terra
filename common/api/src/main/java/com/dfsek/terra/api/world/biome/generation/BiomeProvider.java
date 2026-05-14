@@ -77,6 +77,14 @@ public interface BiomeProvider {
         return new BiomeColumn(this, min, max, x, z, seed);
     }
 
+    default Column<Biome> getColumnForTerrain(int x, int z, WorldProperties properties) {
+        return getColumnForTerrain(x, z, properties.getSeed(), properties.getMinHeight(), properties.getMaxHeight());
+    }
+
+    default Column<Biome> getColumnForTerrain(int x, int z, long seed, int min, int max) {
+        return getColumn(x, z, seed, min, max);
+    }
+
     /**
      * Get all biomes this {@link BiomeProvider} is capable of generating in the world.
      * <p>

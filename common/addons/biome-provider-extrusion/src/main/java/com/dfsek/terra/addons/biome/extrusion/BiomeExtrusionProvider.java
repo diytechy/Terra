@@ -28,20 +28,24 @@ public class BiomeExtrusionProvider implements BiomeProvider {
     private final int yResolution;
     private final Sampler xzBlendSampler;
     private final double xzBlendAmplitude;
+    private final boolean terrainWarpXZ;
     private final Sampler yBlendSampler;
     private final double yBlendAmplitude;
+    private final boolean terrainWarpY;
     final Profiler profiler;
 
     public BiomeExtrusionProvider(BiomeProvider delegate, List<Extrusion> extrusions, int resolution, int yResolution,
-                                  Sampler xzBlendSampler, double xzBlendAmplitude,
-                                  Sampler yBlendSampler, double yBlendAmplitude, Profiler profiler) {
+                                  Sampler xzBlendSampler, double xzBlendAmplitude, boolean terrainWarpXZ,
+                                  Sampler yBlendSampler, double yBlendAmplitude, boolean terrainWarpY, Profiler profiler) {
         this.delegate = delegate;
         this.extrusions = extrusions;
         this.profiler = profiler;
         this.xzBlendSampler = xzBlendSampler;
         this.xzBlendAmplitude = xzBlendAmplitude;
+        this.terrainWarpXZ = terrainWarpXZ;
         this.yBlendSampler = yBlendSampler;
         this.yBlendAmplitude = yBlendAmplitude;
+        this.terrainWarpY = terrainWarpY;
         this.biomes = delegate.stream().collect(Collectors.toSet());
         extrusions.forEach(e -> biomes.addAll(e.getBiomes()));
 
@@ -102,8 +106,18 @@ public class BiomeExtrusionProvider implements BiomeProvider {
         Optional<Biome> baseBiome = delegate.getBaseBiome(x, z, seed);
         profiler.pop("extrusion_base_biome");
         return baseBiome
-            .map(base -> (Column<Biome>) new BaseBiomeColumn(this, base, min, max, x, z, seed))
+            .map(base -> (Column<Biome>) new BaseBiomeColumn(this, base, min, max, x, z, seed, true, true))
             .orElseGet(() -> BiomeProvider.super.getColumn(x, z, seed, min, max));
+    }
+
+    @Override
+    public Column<Biome> getColumnForTerrain(int x, int z, long seed, int min, int max) {
+        profiler.push("extrusion_base_biome");
+        Optional<Biome> baseBiome = delegate.getBaseBiome(x, z, seed);
+        profiler.pop("extrusion_base_biome");
+        return baseBiome
+            .map(base -> (Column<Biome>) new BaseBiomeColumn(this, base, min, max, x, z, seed, terrainWarpXZ, terrainWarpY))
+            .orElseGet(() -> BiomeProvider.super.getColumnForTerrain(x, z, seed, min, max));
     }
 
     @Override

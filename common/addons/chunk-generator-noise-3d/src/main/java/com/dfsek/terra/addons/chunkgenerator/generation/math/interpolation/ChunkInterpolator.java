@@ -87,7 +87,7 @@ public class ChunkInterpolator {
             for(int z = 0; z < 5; z++) {
                 int scaledZ = z << 2;
                 int absoluteZ = zOrigin + scaledZ;
-                Column<Biome> col = provider.getColumn(absoluteX, absoluteZ, seed, min, max);
+                Column<Biome> col = provider.getColumnForTerrain(absoluteX, absoluteZ, seed, min, max);
                 centerColumns[x * 5 + z] = col;
                 // Blend is a 2D spatial concept — use the surface biome's settings, which are
                 // Y-independent. Eliminates the inner Y loop that was previously needed.
@@ -143,7 +143,7 @@ public class ChunkInterpolator {
                             int localIndex = (scaledX + localMaxBlend + blendX)
                                            + localMaxBlendAndChunk * (scaledZ + localMaxBlend + blendZ);
                             if(columns[localIndex] == null) {
-                                columns[localIndex] = provider.getColumn(
+                                columns[localIndex] = provider.getColumnForTerrain(
                                     absoluteX + blendX, absoluteZ + blendZ, seed, min, max);
                             }
                             // getSurface(): free field read on BiomePipelineColumn; returns base
