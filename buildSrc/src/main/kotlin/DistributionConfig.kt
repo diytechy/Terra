@@ -116,37 +116,42 @@ fun Project.configureDistribution() {
     val downloadDefaultPacks = tasks.create("downloadDefaultPacks") {
         group = "terra"
         doFirst {
+            file("${buildDir}/resources/main/packs/").deleteRecursively()
+            file("${buildDir}/resources/main/metapacks/").deleteRecursively()
+
+            // CHIMERA replaces Overworld — required; let any failure abort the build.
+            downloadPackWithFallback(
+                artifactId = "CHIMERA",
+                version = Versions.Terra.chimeraConfig,
+                project = project
+            )
+
+            // ReimagEND — optional; falls back to PolyhedralDev GitHub releases, then skipped on failure.
             try {
-                file("${buildDir}/resources/main/packs/").deleteRecursively()
-                file("${buildDir}/resources/main/metapacks/").deleteRecursively()
-
-                // CHIMERA replaces Overworld — no GitHub fallback
-                downloadPackWithFallback(
-                    artifactId = "CHIMERA",
-                    version = Versions.Terra.chimeraConfig,
-                    project = project
-                )
-
-                // ReimagEND — falls back to PolyhedralDev GitHub releases
                 downloadPackWithFallback(
                     artifactId = "REIMAGEND",
                     version = Versions.Terra.reimagENDConfig,
                     project = project,
                     githubFallbackUrl = URL("https://github.com/PolyhedralDev/ReimagEND/releases/download/" + Versions.Terra.reimagENDConfig + "/ReimagEND.zip")
                 )
+            } catch (e: Exception) {
+                project.logger.warn("  [skip] Could not resolve REIMAGEND ${Versions.Terra.reimagENDConfig}: ${e.message}")
+            }
 
-                // Tartarus — falls back to PolyhedralDev GitHub releases
+            // Tartarus — optional; falls back to PolyhedralDev GitHub releases, then skipped on failure.
+            try {
                 downloadPackWithFallback(
                     artifactId = "TARTARUS",
                     version = Versions.Terra.tartarusConfig,
                     project = project,
                     githubFallbackUrl = URL("https://github.com/PolyhedralDev/Tartarus/releases/download/" + Versions.Terra.tartarusConfig + "/Tartarus.zip")
                 )
-
-                // Generate custom metapack mapping CHIMERA to the overworld
-                generateDefaultMetapack(project)
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                project.logger.warn("  [skip] Could not resolve TARTARUS ${Versions.Terra.tartarusConfig}: ${e.message}")
             }
+
+            // Generate custom metapack mapping CHIMERA to the overworld
+            generateDefaultMetapack(project)
         }
     }
 
