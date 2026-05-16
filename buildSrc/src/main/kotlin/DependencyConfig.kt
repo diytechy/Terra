@@ -74,7 +74,7 @@ fun Project.configureDependencies() {
         maven("https://repo.repsy.io/mvn/diytechy/terra-packs") {
             name = "TerraPacks"
         }
-        maven("https://repo.repsy.io/mvn/diytechy/bubbleschunkgen") {
+        maven("https://repo.repsy.io/mvn/diytechy/bubblesonchunkgen") {
             name = "BubblesOnChunkGen"
         }
     }
