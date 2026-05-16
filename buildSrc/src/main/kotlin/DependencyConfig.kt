@@ -33,6 +33,9 @@ fun Project.configureDependencies() {
         maven("https://repo.repsy.io/mvn/diytechy/tectonic") {
             name = "RepsyTectonic"
         }
+        maven("https://repo.repsy.io/mvn/diytechy/seismic") {
+            name = "RepsySeismic"
+        }
         mavenCentral()
         gradlePluginPortal()
         maven("https://maven.solo-studios.ca/releases") {
