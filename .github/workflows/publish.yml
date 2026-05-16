@@ -80,6 +80,7 @@ jobs:
             :common:addons:generation-stage-feature:publishMavenJavaPublicationToRepsyRepository \
             :common:addons:generation-stage-structure:publishMavenJavaPublicationToRepsyRepository \
             :common:addons:locator-slant-noise-3d:publishMavenJavaPublicationToRepsyRepository \
+            :common:addons:locator-surface-noise-3d:publishMavenJavaPublicationToRepsyRepository \
             :common:addons:palette-block-shortcut:publishMavenJavaPublicationToRepsyRepository \
             :common:addons:structure-block-shortcut:publishMavenJavaPublicationToRepsyRepository \
             :common:addons:structure-mutator:publishMavenJavaPublicationToRepsyRepository \
