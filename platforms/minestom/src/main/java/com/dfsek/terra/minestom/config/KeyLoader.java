@@ -1,6 +1,5 @@
 package com.dfsek.terra.minestom.config;
 
-import com.dfsek.tectonic.api.depth.DepthTracker;
 import com.dfsek.tectonic.api.exception.LoadException;
 import com.dfsek.tectonic.api.loader.ConfigLoader;
 import com.dfsek.tectonic.api.loader.type.TypeLoader;
@@ -17,16 +16,15 @@ public class KeyLoader implements TypeLoader<Key> {
     public Key load(
         @NotNull AnnotatedType annotatedType,
         @NotNull Object o,
-        @NotNull ConfigLoader configLoader,
-        DepthTracker depthTracker
+        @NotNull ConfigLoader configLoader
     ) throws LoadException {
         if(!(o instanceof @Subst("a:o")String stringKey)) {
-            throw new LoadException("Value is not a String", depthTracker);
+            throw new LoadException("Value is not a String", ConfigLoader.CURRENT_DEPTH.get());
         }
         try {
             return Key.key(stringKey);
         } catch(InvalidKeyException e) {
-            throw new LoadException("Can't load key: Invalid Format", e, depthTracker);
+            throw new LoadException("Can't load key: Invalid Format", e, ConfigLoader.CURRENT_DEPTH.get());
         }
     }
 }

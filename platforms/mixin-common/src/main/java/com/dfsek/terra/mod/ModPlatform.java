@@ -3,6 +3,7 @@ package com.dfsek.terra.mod;
 import com.dfsek.tectonic.api.TypeRegistry;
 import com.dfsek.tectonic.api.depth.DepthTracker;
 import com.dfsek.tectonic.api.exception.LoadException;
+import com.dfsek.tectonic.api.loader.ConfigLoader;
 import net.minecraft.enchantment.Enchantment;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.SpawnGroup;
@@ -74,19 +75,19 @@ public abstract class ModPlatform extends AbstractPlatform {
     @Override
     public void register(TypeRegistry registry) {
         super.register(registry);
-        registry.registerLoader(PlatformBiome.class, (type, o, loader, depthTracker) -> parseBiome((String) o, depthTracker))
-            .registerLoader(Identifier.class, (type, o, loader, depthTracker) -> {
+        registry.registerLoader(PlatformBiome.class, (type, o, loader) -> parseBiome((String) o, ConfigLoader.CURRENT_DEPTH.get()))
+            .registerLoader(Identifier.class, (type, o, loader) -> {
                 Identifier identifier = Identifier.tryParse((String) o);
                 if(identifier == null)
-                    throw new LoadException("Invalid identifier: " + o, depthTracker);
+                    throw new LoadException("Invalid identifier: " + o, ConfigLoader.CURRENT_DEPTH.get());
                 return identifier;
             })
-            .registerLoader(Precipitation.class, (type, o, loader, depthTracker) -> Precipitation.valueOf(((String) o).toUpperCase()))
+            .registerLoader(Precipitation.class, (type, o, loader) -> Precipitation.valueOf(((String) o).toUpperCase()))
             .registerLoader(GrassColorModifier.class,
-                (type, o, loader, depthTracker) -> GrassColorModifier.valueOf(((String) o).toUpperCase()))
+                (type, o, loader) -> GrassColorModifier.valueOf(((String) o).toUpperCase()))
             .registerLoader(TemperatureModifier.class,
-                (type, o, loader, depthTracker) -> TemperatureModifier.valueOf(((String) o).toUpperCase()))
-            .registerLoader(SpawnGroup.class, (type, o, loader, depthTracker) -> SpawnGroup.valueOf((String) o))
+                (type, o, loader) -> TemperatureModifier.valueOf(((String) o).toUpperCase()))
+            .registerLoader(SpawnGroup.class, (type, o, loader) -> SpawnGroup.valueOf((String) o))
             .registerLoader(AmbientParticle.class, BiomeParticleConfigTemplate::new)
             .registerLoader(SoundEvent.class, SoundEventTemplate::new)
             .registerLoader(BiomeMoodSound.class, BiomeMoodSoundTemplate::new)

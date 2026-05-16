@@ -1,21 +1,23 @@
 object Versions {
     object Terra {
-        const val overworldConfig = "latest"
-        const val reimagENDConfig = "latest"
-        const val tartarusConfig = "latest"
-        const val defaultConfig = "latest"
+        const val chimeraConfig = "0.0.3"
+        const val reimagENDConfig = "3.0.0"
+        const val tartarusConfig = "1.0.0"
     }
     
     object Libraries {
-        const val tectonic = "4.3.1"
+        // Requires the diytechy Tectonic branch — Terra calls ConfigLoader.beginSession()/endSession()
+        // which do not exist in upstream Tectonic. Resolved from mavenLocal (local dev) or Repsy diytechy (CI).
+        const val tectonic = "4.3.2-diytechy"
         const val paralithic = "2.0.1"
         const val strata = "1.3.2"
-        const val seismic = "2.5.7"
+        const val seismic = "2.5.7-PATCHED"
         
         const val cloud = "2.0.0"
         
         const val caffeine = "3.2.2"
-        const val dendryTerra = "1.0.0-BETA-1"
+        const val dendryTerra = "1.0.0-BETA-G"
+        const val bubblesOnChunkGen = "1.2.2"
 
         const val slf4j = "2.0.17"
 
@@ -61,17 +63,15 @@ object Versions {
 //    }
     
     object Bukkit {
-        const val minecraft = "1.21.11-rc3"
-        const val nms = "$minecraft-R0.1"
-        const val paperBuild = "$nms-20251208.200020-2"
-        const val paper = paperBuild
+        const val minecraft = "26.1"
+        const val paper = "26.1.1.build.+"
+        const val paperDevBundle = paper
         const val paperLib = "1.0.8"
         const val reflectionRemapper = "0.1.3"
-        const val paperDevBundle = paperBuild
         const val runPaper = "2.3.1"
-        const val paperWeight = "2.0.0-beta.19"
-        const val cloud = "2.0.0-beta.12"
-        const val multiverse = "5.3.0"
+        const val paperWeight = "2.0.0-beta.21"
+        const val cloud = "2.0.0-beta.15"
+        const val multiverse = "5.6.1"
     }
     
 //
@@ -87,13 +87,13 @@ object Versions {
     }
     
     object Allay {
-        const val api = "0.13.0"
+        const val api = "0.20.0"
         const val gson = "2.13.2"
         
-        const val mappings = "15398c1"
-        const val mappingsGenerator = "8fa6058"
+        const val mappings = "366baa6"
+        const val mappingsGenerator = "e957088"
         
-        const val mcmeta = "e85a17c"
+        const val mcmeta = "c976eb3"
     }
     
     object Minestom {

@@ -77,6 +77,14 @@ public interface BiomeProvider {
         return new BiomeColumn(this, min, max, x, z, seed);
     }
 
+    default Column<Biome> getColumnForTerrain(int x, int z, WorldProperties properties) {
+        return getColumnForTerrain(x, z, properties.getSeed(), properties.getMinHeight(), properties.getMaxHeight());
+    }
+
+    default Column<Biome> getColumnForTerrain(int x, int z, long seed, int min, int max) {
+        return getColumn(x, z, seed, min, max);
+    }
+
     /**
      * Get all biomes this {@link BiomeProvider} is capable of generating in the world.
      * <p>
@@ -102,5 +110,22 @@ public interface BiomeProvider {
 
     default int resolution() {
         return 1;
+    }
+
+    default int yResolution() {
+        return resolution();
+    }
+
+    /**
+     * Returns a biome for structure placement searching (e.g. stronghold ring position
+     * computation), bypassing expensive pipeline evaluation. Implementations may return
+     * a coarse approximation sufficient to determine whether a position is eligible for
+     * the structure (e.g. land vs ocean). Returns {@link Optional#empty()} to indicate
+     * no fast path is available; callers must fall back to {@link #getBiome}.
+     *
+     * Coordinates are in block space. Y is not used (structure searches are 2D).
+     */
+    default Optional<Biome> getStructurePlacementBiome(int x, int z, long seed) {
+        return Optional.empty();
     }
 }

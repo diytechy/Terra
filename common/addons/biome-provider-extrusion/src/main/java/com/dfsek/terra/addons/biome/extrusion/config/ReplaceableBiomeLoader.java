@@ -1,6 +1,5 @@
 package com.dfsek.terra.addons.biome.extrusion.config;
 
-import com.dfsek.tectonic.api.depth.DepthTracker;
 import com.dfsek.tectonic.api.exception.LoadException;
 import com.dfsek.tectonic.api.loader.ConfigLoader;
 import com.dfsek.tectonic.api.loader.type.TypeLoader;
@@ -21,12 +20,11 @@ public class ReplaceableBiomeLoader implements TypeLoader<ReplaceableBiome> {
     }
 
     @Override
-    public ReplaceableBiome load(@NotNull AnnotatedType t, @NotNull Object c, @NotNull ConfigLoader loader, DepthTracker depthTracker)
-    throws LoadException {
+    public ReplaceableBiome load(@NotNull AnnotatedType t, @NotNull Object c, @NotNull ConfigLoader loader) throws LoadException {
         if(c.equals("SELF")) return ReplaceableBiome.self();
         return biomeRegistry
             .getByID((String) c)
             .map(ReplaceableBiome::of)
-            .orElseThrow(() -> new LoadException("No such biome: " + c, depthTracker));
+            .orElseThrow(() -> new LoadException("No such biome: " + c, ConfigLoader.CURRENT_DEPTH.get()));
     }
 }

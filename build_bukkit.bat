@@ -4,7 +4,7 @@ setlocal
 REM Get the full path of this batch file
 set "scriptPath=%~dp0"
 echo Starting build for Bukkit (Spigot / Paper) via ^"Running %scriptPath%gradlew.bat ^:platforms^:bukkit^:build^", please wait...
-%scriptPath%gradlew.bat ^:platforms^:bukkit^:build
+%scriptPath%gradlew.bat clean ^:platforms^:bukkit^:build
 endlocal
 
 pause

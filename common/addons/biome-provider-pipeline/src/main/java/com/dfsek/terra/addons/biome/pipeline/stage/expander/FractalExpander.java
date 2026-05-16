@@ -35,4 +35,9 @@ public class FractalExpander implements Expander {
                    roll > -0.25 ? viewPoint.getRelativeBiome(-1, -1) : viewPoint.getRelativeBiome(1, -1);
         }
     }
+
+    @Override
+    public String toString() {
+        return "FractalExpand";
+    }
 }

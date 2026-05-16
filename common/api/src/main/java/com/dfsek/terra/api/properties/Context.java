@@ -55,4 +55,18 @@ public class Context {
     public <T extends Properties> boolean has(Class<T> test) {
         return map.containsKey(test);
     }
+
+    /**
+     * Look up a Properties entry by fully-qualified class name.
+     * Useful when the caller cannot import the class directly
+     * (e.g., it resides in an addon classloader).
+     */
+    public Properties getByClassName(String className) {
+        for(Map.Entry<Class<? extends Properties>, Properties> entry : map.entrySet()) {
+            if(entry.getKey().getName().equals(className)) {
+                return entry.getValue();
+            }
+        }
+        return null;
+    }
 }

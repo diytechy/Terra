@@ -28,6 +28,14 @@ fun Project.configureDependencies() {
     }
 
     repositories {
+        mavenLocal()
+        // diytechy fork of Tectonic — try local then Repsy before falling back to upstream.
+        maven("https://repo.repsy.io/mvn/diytechy/tectonic") {
+            name = "RepsyTectonic"
+        }
+        maven("https://repo.repsy.io/mvn/diytechy/seismic") {
+            name = "RepsySeismic"
+        }
         mavenCentral()
         gradlePluginPortal()
         maven("https://maven.solo-studios.ca/releases") {
@@ -62,6 +70,12 @@ fun Project.configureDependencies() {
         }
         maven("https://repo.repsy.io/mvn/diytechy/dendryterra") {
             name = "DendryTerra"
+        }
+        maven("https://repo.repsy.io/mvn/diytechy/terra-packs") {
+            name = "TerraPacks"
+        }
+        maven("https://repo.repsy.io/mvn/diytechy/bubblesonchunkgen") {
+            name = "BubblesOnChunkGen"
         }
     }
     

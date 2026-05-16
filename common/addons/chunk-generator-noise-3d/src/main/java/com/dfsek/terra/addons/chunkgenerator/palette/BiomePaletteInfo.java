@@ -7,6 +7,10 @@
 
 package com.dfsek.terra.addons.chunkgenerator.palette;
 
+import com.dfsek.seismic.type.sampler.Sampler;
+
+import org.jetbrains.annotations.Nullable;
+
 import com.dfsek.terra.addons.chunkgenerator.palette.slant.SlantHolder;
 import com.dfsek.terra.api.properties.Properties;
 import com.dfsek.terra.api.world.chunk.generation.util.Palette;
@@ -16,5 +20,6 @@ public record BiomePaletteInfo(PaletteHolder paletteHolder,
                                SlantHolder slantHolder,
                                Palette ocean,
                                int seaLevel,
+                               @Nullable Sampler seaLevelSampler,
                                boolean updatePaletteWhenCarving) implements Properties {
 }

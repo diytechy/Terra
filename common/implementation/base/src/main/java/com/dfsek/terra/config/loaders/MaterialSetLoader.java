@@ -17,7 +17,6 @@
 
 package com.dfsek.terra.config.loaders;
 
-import com.dfsek.tectonic.api.depth.DepthTracker;
 import com.dfsek.tectonic.api.exception.LoadException;
 import com.dfsek.tectonic.api.loader.ConfigLoader;
 import com.dfsek.tectonic.api.loader.type.TypeLoader;
@@ -33,9 +32,9 @@ import com.dfsek.terra.api.util.collection.MaterialSet;
 @SuppressWarnings("unchecked")
 public class MaterialSetLoader implements TypeLoader<MaterialSet> {
     @Override
-    public MaterialSet load(@NotNull AnnotatedType type, @NotNull Object o, @NotNull ConfigLoader configLoader, DepthTracker depthTracker)
-    throws LoadException {
+    public MaterialSet load(@NotNull AnnotatedType type, @NotNull Object o, @NotNull ConfigLoader configLoader) throws LoadException {
         List<String> stringData = (List<String>) o;
+        var depthTracker = ConfigLoader.CURRENT_DEPTH.get();
 
         if(stringData.size() == 1) {
             return MaterialSet.singleton(configLoader.loadType(BlockType.class, stringData.get(0), depthTracker));

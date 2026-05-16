@@ -30,13 +30,18 @@ import com.dfsek.seismic.type.sampler.DerivativeSampler;
 import com.dfsek.seismic.type.sampler.Sampler;
 import com.dfsek.tectonic.api.config.template.object.ObjectTemplate;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
 import com.dfsek.terra.addons.manifest.api.AddonInitializer;
 import com.dfsek.terra.addons.noise.config.CubicSplinePointTemplate;
 import com.dfsek.terra.addons.noise.config.DimensionApplicableSampler;
+import com.dfsek.terra.addons.noise.config.sampler.DeferredExpressionSampler;
+import com.dfsek.terra.addons.noise.config.sampler.LastValueSampler;
 import com.dfsek.terra.addons.noise.config.templates.BinaryArithmeticTemplate;
 import com.dfsek.terra.addons.noise.config.templates.CacheSamplerTemplate;
 import com.dfsek.terra.addons.noise.config.templates.DerivativeSamplerTemplate;
@@ -94,11 +99,11 @@ public class NoiseAddon implements AddonInitializer {
                     NOISE_SAMPLER_TOKEN);
                 event.getPack()
                     .applyLoader(DistanceFunction.class,
-                        (type, o, loader, depthTracker) -> DistanceFunction.valueOf((String) o))
+                        (type, o, loader) -> DistanceFunction.valueOf((String) o))
                     .applyLoader(CellularStyleSampler.CellularReturnType.class,
-                        (type, o, loader, depthTracker) -> CellularStyleSampler.CellularReturnType.valueOf((String) o))
+                        (type, o, loader) -> CellularStyleSampler.CellularReturnType.valueOf((String) o))
                     .applyLoader(DistanceFunction.class,
-                        (type, o, loader, depthTracker) -> DistanceFunction.valueOf((String) o))
+                        (type, o, loader) -> DistanceFunction.valueOf((String) o))
                     .applyLoader(DimensionApplicableSampler.class, DimensionApplicableSampler::new)
                     .applyLoader(FunctionTemplate.class, () -> new FunctionTemplate(expressionParseOptions))
                     .applyLoader(CubicSpline.Point.class, CubicSplinePointTemplate::new)
@@ -156,15 +161,51 @@ public class NoiseAddon implements AddonInitializer {
 
                 Map<String, DimensionApplicableSampler> packSamplers = new LinkedHashMap<>();
                 Map<String, FunctionTemplate> packFunctions = new LinkedHashMap<>();
+                AtomicBoolean deferCompilation = new AtomicBoolean(true);
+                event.getPack().getContext().put(new PackSamplerContext(packSamplers, packFunctions));
                 noiseRegistry.register(addon.key("EXPRESSION"),
-                    () -> new ExpressionFunctionTemplate(packSamplers, packFunctions, expressionParseOptions));
+                    () -> new ExpressionFunctionTemplate(packSamplers, packFunctions, expressionParseOptions,
+                        deferCompilation));
                 noiseRegistry.register(addon.key("EXPRESSION_NORMALIZER"),
-                    () -> new ExpressionNormalizerTemplate(packSamplers, packFunctions, expressionParseOptions));
+                    () -> new ExpressionNormalizerTemplate(packSamplers, packFunctions, expressionParseOptions,
+                        deferCompilation));
 
                 NoiseConfigPackTemplate template = event.loadTemplate(new NoiseConfigPackTemplate());
-                packSamplers.putAll(template.getSamplers());
+                template.getSamplers().forEach((name, das) -> {
+                    if(das.getDimensions() == 2) {
+                        packSamplers.put(name, new DimensionApplicableSampler(2, new LastValueSampler(das.getSampler())));
+                    } else {
+                        packSamplers.put(name, das);
+                    }
+                });
                 packFunctions.putAll(template.getFunctions());
                 event.getPack().getContext().put(template);
+
+                // Validate all deferred expression samplers now that all pack samplers are available.
+                // This eagerly compiles every deferred expression, surfacing parse errors at pack load
+                // instead of deferring them to first chunk generation.
+                List<String> validationErrors = new ArrayList<>();
+                packSamplers.forEach((name, das) -> {
+                    Sampler sampler = das.getSampler();
+                    if(sampler instanceof LastValueSampler lvs) {
+                        sampler = lvs.getDelegate();
+                    }
+                    if(sampler instanceof DeferredExpressionSampler deferred) {
+                        try {
+                            deferred.validate();
+                        } catch(RuntimeException e) {
+                            validationErrors.add(name + ": " + (e.getCause() != null ? e.getCause().getMessage() : e.getMessage()));
+                        }
+                    }
+                });
+                if(!validationErrors.isEmpty()) {
+                    throw new RuntimeException("Failed to compile " + validationErrors.size() +
+                        " deferred expression sampler(s):\n  " + String.join("\n  ", validationErrors));
+                }
+
+                // All pack samplers validated. Disable deferral so subsequent expression
+                // parsing (biomes, features, etc.) compiles eagerly with immediate error reporting.
+                deferCompilation.set(false);
             })
             .priority(50)
             .failThrough();

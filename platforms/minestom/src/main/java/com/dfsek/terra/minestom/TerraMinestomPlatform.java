@@ -79,9 +79,9 @@ public final class TerraMinestomPlatform extends AbstractPlatform {
             .registerLoader(RGBLike.class, new RGBLikeLoader())
             .registerLoader(Key.class, new KeyLoader())
             .registerLoader(EntityType.class,
-                (TypeLoader<EntityType>) (annotatedType, o, configLoader, depthTracker) -> new MinestomEntityType((String) o))
+                (TypeLoader<EntityType>) (annotatedType, o, configLoader) -> new MinestomEntityType((String) o))
             .registerLoader(BlockState.class,
-                (TypeLoader<BlockState>) (annotatedType, o, configLoader, depthTracker) -> worldHandle.createBlockState((String) o))
+                (TypeLoader<BlockState>) (annotatedType, o, configLoader) -> worldHandle.createBlockState((String) o))
             .registerLoader(BiomeEffects.Particle.class, BiomeParticleConfigTemplate::new)
             .registerLoader(BiomeEffects.MoodSound.class, BiomeMoodSoundTemplate::new)
             .registerLoader(BiomeEffects.AdditionsSound.class, BiomeAdditionsSoundTemplate::new)

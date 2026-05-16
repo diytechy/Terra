@@ -38,9 +38,12 @@ import com.dfsek.terra.api.command.CommandSender;
 import com.dfsek.terra.api.config.ConfigPack;
 import com.dfsek.terra.api.event.events.platform.CommandRegistrationEvent;
 import com.dfsek.terra.api.event.events.platform.PlatformInitializationEvent;
+import com.dfsek.terra.bukkit.debug.ChunkQueryLogger;
 import com.dfsek.terra.bukkit.generator.BukkitChunkGeneratorWrapper;
 import com.dfsek.terra.bukkit.listeners.CommonListener;
+import com.dfsek.terra.bukkit.listeners.ServerLoadListener;
 import com.dfsek.terra.bukkit.util.PaperUtil;
+import com.dfsek.terra.bukkit.util.PreExistingWorlds;
 import com.dfsek.terra.bukkit.util.VersionUtil;
 import com.dfsek.terra.bukkit.world.BukkitAdapter;
 
@@ -59,10 +62,18 @@ public class TerraBukkitPlugin extends JavaPlugin {
             return;
         }
 
+        // Snapshot world folders before any world is initialized, so we can later
+        // distinguish new-world creation from existing-world loading.
+        PreExistingWorlds.snapshot();
+
         platform = NMSInitializer.init(this);
         if(platform == null) {
             Bukkit.getPluginManager().disablePlugin(this);
             return;
+        }
+
+        if(platform.getTerraConfig().isDebugQueries()) {
+            ChunkQueryLogger.init();
         }
 
         platform.getEventManager().callEvent(new PlatformInitializationEvent());
@@ -84,6 +95,7 @@ public class TerraBukkitPlugin extends JavaPlugin {
         }
 
         Bukkit.getPluginManager().registerEvents(new CommonListener(platform), this); // Register master event listener
+        Bukkit.getPluginManager().registerEvents(new ServerLoadListener(), this);
         PaperUtil.checkPaper(this);
     }
 
@@ -175,6 +187,11 @@ public class TerraBukkitPlugin extends JavaPlugin {
             }
         }
         return true;
+    }
+
+    @Override
+    public void onDisable() {
+        ChunkQueryLogger.close();
     }
 
     @Override

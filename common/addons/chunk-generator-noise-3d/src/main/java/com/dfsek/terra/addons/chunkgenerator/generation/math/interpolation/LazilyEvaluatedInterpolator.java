@@ -2,14 +2,21 @@ package com.dfsek.terra.addons.chunkgenerator.generation.math.interpolation;
 
 import com.dfsek.seismic.math.floatingpoint.FloatingPointFunctions;
 import com.dfsek.seismic.math.numericanalysis.interpolation.InterpolationFunctions;
+import com.dfsek.seismic.type.sampler.Sampler;
+
+import java.util.Arrays;
+import java.util.IdentityHashMap;
+import java.util.Map;
 
 import com.dfsek.terra.addons.chunkgenerator.config.noise.BiomeNoiseProperties;
 import com.dfsek.terra.api.properties.PropertyKey;
+import com.dfsek.terra.api.world.biome.Biome;
 import com.dfsek.terra.api.world.biome.generation.BiomeProvider;
 
 
 public class LazilyEvaluatedInterpolator {
-    private final Double[] samples; //
+    private final float[] samples;
+    private final Map<Biome, Sampler> carvingSamplerCache = new IdentityHashMap<>();
 
     private final int chunkX;
     private final int chunkZ;
@@ -33,7 +40,8 @@ public class LazilyEvaluatedInterpolator {
         int vSamples = FloatingPointFunctions.ceil((double) (max - min) / verticalRes);
         this.zMul = (hSamples + 1);
         this.yMul = zMul * zMul;
-        samples = new Double[yMul * (vSamples + 1)];
+        samples = new float[yMul * (vSamples + 1)];
+        Arrays.fill(samples, Float.NaN);
         this.chunkX = cx << 4;
         this.chunkZ = cz << 4;
         this.horizontalRes = horizontalRes;
@@ -46,19 +54,17 @@ public class LazilyEvaluatedInterpolator {
 
     private double sample(int xIndex, int yIndex, int zIndex, int ox, int oy, int oz) {
         int index = xIndex + (zIndex * zMul) + (yIndex * yMul);
-        Double sample = samples[index];
-        if(sample == null) {
+        float sample = samples[index];
+        if(Float.isNaN(sample)) {
             int xi = ox + chunkX;
             int zi = oz + chunkZ;
-
             int y = Math.min(max, oy);
 
-            sample = biomeProvider
-                .getBiome(xi, y, zi, seed)
-                .getContext()
-                .get(noisePropertiesKey)
-                .carving()
-                .getSample(seed, xi, y, zi);
+            Biome biome = biomeProvider.getBiome(xi, y, zi, seed);
+            Sampler carver = carvingSamplerCache.computeIfAbsent(
+                biome, b -> b.getContext().get(noisePropertiesKey).samplers().carving());
+
+            sample = (float) carver.getSample(seed, xi, y, zi);
             samples[index] = sample;
         }
         return sample;

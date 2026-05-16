@@ -10,6 +10,7 @@ package com.dfsek.terra.addons.biome.pipeline;
 import com.dfsek.seismic.type.sampler.Sampler;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Comparator;
 import java.util.HashSet;
@@ -25,6 +26,7 @@ import com.dfsek.terra.api.registry.key.StringIdentifiable;
 import com.dfsek.terra.api.util.Column;
 import com.dfsek.terra.api.util.cache.SeededVector2Key;
 import com.dfsek.terra.api.world.biome.Biome;
+import com.dfsek.terra.api.profiler.Profiler;
 import com.dfsek.terra.api.world.biome.generation.BiomeProvider;
 
 
@@ -36,14 +38,22 @@ public class PipelineBiomeProvider implements BiomeProvider {
     private final Sampler mutator;
     private final double noiseAmp;
     private final Set<Biome> biomes;
+    private final Profiler profiler;
+    private final @Nullable StructureSearchBiomeProvider structureFastPath;
 
-    public PipelineBiomeProvider(Pipeline pipeline, int resolution, Sampler mutator, double noiseAmp) {
+    public PipelineBiomeProvider(Pipeline pipeline, int resolution, Sampler mutator, double noiseAmp, Profiler profiler) {
+        this(pipeline, resolution, mutator, noiseAmp, profiler, null);
+    }
+
+    public PipelineBiomeProvider(Pipeline pipeline, int resolution, Sampler mutator, double noiseAmp, Profiler profiler,
+                                 @Nullable StructureSearchBiomeProvider structureFastPath) {
+        this.profiler = profiler;
         this.resolution = resolution;
         this.mutator = mutator;
         this.noiseAmp = noiseAmp;
         this.chunkSize = pipeline.getChunkSize();
         this.biomeChunkCache = Caffeine.newBuilder()
-            .maximumSize(64)
+            .maximumSize(256)
             .build(pipeline::generateChunk);
 
         Set<PipelineBiome> biomeSet = new HashSet<>();
@@ -73,6 +83,13 @@ public class PipelineBiomeProvider implements BiomeProvider {
             }
             this.biomes.add(pipelineBiome.getBiome());
         });
+        this.structureFastPath = structureFastPath;
+    }
+
+    @Override
+    public Optional<Biome> getStructurePlacementBiome(int x, int z, long seed) {
+        if(structureFastPath == null) return Optional.empty();
+        return structureFastPath.getStructurePlacementBiome(x, z, seed);
     }
 
     @Override

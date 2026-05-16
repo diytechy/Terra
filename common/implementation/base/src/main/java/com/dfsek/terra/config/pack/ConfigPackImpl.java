@@ -190,28 +190,33 @@ public class ConfigPackImpl implements ConfigPack {
                 }
             }, ListMultimap::putAll);
 
-        configTypeRegistry.forEach(configType -> {
-            CheckedRegistry registry = getCheckedRegistry(configType.getTypeKey());
-            abstractConfigLoader
-                .loadConfigs(multimap.get(configType))
-                .stream()
-                .parallel()
-                .map(configuration -> {
-                    logger.debug("Loading abstract config {}", configuration.getID());
-                    Object loaded = ((ConfigFactory) configType.getFactory()).build(
-                        selfLoader.load(configType.getTemplate(this, platform), configuration), platform);
-                    platform.getEventManager().callEvent(new ConfigurationLoadEvent(this,
-                        configuration,
-                        template -> selfLoader.load(template,
-                            configuration),
-                        configType,
-                        loaded));
-                    return Pair.of(configuration.getID(), loaded);
-                })
-                .toList()
-                .forEach(pair -> registry.register(key(pair.getLeft()), pair.getRight()));
-            platform.getEventManager().callEvent(new ConfigTypePostLoadEvent(configType, registry, this));
-        });
+        selfLoader.beginSession();
+        try {
+            configTypeRegistry.forEach(configType -> {
+                CheckedRegistry registry = getCheckedRegistry(configType.getTypeKey());
+                abstractConfigLoader
+                    .loadConfigs(multimap.get(configType))
+                    .stream()
+                    .parallel()
+                    .map(configuration -> {
+                        logger.debug("Loading abstract config {}", configuration.getID());
+                        Object loaded = ((ConfigFactory) configType.getFactory()).build(
+                            selfLoader.load(configType.getTemplate(this, platform), configuration), platform);
+                        platform.getEventManager().callEvent(new ConfigurationLoadEvent(this,
+                            configuration,
+                            template -> selfLoader.load(template,
+                                configuration),
+                            configType,
+                            loaded));
+                        return Pair.of(configuration.getID(), loaded);
+                    })
+                    .toList()
+                    .forEach(pair -> registry.register(key(pair.getLeft()), pair.getRight()));
+                platform.getEventManager().callEvent(new ConfigTypePostLoadEvent(configType, registry, this));
+            });
+        } finally {
+            selfLoader.endSession();
+        }
 
         platform.getEventManager().callEvent(new ConfigPackPostLoadEvent(this, template -> selfLoader.load(template, packManifest)));
         logger.info("Loaded config pack \"{}:{}\" v{} by {} in {}ms.",

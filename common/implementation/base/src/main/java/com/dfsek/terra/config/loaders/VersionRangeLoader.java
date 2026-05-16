@@ -20,7 +20,6 @@ package com.dfsek.terra.config.loaders;
 import ca.solostudios.strata.Versions;
 import ca.solostudios.strata.parser.tokenizer.ParseException;
 import ca.solostudios.strata.version.VersionRange;
-import com.dfsek.tectonic.api.depth.DepthTracker;
 import com.dfsek.tectonic.api.exception.LoadException;
 import com.dfsek.tectonic.api.loader.ConfigLoader;
 import com.dfsek.tectonic.api.loader.type.TypeLoader;
@@ -31,12 +30,11 @@ import java.lang.reflect.AnnotatedType;
 
 public class VersionRangeLoader implements TypeLoader<VersionRange> {
     @Override
-    public VersionRange load(@NotNull AnnotatedType t, @NotNull Object c, @NotNull ConfigLoader loader, DepthTracker depthTracker)
-    throws LoadException {
+    public VersionRange load(@NotNull AnnotatedType t, @NotNull Object c, @NotNull ConfigLoader loader) throws LoadException {
         try {
             return Versions.parseVersionRange((String) c);
         } catch(ParseException e) {
-            throw new LoadException("Failed to parse version range: ", e, depthTracker);
+            throw new LoadException("Failed to parse version range: ", e, ConfigLoader.CURRENT_DEPTH.get());
         }
     }
 }

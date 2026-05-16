@@ -12,14 +12,23 @@ import com.dfsek.tectonic.api.config.template.annotations.Value;
 import com.dfsek.tectonic.api.config.template.object.ObjectTemplate;
 
 import com.dfsek.terra.api.config.meta.Meta;
+import com.dfsek.terra.api.noise.SamplerWrapper;
 
 
-public class DimensionApplicableSampler implements ObjectTemplate<DimensionApplicableSampler> {
+public class DimensionApplicableSampler implements ObjectTemplate<DimensionApplicableSampler>, SamplerWrapper {
     @Value("dimensions")
     private @Meta int dimensions;
 
     @Value(".")
     private @Meta Sampler sampler;
+
+    public DimensionApplicableSampler() {
+    }
+
+    public DimensionApplicableSampler(int dimensions, Sampler sampler) {
+        this.dimensions = dimensions;
+        this.sampler = sampler;
+    }
 
     @Override
     public DimensionApplicableSampler get() {

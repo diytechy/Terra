@@ -13,6 +13,17 @@ import com.dfsek.terra.api.world.biome.generation.BiomeProvider;
 
 
 public class ElevationInterpolator {
+    private static final ThreadLocal<BiomeNoiseProperties[][]> GENS_POOL = new ThreadLocal<>();
+
+    private static BiomeNoiseProperties[][] acquireGens(int size) {
+        BiomeNoiseProperties[][] arr = GENS_POOL.get();
+        if(arr == null || arr.length < size) {
+            arr = new BiomeNoiseProperties[size][size];
+            GENS_POOL.set(arr);
+        }
+        return arr;
+    }
+
     private final double[][] values = new double[18][18];
 
     public ElevationInterpolator(long seed, int chunkX, int chunkZ, BiomeProvider provider, int smooth,
@@ -20,7 +31,7 @@ public class ElevationInterpolator {
         int xOrigin = chunkX << 4;
         int zOrigin = chunkZ << 4;
 
-        BiomeNoiseProperties[][] gens = new BiomeNoiseProperties[18 + 2 * smooth][18 + 2 * smooth];
+        BiomeNoiseProperties[][] gens = acquireGens(18 + 2 * smooth);
 
         // Precompute generators.
         for(int x = -1 - smooth; x <= 16 + smooth; x++) {
@@ -41,31 +52,17 @@ public class ElevationInterpolator {
                 double noise = 0;
                 double div = 0;
 
-                BiomeNoiseProperties center = gens[x + 1 + smooth][z + 1 + smooth];
-                boolean same = true;
-
                 for(int xi = -smooth; xi <= smooth; xi++) {
                     for(int zi = -smooth; zi <= smooth; zi++) {
-                        if(gens[x + 1 + smooth + xi][z + 1 + smooth + zi] !=
-                           center) { // test referential equality because thats all we need to know
-                            same = false;
-                            break;
+                        BiomeNoiseProperties gen = gens[x + 1 + smooth + xi][z + 1 + smooth + zi];
+                        double w = gen.samplers().elevationWeight();
+                        if(w > 0) {
+                            noise += gen.samplers().elevation().getSample(seed, xOrigin + x, zOrigin + z) * w;
+                            div += w;
                         }
                     }
                 }
-
-                if(same) {
-                    values[x + 1][z + 1] = center.elevation().getSample(seed, xOrigin + x, zOrigin + z); // no weighting needed!
-                } else {
-                    for(int xi = -smooth; xi <= smooth; xi++) {
-                        for(int zi = -smooth; zi <= smooth; zi++) {
-                            BiomeNoiseProperties gen = gens[x + 1 + smooth + xi][z + 1 + smooth + zi];
-                            noise += gen.elevation().getSample(seed, xOrigin + x, zOrigin + z) * gen.elevationWeight();
-                            div += gen.elevationWeight();
-                        }
-                    }
-                    values[x + 1][z + 1] = noise / div;
-                }
+                values[x + 1][z + 1] = noise / div;
             }
         }
     }

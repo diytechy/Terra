@@ -34,6 +34,7 @@ import com.dfsek.terra.api.config.ConfigPack;
 import com.dfsek.terra.api.world.chunk.generation.ChunkGenerator;
 import com.dfsek.terra.api.world.chunk.generation.util.GeneratorWrapper;
 import com.dfsek.terra.api.world.info.WorldProperties;
+import com.dfsek.terra.bukkit.debug.ChunkQueryLogger;
 import com.dfsek.terra.bukkit.world.BukkitWorldProperties;
 
 
@@ -63,6 +64,7 @@ public class BukkitChunkGeneratorWrapper extends org.bukkit.generator.ChunkGener
 
     @Override
     public void generateNoise(@NotNull WorldInfo worldInfo, @NotNull Random random, int x, int z, @NotNull ChunkData chunkData) {
+        ChunkQueryLogger.log(worldInfo.getName(), pack.getRegistryKey().toString(), x, z);
         BukkitWorldProperties properties = new BukkitWorldProperties(worldInfo);
         delegate.generateChunkData(new BukkitProtoChunk(chunkData), properties, pack.getBiomeProvider(), x, z);
     }

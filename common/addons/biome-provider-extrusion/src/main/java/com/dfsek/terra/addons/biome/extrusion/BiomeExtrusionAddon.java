@@ -9,6 +9,7 @@ import com.dfsek.terra.addons.biome.extrusion.api.ReplaceableBiome;
 import com.dfsek.terra.addons.biome.extrusion.config.BiomeExtrusionTemplate;
 import com.dfsek.terra.addons.biome.extrusion.config.ReplaceableBiomeLoader;
 import com.dfsek.terra.addons.biome.extrusion.config.extrusions.ReplaceExtrusionTemplate;
+import com.dfsek.terra.addons.biome.extrusion.config.extrusions.ReplaceMaxYSamplerTemplate;
 import com.dfsek.terra.addons.biome.extrusion.config.extrusions.SetExtrusionTemplate;
 import com.dfsek.terra.addons.manifest.api.AddonInitializer;
 import com.dfsek.terra.api.Platform;
@@ -46,13 +47,14 @@ public class BiomeExtrusionAddon implements AddonInitializer {
                 CheckedRegistry<Supplier<ObjectTemplate<BiomeProvider>>> providerRegistry =
                     event.getPack()
                         .getOrCreateRegistry(PROVIDER_REGISTRY_KEY);
-                providerRegistry.register(addon.key("EXTRUSION"), BiomeExtrusionTemplate::new);
+                providerRegistry.register(addon.key("EXTRUSION"), () -> new BiomeExtrusionTemplate(platform.getProfiler()));
             })
             .then(event -> {
                 CheckedRegistry<Supplier<ObjectTemplate<Extrusion>>> extrusionRegistry = event.getPack().getOrCreateRegistry(
                     EXTRUSION_REGISTRY_KEY);
                 extrusionRegistry.register(addon.key("SET"), SetExtrusionTemplate::new);
                 extrusionRegistry.register(addon.key("REPLACE"), ReplaceExtrusionTemplate::new);
+                extrusionRegistry.register(addon.key("REPLACE_MAX_Y_SAMPLER"), ReplaceMaxYSamplerTemplate::new);
             })
             .failThrough();
 

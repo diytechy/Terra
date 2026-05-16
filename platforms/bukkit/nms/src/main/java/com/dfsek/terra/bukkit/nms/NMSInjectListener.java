@@ -18,6 +18,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import com.dfsek.terra.api.config.ConfigPack;
 import com.dfsek.terra.bukkit.generator.BukkitChunkGeneratorWrapper;
+import com.dfsek.terra.bukkit.util.PreExistingWorlds;
 
 
 public class NMSInjectListener implements Listener {
@@ -32,6 +33,11 @@ public class NMSInjectListener implements Listener {
             INJECT_LOCK.lock();
             INJECTED.add(event.getWorld());
             LOGGER.info("Preparing to take over the world: {}", event.getWorld().getName());
+            if(PreExistingWorlds.isNewWorld(event.getWorld().getName())) {
+                LOGGER.warn("Creating new world '{}'. World generation may take a long time; " +
+                            "players may experience disconnections during this process.",
+                    event.getWorld().getName());
+            }
             CraftWorld craftWorld = (CraftWorld) event.getWorld();
             ServerLevel serverWorld = craftWorld.getHandle();
 

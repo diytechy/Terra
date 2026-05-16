@@ -1,31 +1,21 @@
 package com.dfsek.terra.addons.chunkgenerator.generation.math;
 
-import com.dfsek.seismic.type.vector.Vector3;
-
 import com.dfsek.terra.addons.chunkgenerator.generation.math.samplers.Sampler3D;
 
 
 public enum SlantCalculationMethod {
     DotProduct {
-        private static final Vector3 DOT_PRODUCT_DIRECTION = Vector3.of(0, 1, 0);
-
-        private static final Vector3[] DOT_PRODUCT_SAMPLE_POINTS = {
-            Vector3.of(0, 0, -DERIVATIVE_DIST),
-            Vector3.of(0, 0, DERIVATIVE_DIST),
-            Vector3.of(0, -DERIVATIVE_DIST, 0),
-            Vector3.of(0, DERIVATIVE_DIST, 0),
-            Vector3.of(-DERIVATIVE_DIST, 0, 0),
-            Vector3.of(DERIVATIVE_DIST, 0, 0)
-        };
-
         @Override
         public double slant(Sampler3D sampler, double x, double y, double z) {
-            Vector3.Mutable normalApproximation = Vector3.Mutable.of(0, 0, 0);
-            for(Vector3 point : DOT_PRODUCT_SAMPLE_POINTS) {
-                var scalar = -sampler.sample(x + point.getX(), y + point.getY(), z + point.getZ());
-                normalApproximation.add(point.mutable().mulScalar(scalar));
-            }
-            return DOT_PRODUCT_DIRECTION.dot(normalApproximation.normalize());
+            // Approximate surface normal from 6 axis-aligned samples, then return
+            // the Y component of the normalized result (dot with up-vector (0,1,0)).
+            // Inlined to eliminate Vector3 allocations on every call.
+            double d = DERIVATIVE_DIST;
+            double nx = sampler.sample(x - d, y, z) - sampler.sample(x + d, y, z);
+            double ny = sampler.sample(x, y - d, z) - sampler.sample(x, y + d, z);
+            double nz = sampler.sample(x, y, z - d) - sampler.sample(x, y, z + d);
+            double len = Math.sqrt(nx * nx + ny * ny + nz * nz);
+            return len == 0.0 ? 0.0 : ny / len;
         }
 
         @Override

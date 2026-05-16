@@ -5,6 +5,8 @@ import org.incendo.cloud.description.Description;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Map;
+
 import com.dfsek.terra.addons.manifest.api.AddonInitializer;
 import com.dfsek.terra.api.Platform;
 import com.dfsek.terra.api.addon.BaseAddon;
@@ -54,10 +56,26 @@ public class ProfilerCommandAddon implements AddonInitializer {
                             .permission("terra.profiler.query")
                             .handler(context -> {
                                 StringBuilder data = new StringBuilder("Terra Profiler data: \n");
-                                platform.getProfiler().getTimings().forEach((id, timings) -> data.append(id)
+                                Map<String, com.dfsek.terra.api.profiler.Timings> timingsMap =
+                                    platform.getProfiler().getTimings();
+                                double totalNanos = timingsMap.values().stream()
+                                    .mapToDouble(com.dfsek.terra.api.profiler.Timings::sum)
+                                    .sum();
+                                timingsMap.forEach((id, timings) -> data.append(id)
                                     .append(": ")
-                                    .append(timings.toString())
+                                    .append(timings.toString(totalNanos))
                                     .append('\n'));
+
+                                // Get biome query count from NMSBiomeProvider
+                                try {
+                                    Class<?> nmsProviderClass = Class.forName("com.dfsek.terra.bukkit.nms.NMSBiomeProvider");
+                                    var method = nmsProviderClass.getDeclaredMethod("getBiomeQueryCount");
+                                    long queryCount = (Long) method.invoke(null);
+                                    data.append("\nBiome Queries: ").append(queryCount).append("\n");
+                                } catch (Exception e) {
+                                    logger.warn("Could not retrieve biome query count", e);
+                                }
+
                                 logger.info(data.toString());
                                 context.sender().sendMessage("Profiling data dumped to console.");
                             }))
@@ -67,6 +85,14 @@ public class ProfilerCommandAddon implements AddonInitializer {
                             .permission("terra.profiler.reset")
                             .handler(context -> {
                                 platform.getProfiler().reset();
+                                // Reset biome query counter
+                                try {
+                                    Class<?> nmsProviderClass = Class.forName("com.dfsek.terra.bukkit.nms.NMSBiomeProvider");
+                                    var method = nmsProviderClass.getDeclaredMethod("resetBiomeQueryCount");
+                                    method.invoke(null);
+                                } catch (Exception e) {
+                                    logger.warn("Could not reset biome query count", e);
+                                }
                                 context.sender().sendMessage("Profiler reset.");
                             }));
             });

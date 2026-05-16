@@ -13,8 +13,12 @@ class BaseBiomeColumn implements Column<Biome> {
     private final int x;
     private final int z;
     private final long seed;
+    private final int blendedX;
+    private final int blendedZ;
+    private final boolean applyYWarp;
 
-    protected BaseBiomeColumn(BiomeExtrusionProvider biomeProvider, Biome base, int min, int max, int x, int z, long seed) {
+    protected BaseBiomeColumn(BiomeExtrusionProvider biomeProvider, Biome base, int min, int max, int x, int z, long seed,
+                               boolean applyXZWarp, boolean applyYWarp) {
         this.biomeProvider = biomeProvider;
         this.base = base;
         this.min = min;
@@ -22,6 +26,9 @@ class BaseBiomeColumn implements Column<Biome> {
         this.x = x;
         this.z = z;
         this.seed = seed;
+        this.blendedX = applyXZWarp ? biomeProvider.blendX(x, z, seed) : x;
+        this.blendedZ = applyXZWarp ? biomeProvider.blendZ(x, z, seed) : z;
+        this.applyYWarp = applyYWarp;
     }
 
     @Override
@@ -45,7 +52,15 @@ class BaseBiomeColumn implements Column<Biome> {
     }
 
     @Override
+    public Biome getSurface() {
+        return base;
+    }
+
+    @Override
     public Biome get(int y) {
-        return biomeProvider.pipeline.extrude(base, x, y, z, seed);
+        int resolvedY = applyYWarp
+            ? Math.max(min, Math.min(max - 1, biomeProvider.blendY(x, y, z, seed)))
+            : Math.max(min, Math.min(max - 1, y));
+        return biomeProvider.pipeline.extrude(base, blendedX, resolvedY, blendedZ, seed);
     }
 }

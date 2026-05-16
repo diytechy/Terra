@@ -23,6 +23,8 @@ public interface PluginConfig {
 
     boolean isDebugLog();
 
+    boolean isDebugQueries();
+
     int getBiomeSearchResolution();
 
     int getStructureCache();

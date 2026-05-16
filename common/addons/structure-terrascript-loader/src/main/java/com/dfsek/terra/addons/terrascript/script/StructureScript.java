@@ -150,7 +150,7 @@ public class StructureScript implements Structure, Keyed<StructureScript> {
         try {
             return block.execute(arguments);
         } catch(RuntimeException e) {
-            LOGGER.error("Failed to generate structure at {}", arguments.getOrigin(), e);
+            LOGGER.error("Failed to generate structure '{}' at {} with rotation {}", id, arguments.getOrigin(), arguments.getRotation(), e);
             return false;
         }
     }

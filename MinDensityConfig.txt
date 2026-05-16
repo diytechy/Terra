@@ -1,0 +1,68 @@
+Min-Density Configuration Reference
+=====================================
+
+SCOPE: Pack-level config (not biome-level)
+LOCATION: Defined in pack root config (e.g., pack.yml or preset)
+TEMPLATE: NoiseChunkGeneratorPackConfigTemplate
+
+This is separate from per-biome terrain.sampler / terrain.sampler-2d entries.
+It applies ON TOP OF each biome's terrain density during block placement.
+It can only ADD terrain (density floor), never remove it.
+
+Config Keys
+-----------
+
+terrain:
+  min-density:
+    sampler: <noise sampler>      # Min-density sampler (default: none/zero = disabled)
+    smooth: true/false            # Use smooth-min blending instead of hard max (default: false)
+    smooth-k: 1.0                 # Smooth-min factor; higher = smoother transition (default: 1.0)
+    skip-tags:                    # Biome tags that opt OUT of min-density enforcement
+      - OCEAN
+
+How It Works
+------------
+
+For each block position during generation:
+  1. Gets normal terrain density from the biome's own sampler
+  2. Gets floor value from the pack-level min-density sampler
+  3. Final density = max(density, floor)       [smooth=false]
+     Final density = smoothMax(density, floor)  [smooth=true]
+
+Where the min-density sampler returns <= 0, the biome's original density is unchanged.
+Biomes tagged with any skip-tags bypass min-density entirely.
+
+This makes it safe for all biomes:
+  - Only additive (cannot carve or remove terrain)
+  - Biomes not intersecting the sampler's positive region are unaffected
+  - Biomes opt OUT via tags, not in
+
+Example: Continuous Cross-Biome Rivers
+--------------------------------------
+
+terrain:
+  min-density:
+    sampler:
+      type: EXPRESSION
+      expression: "river(x, z)"
+      samplers:
+        river:
+          dimensions: 2
+          type: <your river noise sampler>
+    smooth: true
+    smooth-k: 0.5
+    skip-tags:
+      - OCEAN
+
+This ensures the river noise creates a continuous density floor that persists
+across biome boundaries, rather than being clipped at each biome's individual
+terrain sampler.
+
+smoothMax Function
+------------------
+
+smoothMax(a, b, k) = (max(ka, kb) + log(exp(ka - m) + exp(kb - m))) / k
+
+Where m = max(ka, kb) for numerical stability.
+Larger k = sharper transition (approaches hard max).
+Smaller k = softer, more gradual blend between density and floor.

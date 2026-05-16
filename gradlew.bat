@@ -79,16 +79,11 @@ if errorlevel 1 (
 	goto check_git
 )
 powershell -NoLogo -NoProfile -Command ^
-  "$line = (& '%JAVA_EXE%' -version 2>&1 | Select-String 'version').ToString(); write-host $line; if ($line -match 'version\s+""?([0-9]+)') { $maj = [int]$Matches[1]; } else { exit 4 }; if ($maj -gt 24) { exit 3 }; if ($maj -lt 23) { exit 2 }"
+  "$line = (& '%JAVA_EXE%' -version 2>&1 | Select-String 'version').ToString(); write-host $line; if ($line -match 'version\s+""?([0-9]+)') { $maj = [int]$Matches[1]; } else { exit 4 }; if ($maj -lt 25) { exit 2 }"
 
-
-if %ERRORLEVEL%==3 (
-    echo ERROR: Java version appears to exceed 24.  Using java version 23 or 24.  Cannot continue.
-    exit /b 1
-)
 
 if %ERRORLEVEL%==2 (
-    echo WARNING: Java version appears to be below 23.  Some generators may not load due to L32X64MixRandom in certain versions of Java.
+    echo WARNING: Java version appears to be below 25.  Terra targets Java 25.
 	goto check_git
 )
 
@@ -115,9 +110,13 @@ goto execute
 @rem Setup the command line
 
 
+@rem Default to 'clean build publishToMavenLocal' when double-clicked (no arguments provided)
+set CMD_LINE_ARGS=%*
+if "%CMD_LINE_ARGS%"=="" set CMD_LINE_ARGS=clean build publishToMavenLocal
+
 echo Starting build command...
 @rem Execute Gradle
-"%JAVA_EXE%" %DEFAULT_JVM_OPTS% %JAVA_OPTS% %GRADLE_OPTS% "-Dorg.gradle.appname=%APP_BASE_NAME%" -jar "%APP_HOME%\gradle\wrapper\gradle-wrapper.jar" %*
+"%JAVA_EXE%" %DEFAULT_JVM_OPTS% %JAVA_OPTS% %GRADLE_OPTS% "-Dorg.gradle.appname=%APP_BASE_NAME%" -jar "%APP_HOME%\gradle\wrapper\gradle-wrapper.jar" %CMD_LINE_ARGS%
 
 :end
 @rem End local scope for the variables with windows NT shell
