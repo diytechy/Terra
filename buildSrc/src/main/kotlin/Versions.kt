@@ -16,7 +16,7 @@ object Versions {
         const val cloud = "2.0.0"
         
         const val caffeine = "3.2.2"
-        const val dendryTerra = "1.0.0-BETA-F"
+        const val dendryTerra = "1.0.0-BETA-G"
         const val bubblesOnChunkGen = "1.2.2"
 
         const val slf4j = "2.0.17"
@@ -64,7 +64,7 @@ object Versions {
     
     object Bukkit {
         const val minecraft = "26.1"
-        const val paper = "26.1.1.build.+"
+        const val paper = "26.1.2.build.9-alpha"
         const val paperDevBundle = paper
         const val paperLib = "1.0.8"
         const val reflectionRemapper = "0.1.3"
