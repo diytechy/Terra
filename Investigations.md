@@ -871,3 +871,8 @@ Add another element in pipelineBiome with some default indicating it is not yet 
 
 2. Update blending so that it is not in a square, and instead follows a pseudo circular pattern:
 A. For a step distance of n, 
+
+
+Plan a change that would allow terra to parse a blend level option in it's corresponding sections (Ex "blend-terrain: false" from "C:\Projects\ORIGEN2\biome-distribution\presets\CHIMERA.yml") to disable y-blending and / or x/z blending for the sparse chunk interpolation.  This would likely need to be another input into the Get-Biome input to turn off those blending shifts only for chunk interpolation.
+
+Please update "C:\Projects\ORIGEN2\biome-distribution\presets\CHIMERA.yml" to have the correct key-names if they deviate from the originall proposal "blend-terrain"
