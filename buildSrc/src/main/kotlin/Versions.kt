@@ -63,7 +63,17 @@ object Versions {
 //        const val forge = "${Mod.minecraft}-48.0.13"
 //        const val burningwave = "12.63.0"
 //    }
-    
+
+    // NeoForge replaces Forge for MC 1.21+. Versioning is 4-component
+    // <mcMajor>.<mcMinor>.<mcHotfix>.<neoforgeRelease>-<channel>.
+    // MC 26.1 line is still in beta as of 2026-05; revisit when stable RC ships.
+    // Requires Gradle 9.1.0+ and Java 25 (already in place).
+    object NeoForge {
+        const val neoForge = "26.1.2.59-beta"
+        const val cloud = "2.0.0-beta.15"
+        const val modDevGradle = "2.0.141"
+    }
+
     object Bukkit {
         const val minecraft = "26.1"
         const val paper = "26.1.1.build.+"
