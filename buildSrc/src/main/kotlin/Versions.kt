@@ -35,8 +35,8 @@ object Versions {
     }
     
     object Fabric {
-        const val fabricAPI = "0.140.0+${Mod.minecraft}"
-        const val cloud = "2.0.0-beta.13"
+        const val fabricAPI = "0.149.1+${Mod.minecraft}"
+        const val cloud = "2.0.0-beta.15"
     }
 //
 //    object Quilt {
@@ -44,17 +44,19 @@ object Versions {
 //        const val fabricApi = "7.3.1+0.89.3-1.20.1"
 //    }
 
+    // MC 26.1 is the first unobfuscated release; Mojang's official mappings are now
+    // canonical, and Fabric's old yarn mappings have been deprecated. The new
+    // `net.fabricmc.fabric-loom` plugin builds against the unobfuscated jar directly.
+    // Architectury has not yet ported to 26.1 (issue architectury-api#704 open
+    // as of 2026-05-19), so this branch uses fabric-loom directly without
+    // architectury's cross-platform abstraction.
     object Mod {
         const val mixin = "0.16.5+mixin.0.8.7"
         const val mixinExtras = "0.5.0"
 
-        const val minecraft = "1.21.11"
-        const val yarn = "$minecraft+build.3"
-        const val fabricLoader = "0.18.3"
-
-        const val architecturyLoom = "1.13.463"
-        const val architecturyPlugin = "3.4.162"
-
+        const val minecraft = "26.1.2"
+        const val fabricLoader = "0.19.2"
+        const val fabricLoom = "1.16.2"
     }
 //
 //    object Forge {

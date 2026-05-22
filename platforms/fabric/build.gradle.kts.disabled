@@ -1,37 +1,27 @@
 import java.util.*
 
+// Path A — fabric-loom 1.15 directly, no architectury wrapper.
+// MC 26.1 is unobfuscated — no `mappings(...)` block needed and `modImplementation`
+// /`modRuntimeOnly` have been replaced by plain `implementation`/`runtimeOnly`.
 plugins {
-    id("dev.architectury.loom") version Versions.Mod.architecturyLoom
-    id("architectury-plugin") version Versions.Mod.architecturyPlugin
-}
-
-architectury {
-    platformSetupLoomIde()
-    loader("fabric")
+    id("net.fabricmc.fabric-loom") version Versions.Mod.fabricLoom
 }
 
 dependencies {
     shadedApi(project(":common:implementation:base"))
 
-    implementation(project(path = ":platforms:mixin-common", configuration = "namedElements")) { isTransitive = false }
-    "developmentFabric"(project(path = ":platforms:mixin-common", configuration = "namedElements")) { isTransitive = false }
-    shaded(project(path = ":platforms:mixin-common", configuration = "transformProductionFabric")) { isTransitive = false }
-    implementation(project(path = ":platforms:mixin-lifecycle", configuration = "namedElements")) { isTransitive = false }
-    "developmentFabric"(project(path = ":platforms:mixin-lifecycle", configuration = "namedElements")) { isTransitive = false }
-    shaded(project(path = ":platforms:mixin-lifecycle", configuration = "transformProductionFabric")) { isTransitive = false }
-
+    implementation(project(":platforms:mixin-common"))
+    implementation(project(":platforms:mixin-lifecycle"))
 
     minecraft("com.mojang:minecraft:${Versions.Mod.minecraft}")
-    mappings("net.fabricmc:yarn:${Versions.Mod.yarn}:v2")
 
-    modImplementation("net.fabricmc:fabric-loader:${Versions.Mod.fabricLoader}")
+    implementation("net.fabricmc:fabric-loader:${Versions.Mod.fabricLoader}")
 
-    modImplementation("org.incendo", "cloud-fabric", Versions.Fabric.cloud) {
-        exclude("me.lucko", "fabric-permissions-api")
-    }
-    include("org.incendo", "cloud-fabric", Versions.Fabric.cloud)
-
-    modRuntimeOnly("net.fabricmc.fabric-api", "fabric-api", Versions.Fabric.fabricAPI)
+    // TODO Phase 3 — re-add once fabric-api / cloud-fabric submodule AWs are migrated
+    // to the `official` namespace (current 0.149.1+26.1.2 has fabric-command-api-v2
+    // still using `intermediary` which loom 1.16 rejects for unobfuscated MC).
+    // implementation("org.incendo", "cloud-fabric", Versions.Fabric.cloud) { ... }
+    // runtimeOnly("net.fabricmc.fabric-api", "fabric-api", Versions.Fabric.fabricAPI)
 }
 
 loom {
@@ -40,18 +30,14 @@ loom {
     mixin {
         defaultRefmapName.set("terra.fabric.refmap.json")
     }
-
 }
 
 
 addonDir(project.file("./run/config/Terra/addons"), tasks.named("configureLaunch").get())
 
 tasks {
-    remapJar {
+    jar {
         dependsOn("installAddons")
-
-        injectAccessWidener.set(true)
-        inputFile.set(shadowJar.get().archiveFile)
         archiveFileName.set("${rootProject.name.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }}-fabric-${project.version}.jar")
     }
 }

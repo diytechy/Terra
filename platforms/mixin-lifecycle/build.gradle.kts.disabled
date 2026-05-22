@@ -1,26 +1,6 @@
+// Path A — fabric-loom directly, no architectury wrapper.
 plugins {
-    id("dev.architectury.loom") version Versions.Mod.architecturyLoom
-    id("architectury-plugin") version Versions.Mod.architecturyPlugin
-}
-
-dependencies {
-    shadedApi(project(":common:implementation:base"))
-
-    compileOnly("net.fabricmc:sponge-mixin:${Versions.Mod.mixin}")
-    compileOnly("io.github.llamalad7:mixinextras-common:${Versions.Mod.mixinExtras}")
-    annotationProcessor("net.fabricmc:sponge-mixin:${Versions.Mod.mixin}")
-    annotationProcessor("dev.architectury:architectury-loom:${Versions.Mod.architecturyLoom}")
-
-    implementation(project(path = ":platforms:mixin-common", configuration = "namedElements")) { isTransitive = false }
-
-    minecraft("com.mojang:minecraft:${Versions.Mod.minecraft}")
-    mappings("net.fabricmc:yarn:${Versions.Mod.yarn}:v2")
-
-    modImplementation("org.incendo", "cloud-fabric", Versions.Fabric.cloud) {
-        exclude("net.fabricmc")
-        exclude("net.fabricmc.fabric-api")
-        exclude("me.lucko", "fabric-permissions-api")
-    }
+    id("net.fabricmc.fabric-loom") version Versions.Mod.fabricLoom
 }
 
 loom {
@@ -31,13 +11,17 @@ loom {
     }
 }
 
-tasks {
-    remapJar {
-        inputFile.set(shadowJar.get().archiveFile)
-    }
-}
+dependencies {
+    shadedApi(project(":common:implementation:base"))
 
-architectury {
-    common("fabric")
-    minecraft = Versions.Mod.minecraft
+    compileOnly("net.fabricmc:sponge-mixin:${Versions.Mod.mixin}")
+    compileOnly("io.github.llamalad7:mixinextras-common:${Versions.Mod.mixinExtras}")
+    annotationProcessor("net.fabricmc:sponge-mixin:${Versions.Mod.mixin}")
+
+    implementation(project(":platforms:mixin-common"))
+
+    minecraft("com.mojang:minecraft:${Versions.Mod.minecraft}")
+
+    // TODO Phase 3 — re-add cloud-fabric once its AW namespace is migrated to official
+    // implementation("org.incendo", "cloud-fabric", Versions.Fabric.cloud) { ... }
 }

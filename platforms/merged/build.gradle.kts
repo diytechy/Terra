@@ -1,6 +1,6 @@
-val platformOverrides = mapOf(
-    "fabric" to "remapJar"
-)
+// Fabric-loom 1.16 in unobfuscated mode (MC 26.1+) does not produce a `remapJar` task,
+// so we point at the plain `jar` task like every other platform.
+val platformOverrides = mapOf<String, String>()
 
 dependencies {
     api(project(":common:implementation:base"))
