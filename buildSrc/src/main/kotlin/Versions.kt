@@ -43,15 +43,15 @@ object Versions {
 //        const val quiltLoader = "0.20.2"
 //        const val fabricApi = "7.3.1+0.89.3-1.20.1"
 //    }
-    
+
     object Mod {
         const val mixin = "0.16.5+mixin.0.8.7"
         const val mixinExtras = "0.5.0"
-        
+
         const val minecraft = "1.21.11"
         const val yarn = "$minecraft+build.3"
         const val fabricLoader = "0.18.3"
-        
+
         const val architecturyLoom = "1.13.463"
         const val architecturyPlugin = "3.4.162"
 
@@ -97,6 +97,6 @@ object Versions {
     }
     
     object Minestom {
-        const val minestom = "2025.10.31-1.21.10"
+        const val minestom = "2026.05.17c-26.1.1"
     }
 }

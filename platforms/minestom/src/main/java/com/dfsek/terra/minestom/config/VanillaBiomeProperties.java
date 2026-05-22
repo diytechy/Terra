@@ -5,8 +5,9 @@ import com.dfsek.tectonic.api.config.template.annotations.Default;
 import com.dfsek.tectonic.api.config.template.annotations.Value;
 import net.kyori.adventure.util.RGBLike;
 import net.minestom.server.sound.SoundEvent;
+import net.minestom.server.world.attribute.AmbientParticle;
+import net.minestom.server.world.attribute.AmbientSounds;
 import net.minestom.server.world.biome.Biome.TemperatureModifier;
-import net.minestom.server.world.biome.BiomeEffects;
 import net.minestom.server.world.biome.BiomeEffects.GrassColorModifier;
 
 import com.dfsek.terra.api.properties.Properties;
@@ -43,7 +44,7 @@ public class VanillaBiomeProperties implements ConfigTemplate, Properties {
 
     @Value("particles")
     @Default
-    private BiomeEffects.Particle particleConfig = null;
+    private AmbientParticle particleConfig = null;
 
     @Value("climate.precipitation")
     @Default
@@ -67,11 +68,11 @@ public class VanillaBiomeProperties implements ConfigTemplate, Properties {
 
     @Value("sound.mood-sound")
     @Default
-    private BiomeEffects.MoodSound moodSound = null;
+    private AmbientSounds.Mood moodSound = null;
 
     @Value("sound.additions-sound")
     @Default
-    private BiomeEffects.AdditionsSound additionsSound = null;
+    private AmbientSounds.Additions additionsSound = null;
 
     //    @Value("sound.music")
     //    @Default
@@ -105,7 +106,7 @@ public class VanillaBiomeProperties implements ConfigTemplate, Properties {
         return grassColorModifier;
     }
 
-    public BiomeEffects.Particle getParticleConfig() {
+    public AmbientParticle getParticleConfig() {
         return particleConfig;
     }
 
@@ -129,11 +130,11 @@ public class VanillaBiomeProperties implements ConfigTemplate, Properties {
         return loopSound;
     }
 
-    public BiomeEffects.MoodSound getMoodSound() {
+    public AmbientSounds.Mood getMoodSound() {
         return moodSound;
     }
 
-    public BiomeEffects.AdditionsSound getAdditionsSound() {
+    public AmbientSounds.Additions getAdditionsSound() {
         return additionsSound;
     }
 }

@@ -21,7 +21,7 @@ includeImmediateChildren(file("platforms"), "platform")
 includeImmediateChildren(file("platforms/bukkit/nms"), "Bukkit NMS")
 
 include(":platforms:bukkit:common")
-// include(":platforms:minestom:example") // disabled — minestom requires Java 25
+include(":platforms:minestom:example")
 
 pluginManagement {
     repositories {
@@ -38,8 +38,8 @@ pluginManagement {
         maven("https://maven.architectury.dev/") {
             name = "Architectury Maven"
         }
-        maven("https://files.minecraftforge.net/maven/") {
-            name = "Forge Maven"
+        maven("https://maven.neoforged.net/releases/") {
+            name = "NeoForged Maven"
         }
         maven("https://maven.quiltmc.org/repository/release/") {
             name = "Quilt"
