@@ -54,6 +54,15 @@ public class NoiseChunkGeneratorPackConfigTemplate implements ConfigTemplate, Pr
     @Default
     private @Meta int blendMaxY = Integer.MAX_VALUE;
 
+    // When true, neighbor positions sample the extruded biome at each Y level (via Column.get(y))
+    // instead of the surface biome (Column.getSurface()). Produces more accurate underground
+    // terrain blending when depth-varying extrusion is used, at the cost of rebuilding the
+    // neighbor blend map at every Y level rather than once per (x,z) center.
+    // Default false to preserve existing behaviour and performance.
+    @Value("blend.terrain.extruded-neighbors")
+    @Default
+    private @Meta boolean blendExtrudedNeighbors = false;
+
     @Value("terrain.min-density.sampler")
     @Default
     private @Meta Sampler minDensitySampler = NO_MIN_DENSITY_SAMPLER;
@@ -136,6 +145,10 @@ public class NoiseChunkGeneratorPackConfigTemplate implements ConfigTemplate, Pr
 
     public int getBlendMaxY() {
         return blendMaxY;
+    }
+
+    public boolean isBlendExtrudedNeighbors() {
+        return blendExtrudedNeighbors;
     }
 
     public @Nullable Sampler getMinDensitySampler() {

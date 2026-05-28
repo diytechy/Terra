@@ -29,7 +29,7 @@ public class Sampler3D {
 
     public Sampler3D(int x, int z, long seed, int minHeight, int maxHeight, BiomeProvider provider, int elevationSmooth,
                      PropertyKey<BiomeNoiseProperties> noisePropertiesKey, int maxBlend, int blendMinY, int blendMaxY,
-                     Profiler profiler) {
+                     boolean blendExtrudedNeighbors, Profiler profiler) {
         // x and z are chunk indices (e.g. 1, -21), not block origins.
         this.chunkX = x;
         this.chunkZ = z;
@@ -43,7 +43,7 @@ public class Sampler3D {
 
         t0 = System.nanoTime();
         this.interpolator = new ChunkInterpolator(seed, x, z, provider,
-            minHeight, maxHeight, noisePropertiesKey, maxBlend, blendMinY, blendMaxY);
+            minHeight, maxHeight, noisePropertiesKey, maxBlend, blendMinY, blendMaxY, blendExtrudedNeighbors);
         profiler.record("chunk_base_3d.sampler_cache.chunk_interpolator", System.nanoTime() - t0);
     }
 
