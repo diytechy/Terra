@@ -51,9 +51,12 @@ full, gory accounting lives in
 [investigations/Branch-vs-Upstream-1.21.11.md](investigations/Branch-vs-Upstream-1.21.11.md).
 The highlights, derived from that document and the code itself:
 
-* **Bukkit-only.** Targets MC 26.1 / Paper 26.1 on **JDK 25**. Fabric, Forge,
-  Quilt, and Minestom have been deliberately disabled — their sources still sit
-  in the tree, quietly rotting.
+* **Multi-platform, sort of.** Targets MC 26.1 / Paper 26.1 on **JDK 25**. The
+  live build graph covers **Bukkit/Paper, CLI, Allay, and Minestom** (plus a
+  `merged` jar that bundles them). **Fabric** and **NeoForge** have build
+  systems staged but kept disabled — WIP, untested, with architectury dropped
+  because it hasn't ported to 26.1. **Forge, Quilt, and Sponge** remain dormant.
+  All the disabled platforms' sources still sit in the tree, quietly rotting.
 * **A custom pack-publishing pipeline.** Every merge to `main` cuts a
   `VIBE-`tagged GitHub release with built platform jars, and the build pulls and
   bundles the CHIMERA pack (treated as *required* — a missing CHIMERA fails the
@@ -69,7 +72,7 @@ The highlights, derived from that document and the code itself:
   chest and BrushableBlock loot, beehive population, End gateway teleport
   targets, and bedrock suppression around End crystals.
 * **Custom forks of upstream libraries** (Tectonic and Seismic, see below),
-  resolved from a private `diytechy` Repsy repo.
+  resolved from a public `diytechy` Repsy repo.
 
 **Enormous flashing caveat:** none of these changes have been formally reviewed,
 properly benchmarked, or validated against upstream. They could be subtly wrong.
@@ -119,7 +122,7 @@ my world work.
 
 If you really want to build this thing: `./gradlew build` (`gradlew.bat build`
 on Windows). You will need a JDK 25 toolchain reachable by Gradle, and network
-access to the `diytechy` Repsy artifacts for the custom Tectonic/Seismic/pack
+access to the `diytechy` Repsy artifacts (should be public) for the custom Tectonic/Seismic/pack
 dependencies — a clean offline checkout will not build.
 
 ## Licensing
