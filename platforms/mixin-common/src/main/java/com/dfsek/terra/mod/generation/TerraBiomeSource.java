@@ -18,12 +18,12 @@
 package com.dfsek.terra.mod.generation;
 
 import com.mojang.serialization.MapCodec;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.world.biome.Biome;
-import net.minecraft.world.biome.source.BiomeSource;
-import net.minecraft.world.biome.source.util.MultiNoiseUtil.MultiNoiseSampler;
+import net.minecraft.core.Holder;
+import net.minecraft.core.BlockPos;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.biome.BiomeSource;
+import net.minecraft.world.level.biome.Climate.MultiNoiseSampler;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,7 +64,7 @@ public class TerraBiomeSource extends BiomeSource {
     }
 
     @Override
-    protected Stream<RegistryEntry<Biome>> biomeStream() {
+    protected Stream<Holder<Biome>> biomeStream() {
         return StreamSupport
             .stream(pack.getBiomeProvider()
                 .getBiomes()
@@ -78,8 +78,8 @@ public class TerraBiomeSource extends BiomeSource {
     // BiomeSource class before enabling. The pattern is identical to NMSBiomeProvider.
     @Override
     public @Nullable BlockPos findBiomeHorizontally(int x, int y, int z, int radius, int step,
-            Predicate<RegistryEntry<Biome>> predicate, Random random,
-            boolean bl, MultiNoiseSampler noiseSampler) {
+            Predicate<Holder<Biome>> predicate, RandomSource random,
+            boolean bl, Sampler noiseSampler) {
         IN_STRUCTURE_SEARCH.set(true);
         try {
             return super.findBiomeHorizontally(x, y, z, radius, step, predicate, random, bl, noiseSampler);
@@ -89,7 +89,7 @@ public class TerraBiomeSource extends BiomeSource {
     }
 
     @Override
-    public RegistryEntry<Biome> getBiome(int biomeX, int biomeY, int biomeZ, MultiNoiseSampler noiseSampler) {
+    public Holder<Biome> getBiome(int biomeX, int biomeY, int biomeZ, Sampler noiseSampler) {
         long seed = SeedHack.getSeed(noiseSampler);
 
         if(IN_STRUCTURE_SEARCH.get()) {

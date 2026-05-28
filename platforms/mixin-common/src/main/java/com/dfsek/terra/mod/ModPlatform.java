@@ -4,27 +4,27 @@ import com.dfsek.tectonic.api.TypeRegistry;
 import com.dfsek.tectonic.api.depth.DepthTracker;
 import com.dfsek.tectonic.api.exception.LoadException;
 import com.dfsek.tectonic.api.loader.ConfigLoader;
-import net.minecraft.enchantment.Enchantment;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.SpawnGroup;
-import net.minecraft.registry.Registry;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.MobCategory;
+import net.minecraft.core.Registry;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.sound.BiomeAdditionsSound;
-import net.minecraft.sound.BiomeMoodSound;
-import net.minecraft.sound.MusicSound;
-import net.minecraft.sound.SoundEvent;
-import net.minecraft.util.Identifier;
-import net.minecraft.village.VillagerType;
+import net.minecraft.world.attribute.AmbientAdditionsSettings;
+import net.minecraft.world.attribute.AmbientMoodSettings;
+import net.minecraft.sounds.Music;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.entity.npc.villager.VillagerType;
 import net.minecraft.world.attribute.AmbientParticle;
-import net.minecraft.world.biome.Biome;
-import net.minecraft.world.biome.Biome.Precipitation;
-import net.minecraft.world.biome.Biome.TemperatureModifier;
-import net.minecraft.world.biome.BiomeEffects.GrassColorModifier;
-import net.minecraft.world.biome.SpawnSettings;
-import net.minecraft.world.biome.source.MultiNoiseBiomeSourceParameterList;
-import net.minecraft.world.dimension.DimensionType;
-import net.minecraft.world.gen.WorldPreset;
-import net.minecraft.world.gen.chunk.ChunkGeneratorSettings;
+import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.biome.Biome.Precipitation;
+import net.minecraft.world.level.biome.Biome.TemperatureModifier;
+import net.minecraft.world.level.biome.BiomeSpecialEffects.GrassColorModifier;
+import net.minecraft.world.level.biome.MobSpawnSettings;
+import net.minecraft.world.level.biome.MultiNoiseBiomeSourceParameterList;
+import net.minecraft.world.level.dimension.DimensionType;
+import net.minecraft.world.level.levelgen.presets.WorldPreset;
+import net.minecraft.world.level.levelgen.NoiseGeneratorSettings;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.HashSet;
@@ -87,17 +87,17 @@ public abstract class ModPlatform extends AbstractPlatform {
                 (type, o, loader) -> GrassColorModifier.valueOf(((String) o).toUpperCase()))
             .registerLoader(TemperatureModifier.class,
                 (type, o, loader) -> TemperatureModifier.valueOf(((String) o).toUpperCase()))
-            .registerLoader(SpawnGroup.class, (type, o, loader) -> SpawnGroup.valueOf((String) o))
+            .registerLoader(MobCategory.class, (type, o, loader) -> MobCategory.valueOf((String) o))
             .registerLoader(AmbientParticle.class, BiomeParticleConfigTemplate::new)
             .registerLoader(SoundEvent.class, SoundEventTemplate::new)
-            .registerLoader(BiomeMoodSound.class, BiomeMoodSoundTemplate::new)
-            .registerLoader(BiomeAdditionsSound.class, BiomeAdditionsSoundTemplate::new)
-            .registerLoader(MusicSound.class, MusicSoundTemplate::new)
+            .registerLoader(AmbientMoodSettings.class, BiomeMoodSoundTemplate::new)
+            .registerLoader(AmbientAdditionsSettings.class, BiomeAdditionsSoundTemplate::new)
+            .registerLoader(Music.class, MusicSoundTemplate::new)
             .registerLoader(EntityType.class, EntityTypeTemplate::new)
             .registerLoader(SpawnCostConfig.class, SpawnCostConfig::new)
             .registerLoader(SpawnEntryConfig.class, SpawnEntryConfig::new)
             .registerLoader(SpawnTypeConfig.class, SpawnTypeConfig::new)
-            .registerLoader(SpawnSettings.class, SpawnSettingsTemplate::new)
+            .registerLoader(MobSpawnSettings.class, SpawnSettingsTemplate::new)
             .registerLoader(VillagerType.class, VillagerTypeTemplate::new);
     }
 
@@ -118,7 +118,7 @@ public abstract class ModPlatform extends AbstractPlatform {
 
     public abstract Registry<Biome> biomeRegistry();
 
-    public abstract Registry<ChunkGeneratorSettings> chunkGeneratorSettingsRegistry();
+    public abstract Registry<NoiseGeneratorSettings> chunkGeneratorSettingsRegistry();
 
     public abstract Registry<MultiNoiseBiomeSourceParameterList> multiNoiseBiomeSourceParameterListRegistry();
 

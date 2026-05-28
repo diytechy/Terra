@@ -17,9 +17,9 @@
 
 package com.dfsek.terra.mod.mixin.implementations.terra.inventory.meta;
 
-import net.minecraft.component.type.ItemEnchantmentsComponent;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.entry.RegistryEntry;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.core.Holder;
 import org.spongepowered.asm.mixin.Implements;
 import org.spongepowered.asm.mixin.Interface;
 import org.spongepowered.asm.mixin.Intrinsic;
@@ -41,14 +41,14 @@ public abstract class ItemStackMetaMixin {
     public abstract boolean hasEnchantments();
 
     @Shadow
-    public abstract ItemEnchantmentsComponent getEnchantments();
+    public abstract ItemEnchantments getEnchantments();
 
     @Shadow
-    public abstract void addEnchantment(RegistryEntry<net.minecraft.enchantment.Enchantment> enchantment, int level);
+    public abstract void addEnchantment(Holder<net.minecraft.world.item.enchantment.Enchantment> enchantment, int level);
 
     public void terra$addEnchantment(Enchantment enchantment, int level) {
         ;
-        addEnchantment(RegistryEntry.of((net.minecraft.enchantment.Enchantment) (Object) enchantment), level);
+        addEnchantment(Holder.of((net.minecraft.world.item.enchantment.Enchantment) (Object) enchantment), level);
     }
 
     @Intrinsic(displace = true)
@@ -56,10 +56,10 @@ public abstract class ItemStackMetaMixin {
         if(!hasEnchantments()) return Collections.emptyMap();
         Map<Enchantment, Integer> map = new HashMap<>();
 
-        ItemEnchantmentsComponent enchantments = getEnchantments();
+        ItemEnchantments enchantments = getEnchantments();
         enchantments.getEnchantments().forEach(enchantment -> {
-            net.minecraft.enchantment.Enchantment enchantmentValue = enchantment.value();
-            map.put((Enchantment) (Object) enchantmentValue, enchantments.getLevel(RegistryEntry.of(enchantmentValue)));
+            net.minecraft.world.item.enchantment.Enchantment enchantmentValue = enchantment.value();
+            map.put((Enchantment) (Object) enchantmentValue, enchantments.getLevel(Holder.of(enchantmentValue)));
         });
         return map;
     }

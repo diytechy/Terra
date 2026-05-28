@@ -1,10 +1,10 @@
 package com.dfsek.terra.lifecycle.util;
 
-import net.minecraft.registry.Registry;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.util.Identifier;
-import net.minecraft.village.VillagerType;
+import net.minecraft.core.Registry;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.entity.npc.villager.VillagerType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,7 +30,7 @@ public final class LifecycleBiomeUtil {
 
     }
 
-    public static void registerBiomes(Registry<net.minecraft.world.biome.Biome> biomeRegistry) {
+    public static void registerBiomes(Registry<net.minecraft.world.level.biome.Biome> biomeRegistry) {
         logger.info("Registering biomes...");
         CommonPlatform.get().getConfigRegistry().forEach(pack -> { // Register all Terra biomes.
             pack.getCheckedRegistry(Biome.class)
@@ -47,8 +47,8 @@ public final class LifecycleBiomeUtil {
      */
     private static void registerBiome(Biome biome, ConfigPack pack,
                                       com.dfsek.terra.api.registry.key.RegistryKey id,
-                                      Registry<net.minecraft.world.biome.Biome> registry) {
-        RegistryKey<net.minecraft.world.biome.Biome> vanilla = ((ProtoPlatformBiome) biome.getPlatformBiome()).get(registry);
+                                      Registry<net.minecraft.world.level.biome.Biome> registry) {
+        ResourceKey<net.minecraft.world.level.biome.Biome> vanilla = ((ProtoPlatformBiome) biome.getPlatformBiome()).get(registry);
 
         if(vanilla == null) {
             logger.error("""
@@ -63,7 +63,7 @@ public final class LifecycleBiomeUtil {
             VanillaBiomeProperties vanillaBiomeProperties = biome.getContext().get(VanillaBiomeProperties.class);
 
 
-            net.minecraft.world.biome.Biome vanilaBiome = registry.get(vanilla);
+            net.minecraft.world.level.biome.Biome vanilaBiome = registry.get(vanilla);
             if(vanilaBiome == null) {
                 String vanillaBiomeName;
                 if(vanilla != null) {
@@ -78,7 +78,7 @@ public final class LifecycleBiomeUtil {
                 return;
             }
 
-            net.minecraft.world.biome.Biome minecraftBiome = BiomeUtil.createBiome(Objects.requireNonNull(vanilaBiome),
+            net.minecraft.world.level.biome.Biome minecraftBiome = BiomeUtil.createBiome(Objects.requireNonNull(vanilaBiome),
                 vanillaBiomeProperties);
 
             Identifier identifier = Identifier.of("terra", BiomeUtil.createBiomeID(pack, id));
@@ -93,10 +93,10 @@ public final class LifecycleBiomeUtil {
                     minecraftBiome));
             }
 
-            Map<RegistryKey<net.minecraft.world.biome.Biome>, RegistryKey<VillagerType>> villagerMap =
+            Map<ResourceKey<net.minecraft.world.level.biome.Biome>, ResourceKey<VillagerType>> villagerMap =
                 VillagerTypeAccessor.getBiomeTypeToIdMap();
 
-            villagerMap.put(RegistryKey.of(RegistryKeys.BIOME, identifier),
+            villagerMap.put(ResourceKey.of(Registries.BIOME, identifier),
                 Objects.requireNonNullElse(vanillaBiomeProperties.getVillagerType(),
                     villagerMap.getOrDefault(vanilla, VillagerType.PLAINS)));
 

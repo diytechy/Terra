@@ -1,8 +1,8 @@
 package com.dfsek.terra.lifecycle.mixin.lifecycle;
 
-import net.minecraft.registry.CombinedDynamicRegistries;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.registry.ServerDynamicRegistryType;
+import net.minecraft.core.LayeredRegistryAccess;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.server.RegistryLayer;
 import net.minecraft.server.SaveLoading;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -19,15 +19,15 @@ public class SaveLoadingMixin {
                  "Ljava/util/concurrent/CompletableFuture;",
         at = @At(
             value = "INVOKE",
-            target = "Lnet/minecraft/server/DataPackContents;reload(Lnet/minecraft/resource/ResourceManager;" +
-                     "Lnet/minecraft/registry/CombinedDynamicRegistries;Ljava/util/List;Lnet/minecraft/resource/featuretoggle/FeatureSet;" +
-                     "Lnet/minecraft/server/command/CommandManager$RegistrationEnvironment;ILjava/util/concurrent/Executor;" +
+            target = "Lnet/minecraft/server/ReloadableServerResources;reload(Lnet/minecraft/resource/ResourceManager;" +
+                     "Lnet/minecraft/core/LayeredRegistryAccess;Ljava/util/List;Lnet/minecraft/resource/featuretoggle/FeatureFlagSet;" +
+                     "Lnet/minecraft/server/command/Commands$RegistrationEnvironment;ILjava/util/concurrent/Executor;" +
                      "Ljava/util/concurrent/Executor;)Ljava/util/concurrent/CompletableFuture;"),
         index = 1
     )
-    private static CombinedDynamicRegistries<ServerDynamicRegistryType> grabManager(
-        CombinedDynamicRegistries<ServerDynamicRegistryType> dynamicRegistries) {
-        MinecraftUtil.registerFlora(dynamicRegistries.getCombinedRegistryManager().getOrThrow(RegistryKeys.BIOME));
+    private static LayeredRegistryAccess<RegistryLayer> grabManager(
+        LayeredRegistryAccess<RegistryLayer> dynamicRegistries) {
+        MinecraftUtil.registerFlora(dynamicRegistries.getCombinedRegistryManager().getOrThrow(Registries.BIOME));
         return dynamicRegistries;
     }
 }

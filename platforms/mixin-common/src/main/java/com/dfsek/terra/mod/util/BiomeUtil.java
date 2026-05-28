@@ -1,11 +1,11 @@
 package com.dfsek.terra.mod.util;
 
-import net.minecraft.registry.Registries;
-import net.minecraft.util.Identifier;
-import net.minecraft.world.biome.Biome;
-import net.minecraft.world.biome.Biome.Builder;
-import net.minecraft.world.biome.BiomeEffects;
-import net.minecraft.world.biome.GenerationSettings;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.biome.Biome.Builder;
+import net.minecraft.world.level.biome.BiomeSpecialEffects;
+import net.minecraft.world.level.biome.BiomeGenerationSettings;
 
 import java.util.HashMap;
 import java.util.List;
@@ -23,9 +23,9 @@ public class BiomeUtil {
         TERRA_BIOME_MAP = new HashMap<>();
 
     public static Biome createBiome(Biome vanilla, VanillaBiomeProperties vanillaBiomeProperties) {
-        BiomeEffects.Builder effects = new BiomeEffects.Builder();
+        BiomeSpecialEffects.Builder effects = new BiomeSpecialEffects.Builder();
 
-        net.minecraft.world.biome.Biome.Builder builder = new Builder();
+        net.minecraft.world.level.biome.Biome.Builder builder = new Builder();
 
         effects.waterColor(Objects.requireNonNullElse(vanillaBiomeProperties.getWaterColor(), vanilla.getWaterColor()))
             .waterFogColor(Objects.requireNonNullElse(vanillaBiomeProperties.getWaterFogColor(), vanilla.getWaterFogColor()))
@@ -62,7 +62,7 @@ public class BiomeUtil {
         if(vanillaBiomeProperties.getLoopSound() == null) {
             vanilla.getEffects().getLoopSound().ifPresent(effects::loopSound);
         } else {
-            effects.loopSound(Registries.SOUND_EVENT.getEntry(vanillaBiomeProperties.getLoopSound()));
+            effects.loopSound(BuiltInRegistries.SOUND_EVENT.getEntry(vanillaBiomeProperties.getLoopSound()));
         }
 
         if(vanillaBiomeProperties.getMoodSound() == null) {
@@ -97,7 +97,7 @@ public class BiomeUtil {
 
         return builder
             .effects(effects.build())
-            .generationSettings(new GenerationSettings.Builder().build())
+            .generationSettings(new BiomeGenerationSettings.Builder().build())
             .build();
     }
 

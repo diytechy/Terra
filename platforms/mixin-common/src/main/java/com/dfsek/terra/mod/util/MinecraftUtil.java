@@ -1,29 +1,29 @@
 package com.dfsek.terra.mod.util;
 
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockEntityProvider;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.entity.LootableContainerBlockEntity;
-import net.minecraft.block.entity.MobSpawnerBlockEntity;
-import net.minecraft.block.entity.SignBlockEntity;
-import net.minecraft.command.argument.BlockStateArgument;
-import net.minecraft.fluid.Fluid;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.registry.Registry;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.EntityBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.entity.RandomizableContainerBlockEntity;
+import net.minecraft.world.level.block.entity.SpawnerBlockEntity;
+import net.minecraft.world.level.block.entity.SignBlockEntity;
+import net.minecraft.commands.arguments.blocks.BlockStateArgument;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.core.Registry;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.core.Holder;
+import net.minecraft.resources.Identifier;
+import net.minecraft.core.BlockPos;
 import net.minecraft.util.math.intprovider.IntProviderType;
-import net.minecraft.world.World;
-import net.minecraft.world.WorldAccess;
-import net.minecraft.world.biome.Biome;
-import net.minecraft.world.chunk.Chunk;
-import net.minecraft.world.dimension.DimensionType;
-import net.minecraft.world.gen.feature.ConfiguredFeature;
-import net.minecraft.world.tick.OrderedTick;
-import net.minecraft.world.tick.TickScheduler;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelAccessor;
+import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.chunk.ChunkAccess;
+import net.minecraft.world.level.dimension.DimensionType;
+import net.minecraft.world.level.levelgen.feature.ConfiguredFeature;
+import net.minecraft.world.ticks.ScheduledTick;
+import net.minecraft.world.ticks.TickAccess;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,29 +53,29 @@ public final class MinecraftUtil {
 
     }
 
-    public static <T> Optional<RegistryEntry<T>> getEntry(Registry<T> registry, Identifier identifier) {
+    public static <T> Optional<Holder<T>> getEntry(Registry<T> registry, Identifier identifier) {
         return registry.getOptionalValue(identifier)
             .flatMap(id -> Optional.ofNullable(registry.getEntry(id)));
     }
 
-    public static BlockEntity createBlockEntity(WorldAccess worldAccess, BlockPos pos) {
-        net.minecraft.block.entity.BlockEntity entity = worldAccess.getBlockEntity(pos);
+    public static BlockEntity createBlockEntity(LevelAccessor worldAccess, BlockPos pos) {
+        net.minecraft.world.level.block.entity.BlockEntity entity = worldAccess.getBlockEntity(pos);
         if(entity instanceof SignBlockEntity) {
             return (Sign) entity;
-        } else if(entity instanceof MobSpawnerBlockEntity) {
+        } else if(entity instanceof SpawnerBlockEntity) {
             return (MobSpawner) entity;
-        } else if(entity instanceof LootableContainerBlockEntity) {
+        } else if(entity instanceof RandomizableContainerBlockEntity) {
             return (Container) entity;
         }
         return null;
     }
 
-    public static void schedulePhysics(BlockState blockState, BlockPos blockPos, TickScheduler<Fluid> fluidScheduler,
-                                       TickScheduler<Block> blockScheduler) {
+    public static void schedulePhysics(BlockState blockState, BlockPos blockPos, TickAccess<Fluid> fluidScheduler,
+                                       TickAccess<Block> blockScheduler) {
         if(blockState.isLiquid()) {
-            fluidScheduler.scheduleTick(OrderedTick.create(blockState.getFluidState().getFluid(), blockPos));
+            fluidScheduler.scheduleTick(ScheduledTick.create(blockState.getFluidState().getFluid(), blockPos));
         } else {
-            blockScheduler.scheduleTick(OrderedTick.create(blockState.getBlock(), blockPos));
+            blockScheduler.scheduleTick(ScheduledTick.create(blockState.getBlock(), blockPos));
         }
     }
 
@@ -84,16 +84,16 @@ public final class MinecraftUtil {
     }
 
     //[Vanilla Copy]
-    public static void loadBlockEntity(Chunk chunk, World world, BlockPos blockPos, BlockState state, NbtCompound nbt) {
-        net.minecraft.block.entity.BlockEntity blockEntity;
+    public static void loadBlockEntity(ChunkAccess chunk, Level world, BlockPos blockPos, BlockState state, CompoundTag nbt) {
+        net.minecraft.world.level.block.entity.BlockEntity blockEntity;
         if("DUMMY".equals(nbt.getString("id", ""))) {
             if(state.hasBlockEntity()) {
-                blockEntity = ((BlockEntityProvider) state.getBlock()).createBlockEntity(blockPos, state);
+                blockEntity = ((EntityBlock) state.getBlock()).createBlockEntity(blockPos, state);
             } else {
                 blockEntity = null;
             }
         } else {
-            blockEntity = net.minecraft.block.entity.BlockEntity.createFromNbt(blockPos, state, nbt, world.getRegistryManager());
+            blockEntity = net.minecraft.world.level.block.entity.BlockEntity.createFromNbt(blockPos, state, nbt, world.getRegistryManager());
         }
 
         if(blockEntity != null) {
@@ -113,7 +113,7 @@ public final class MinecraftUtil {
         TerraIntProvider.TERRA_RANGE_TYPE_TO_INT_PROVIDER_TYPE.put(ConstantRange.class, CONSTANT);
     }
 
-    public static void registerFlora(Registry<net.minecraft.world.biome.Biome> biomeRegistry) {
+    public static void registerFlora(Registry<net.minecraft.world.level.biome.Biome> biomeRegistry) {
         logger.info("Injecting flora into Terra biomes...");
         CommonPlatform.get().getConfigRegistry().forEach(pack -> { // Register all Terra biomes.
             PreLoadCompatibilityOptions compatibilityOptions = pack.getContext().get(PreLoadCompatibilityOptions.class);
@@ -128,8 +128,8 @@ public final class MinecraftUtil {
 
     private static void registerFlora(com.dfsek.terra.api.world.biome.Biome biome, ConfigPack pack,
                                       com.dfsek.terra.api.registry.key.RegistryKey id,
-                                      Registry<net.minecraft.world.biome.Biome> biomeRegistry) {
-        RegistryKey<net.minecraft.world.biome.Biome> vanillaKey = ((ProtoPlatformBiome) biome.getPlatformBiome()).get(biomeRegistry);
+                                      Registry<net.minecraft.world.level.biome.Biome> biomeRegistry) {
+        ResourceKey<net.minecraft.world.level.biome.Biome> vanillaKey = ((ProtoPlatformBiome) biome.getPlatformBiome()).get(biomeRegistry);
         biomeRegistry.getOptionalValue(vanillaKey)
             .ifPresentOrElse(vanillaBiome -> {
                     Identifier terraBiomeIdentifier = Identifier.of("terra", BiomeUtil.createBiomeID(pack, id));
@@ -152,11 +152,11 @@ public final class MinecraftUtil {
                 () -> logger.error("No vanilla biome: {}", vanillaKey));
     }
 
-    public static RegistryKey<Biome> registerBiomeKey(Identifier identifier) {
-        return RegistryKey.of(RegistryKeys.BIOME, identifier);
+    public static ResourceKey<Biome> registerBiomeKey(Identifier identifier) {
+        return ResourceKey.of(Registries.BIOME, identifier);
     }
 
-    public static RegistryKey<DimensionType> registerDimensionTypeKey(Identifier identifier) {
-        return RegistryKey.of(RegistryKeys.DIMENSION_TYPE, identifier);
+    public static ResourceKey<DimensionType> registerDimensionTypeKey(Identifier identifier) {
+        return ResourceKey.of(Registries.DIMENSION_TYPE, identifier);
     }
 }

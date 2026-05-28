@@ -1,20 +1,20 @@
 package com.dfsek.terra.lifecycle.mixin.lifecycle;
 
 import com.llamalad7.mixinextras.sugar.Local;
-import net.minecraft.enchantment.Enchantment;
-import net.minecraft.registry.DynamicRegistryManager;
-import net.minecraft.registry.MutableRegistry;
-import net.minecraft.registry.Registry;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.registry.RegistryLoader;
-import net.minecraft.registry.RegistryWrapper;
-import net.minecraft.resource.ResourceManager;
-import net.minecraft.world.biome.Biome;
-import net.minecraft.world.biome.source.MultiNoiseBiomeSourceParameterList;
-import net.minecraft.world.dimension.DimensionType;
-import net.minecraft.world.gen.WorldPreset;
-import net.minecraft.world.gen.chunk.ChunkGeneratorSettings;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.WritableRegistry;
+import net.minecraft.core.Registry;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.RegistryDataLoader;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.server.packs.resources.ResourceManager;
+import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.biome.MultiNoiseBiomeSourceParameterList;
+import net.minecraft.world.level.dimension.DimensionType;
+import net.minecraft.world.level.levelgen.presets.WorldPreset;
+import net.minecraft.world.level.levelgen.NoiseGeneratorSettings;
 import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -36,7 +36,7 @@ import com.dfsek.terra.mod.CommonPlatform;
 import com.dfsek.terra.mod.ModPlatform;
 
 
-@Mixin(RegistryLoader.class)
+@Mixin(RegistryDataLoader.class)
 public class RegistryLoaderMixin {
 
     @Unique
@@ -45,38 +45,38 @@ public class RegistryLoaderMixin {
     @Final
     private static Logger LOGGER;
 
-    @Inject(method = "loadFromResource(Lnet/minecraft/resource/ResourceManager;Ljava/util/List;Ljava/util/List;)" +
-                     "Lnet/minecraft/registry/DynamicRegistryManager$Immutable;",
+    @Inject(method = "loadFromResource(Lnet/minecraft/server/packs/resources/ResourceManager;Ljava/util/List;Ljava/util/List;)" +
+                     "Lnet/minecraft/core/RegistryAccess$Immutable;",
             at = @At("HEAD"))
-    private static void loadFromResources(ResourceManager resourceManager, List<RegistryWrapper.Impl<?>> registries,
-                                          List<RegistryLoader.Entry<?>> entries,
-                                          CallbackInfoReturnable<DynamicRegistryManager.Immutable> cir) {
-        LOADING_DYNAMIC_REGISTRIES.set(entries.stream().anyMatch(entry -> entry.key() == RegistryKeys.BIOME));
+    private static void loadFromResources(ResourceManager resourceManager, List<HolderLookup.Impl<?>> registries,
+                                          List<RegistryDataLoader.Entry<?>> entries,
+                                          CallbackInfoReturnable<RegistryAccess.Immutable> cir) {
+        LOADING_DYNAMIC_REGISTRIES.set(entries.stream().anyMatch(entry -> entry.key() == Registries.BIOME));
     }
 
     @Inject(
-        method = "load(Lnet/minecraft/registry/RegistryLoader$RegistryLoadable;Ljava/util/List;Ljava/util/List;)" +
-                 "Lnet/minecraft/registry/DynamicRegistryManager$Immutable;",
+        method = "load(Lnet/minecraft/resources/RegistryDataLoader$RegistryLoadable;Ljava/util/List;Ljava/util/List;)" +
+                 "Lnet/minecraft/core/RegistryAccess$Immutable;",
         at = @At(
             value = "INVOKE",
             target = "Ljava/util/List;forEach(Ljava/util/function/Consumer;)V",
             ordinal = 1
         )
     )
-    private static void beforeFreeze(@Coerce Object loadable, List<RegistryWrapper.Impl<?>> wrappers, List<RegistryLoader.Entry<?>> entries,
-                                     CallbackInfoReturnable<DynamicRegistryManager.Immutable> cir,
-                                     @Local(ordinal = 2) List<RegistryLoader.Loader<?>> registriesList) {
+    private static void beforeFreeze(@Coerce Object loadable, List<HolderLookup.Impl<?>> wrappers, List<RegistryDataLoader.Entry<?>> entries,
+                                     CallbackInfoReturnable<RegistryAccess.Immutable> cir,
+                                     @Local(ordinal = 2) List<RegistryDataLoader.Loader<?>> registriesList) {
         if(LOADING_DYNAMIC_REGISTRIES.getAndSet(false)) {
             ModPlatform platform = CommonPlatform.get();
             platform.getRawConfigRegistry().clear();
-            MutableRegistry<Biome> biomes = extractRegistry(registriesList, RegistryKeys.BIOME).orElseThrow();
-            MutableRegistry<DimensionType> dimensionTypes = extractRegistry(registriesList, RegistryKeys.DIMENSION_TYPE).orElseThrow();
-            MutableRegistry<WorldPreset> worldPresets = extractRegistry(registriesList, RegistryKeys.WORLD_PRESET).orElseThrow();
-            MutableRegistry<ChunkGeneratorSettings> chunkGeneratorSettings = extractRegistry(registriesList,
-                RegistryKeys.CHUNK_GENERATOR_SETTINGS).orElseThrow();
-            MutableRegistry<MultiNoiseBiomeSourceParameterList> multiNoiseBiomeSourceParameterLists = extractRegistry(registriesList,
-                RegistryKeys.MULTI_NOISE_BIOME_SOURCE_PARAMETER_LIST).orElseThrow();
-            MutableRegistry<Enchantment> enchantments = extractRegistry(registriesList, RegistryKeys.ENCHANTMENT).orElseThrow();
+            WritableRegistry<Biome> biomes = extractRegistry(registriesList, Registries.BIOME).orElseThrow();
+            WritableRegistry<DimensionType> dimensionTypes = extractRegistry(registriesList, Registries.DIMENSION_TYPE).orElseThrow();
+            WritableRegistry<WorldPreset> worldPresets = extractRegistry(registriesList, Registries.WORLD_PRESET).orElseThrow();
+            WritableRegistry<NoiseGeneratorSettings> chunkGeneratorSettings = extractRegistry(registriesList,
+                Registries.CHUNK_GENERATOR_SETTINGS).orElseThrow();
+            WritableRegistry<MultiNoiseBiomeSourceParameterList> multiNoiseBiomeSourceParameterLists = extractRegistry(registriesList,
+                Registries.MULTI_NOISE_BIOME_SOURCE_PARAMETER_LIST).orElseThrow();
+            WritableRegistry<Enchantment> enchantments = extractRegistry(registriesList, Registries.ENCHANTMENT).orElseThrow();
 
             LifecyclePlatform.setRegistries(biomes, dimensionTypes, chunkGeneratorSettings, multiNoiseBiomeSourceParameterLists,
                 enchantments);
@@ -86,10 +86,10 @@ public class RegistryLoaderMixin {
 
     @Unique
     @SuppressWarnings("unchecked")
-    private static <T> Optional<MutableRegistry<T>> extractRegistry(List<RegistryLoader.Loader<?>> instance,
-                                                                    RegistryKey<Registry<T>> key) {
-        List<? extends MutableRegistry<?>> matches = instance
-            .stream().map(RegistryLoader.Loader::registry)
+    private static <T> Optional<WritableRegistry<T>> extractRegistry(List<RegistryDataLoader.Loader<?>> instance,
+                                                                    ResourceKey<Registry<T>> key) {
+        List<? extends WritableRegistry<?>> matches = instance
+            .stream().map(RegistryDataLoader.Loader::registry)
             .filter(r -> r.getKey().equals(key))
             .toList();
         if(matches.size() > 1) {
@@ -97,7 +97,7 @@ public class RegistryLoaderMixin {
         } else if(matches.isEmpty()) {
             return Optional.empty();
         }
-        MutableRegistry<T> registry = (MutableRegistry<T>) matches.getFirst();
+        WritableRegistry<T> registry = (WritableRegistry<T>) matches.getFirst();
         ((RegistryHack) registry).terra_bind();
         return Optional.of(registry);
     }

@@ -1,8 +1,8 @@
 package com.dfsek.terra.mod.implmentation;
 
-import net.minecraft.util.math.intprovider.IntProvider;
+import net.minecraft.util.valueproviders.IntProvider;
 import net.minecraft.util.math.intprovider.IntProviderType;
-import net.minecraft.util.math.random.Random;
+import net.minecraft.util.RandomSource;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -21,7 +21,7 @@ public class TerraIntProvider extends IntProvider {
     }
 
     @Override
-    public int get(Random random) {
+    public int get(RandomSource random) {
         return delegate.get(MinecraftAdapter.adapt(random));
     }
 

@@ -1,9 +1,9 @@
 package com.dfsek.terra.mod.mixin.implementations.terra.block.state;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.block.pattern.CachedBlockPosition;
-import net.minecraft.command.argument.BlockStateArgument;
-import net.minecraft.nbt.NbtCompound;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.pattern.BlockInWorld;
+import net.minecraft.commands.arguments.blocks.BlockStateArgument;
+import net.minecraft.nbt.CompoundTag;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Implements;
@@ -23,18 +23,18 @@ import com.dfsek.terra.api.data.ExtendedData;
 
 @Mixin(BlockStateArgument.class)
 @Implements(@Interface(iface = BlockStateExtended.class, prefix = "terra$"))
-public abstract class BlockStateArgumentMixin implements Predicate<CachedBlockPosition> {
+public abstract class BlockStateArgumentMixin implements Predicate<BlockInWorld> {
 
     @Shadow
     @Nullable
     @Final
-    private NbtCompound data;
+    private CompoundTag data;
 
     @Shadow
     public abstract BlockState getBlockState();
 
     @Shadow
-    public abstract Set<net.minecraft.state.property.Property<?>> getProperties();
+    public abstract Set<net.minecraft.world.level.block.state.properties.Property<?>> getProperties();
 
     public boolean terra$matches(com.dfsek.terra.api.block.state.BlockState other) {
         return ((com.dfsek.terra.api.block.state.BlockState) getBlockState()).matches(other);
@@ -74,7 +74,7 @@ public abstract class BlockStateArgumentMixin implements Predicate<CachedBlockPo
     @Intrinsic
     public BlockStateExtended terra$setData(ExtendedData data) {
         return (BlockStateExtended) new BlockStateArgument(getBlockState(), getProperties(),
-            data.getClass().equals(NbtCompound.class) ? ((NbtCompound) ((Object) data)) : null);
+            data.getClass().equals(CompoundTag.class) ? ((CompoundTag) ((Object) data)) : null);
     }
 
     @SuppressWarnings("DataFlowIssue")

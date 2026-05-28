@@ -19,13 +19,13 @@ package com.dfsek.terra.mod.handle;
 
 import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
-import net.minecraft.command.CommandRegistryAccess;
-import net.minecraft.command.argument.ItemStackArgumentType;
-import net.minecraft.registry.Registry;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.RegistryWrapper.Impl;
-import net.minecraft.resource.featuretoggle.FeatureSet;
-import net.minecraft.util.Identifier;
+import net.minecraft.commands.CommandBuildContext;
+import net.minecraft.commands.arguments.item.ItemArgument;
+import net.minecraft.core.Registry;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.core.HolderLookup.Impl;
+import net.minecraft.world.flag.FeatureFlagSet;
+import net.minecraft.resources.Identifier;
 
 import java.util.Optional;
 import java.util.Set;
@@ -43,19 +43,19 @@ public class MinecraftItemHandle implements ItemHandle {
     @Override
     public Item createItem(String data) {
         try {
-            return (Item) new ItemStackArgumentType(new CommandRegistryAccess() {
+            return (Item) new ItemArgument(new CommandBuildContext() {
                 @Override
-                public FeatureSet getEnabledFeatures() {
-                    return FeatureSet.empty();
+                public FeatureFlagSet getEnabledFeatures() {
+                    return FeatureFlagSet.empty();
                 }
 
                 @Override
-                public Stream<RegistryKey<? extends Registry<?>>> streamAllRegistryKeys() {
+                public Stream<ResourceKey<? extends Registry<?>>> streamAllRegistryKeys() {
                     return CommonPlatform.get().getServer().getRegistryManager().streamAllRegistryKeys();
                 }
 
                 @Override
-                public <T> Optional<Impl<T>> getOptional(RegistryKey<? extends Registry<? extends T>> registryRef) {
+                public <T> Optional<Impl<T>> getOptional(ResourceKey<? extends Registry<? extends T>> registryRef) {
                     return Optional.of(CommonPlatform.get().getServer().getRegistryManager().getOrThrow(registryRef));
                 }
             }).parse(new StringReader(data)).getItem();

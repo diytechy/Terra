@@ -17,11 +17,12 @@ dependencies {
 
     implementation("net.fabricmc:fabric-loader:${Versions.Mod.fabricLoader}")
 
-    // TODO Phase 3 — re-add once fabric-api / cloud-fabric submodule AWs are migrated
-    // to the `official` namespace (current 0.149.1+26.1.2 has fabric-command-api-v2
-    // still using `intermediary` which loom 1.16 rejects for unobfuscated MC).
-    // implementation("org.incendo", "cloud-fabric", Versions.Fabric.cloud) { ... }
-    // runtimeOnly("net.fabricmc.fabric-api", "fabric-api", Versions.Fabric.fabricAPI)
+    // Confirmed 2026-05-28: cloud-fabric beta.16 (first 26.1-supporting release) resolves
+    // and loom 1.16 accepts its access widener — the intermediary-namespace rejection seen
+    // with beta.15 is gone. Re-enable this + the mixin subprojects only once the yarn->Mojang
+    // source rename in mixin-common is done (otherwise compileJava fails with ~100 errors).
+    implementation("org.incendo", "cloud-fabric", Versions.Fabric.cloud)
+    runtimeOnly("net.fabricmc.fabric-api", "fabric-api", Versions.Fabric.fabricAPI)
 }
 
 loom {

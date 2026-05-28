@@ -36,7 +36,8 @@ object Versions {
     
     object Fabric {
         const val fabricAPI = "0.149.1+${Mod.minecraft}"
-        const val cloud = "2.0.0-beta.15"
+        // beta.16 is the first cloud-fabric to add MC 26.1 support (PR #123).
+        const val cloud = "2.0.0-beta.16"
     }
 //
 //    object Quilt {
