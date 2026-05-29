@@ -71,6 +71,25 @@ public class BiomePipelineTemplate implements ObjectTemplate<BiomeProvider> {
     @Default
     @Description("The amplitude at which to perform blending.")
     protected @Meta double blendAmplitude = 0d;
+    @Value("blend.interpolate")
+    @Default
+    @Description("""
+                 Whether to interpolate between biome samples at sub-resolution.
+
+                 When sampling at a resolution greater than 1, each resolution-sized
+                 cell is normally assigned a single biome, producing axis-aligned
+                 square steps at biome borders (especially on diagonals). With
+                 interpolation enabled, each block stochastically selects one of its
+                 four neighbouring cell samples weighted by proximity, dissolving the
+                 steps into a noise-feathered gradient. Has no effect at resolution 1.""")
+    protected @Meta boolean interpolate = false;
+    @Value("blend.interpolation-sampler")
+    @Default
+    @Description("""
+                 Optional sampler providing the per-block roll used for interpolation
+                 (output mapped from [-1, 1] to [0, 1)). Defaults to a built-in
+                 white-noise hash when unset.""")
+    protected @Meta @Nullable Sampler interpolationSampler = null;
     @Value("pipeline.source")
     @Description("The Biome Source to use for initial population of biomes.")
     private @Meta Source source;
@@ -118,6 +137,7 @@ public class BiomePipelineTemplate implements ObjectTemplate<BiomeProvider> {
                 structureSearchIneligibleBiome.getBiome()
             );
         }
-        return new PipelineBiomeProvider(pipeline, resolution, blendSampler, blendAmplitude, profiler, fastPath);
+        return new PipelineBiomeProvider(pipeline, resolution, blendSampler, blendAmplitude, profiler, fastPath,
+            interpolate, interpolationSampler);
     }
 }
