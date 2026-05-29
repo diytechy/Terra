@@ -58,16 +58,16 @@ public final class LifecycleBiomeUtil {
         }
 
         if(pack.getContext().get(PreLoadCompatibilityOptions.class).useVanillaBiomes()) {
-            ((ProtoPlatformBiome) biome.getPlatformBiome()).setDelegate(registry.getEntry(registry.get(vanilla)));
+            ((ProtoPlatformBiome) biome.getPlatformBiome()).setDelegate(registry.getOrThrow(vanilla));
         } else {
             VanillaBiomeProperties vanillaBiomeProperties = biome.getContext().get(VanillaBiomeProperties.class);
 
 
-            net.minecraft.world.level.biome.Biome vanilaBiome = registry.get(vanilla);
+            net.minecraft.world.level.biome.Biome vanilaBiome = registry.getValue(vanilla);
             if(vanilaBiome == null) {
                 String vanillaBiomeName;
                 if(vanilla != null) {
-                    vanillaBiomeName = vanilla.getValue().toString();
+                    vanillaBiomeName = vanilla.identifier().toString();
                 } else {
                     vanillaBiomeName = "NULL";
                 }
@@ -81,26 +81,25 @@ public final class LifecycleBiomeUtil {
             net.minecraft.world.level.biome.Biome minecraftBiome = BiomeUtil.createBiome(Objects.requireNonNull(vanilaBiome),
                 vanillaBiomeProperties);
 
-            Identifier identifier = Identifier.of("terra", BiomeUtil.createBiomeID(pack, id));
+            Identifier identifier = Identifier.fromNamespaceAndPath("terra", BiomeUtil.createBiomeID(pack, id));
 
-            if(registry.containsId(identifier)) {
+            if(registry.containsKey(identifier)) {
                 ((ProtoPlatformBiome) biome.getPlatformBiome()).setDelegate(MinecraftUtil.getEntry(registry, identifier)
                     .orElseThrow());
             } else {
-                ((ProtoPlatformBiome) biome.getPlatformBiome()).setDelegate(Registry.registerReference(registry,
-                    MinecraftUtil.registerBiomeKey(identifier)
-                        .getValue(),
+                ((ProtoPlatformBiome) biome.getPlatformBiome()).setDelegate(Registry.registerForHolder(registry,
+                    MinecraftUtil.registerBiomeKey(identifier),
                     minecraftBiome));
             }
 
             Map<ResourceKey<net.minecraft.world.level.biome.Biome>, ResourceKey<VillagerType>> villagerMap =
                 VillagerTypeAccessor.getBiomeTypeToIdMap();
 
-            villagerMap.put(ResourceKey.of(Registries.BIOME, identifier),
+            villagerMap.put(ResourceKey.create(Registries.BIOME, identifier),
                 Objects.requireNonNullElse(vanillaBiomeProperties.getVillagerType(),
                     villagerMap.getOrDefault(vanilla, VillagerType.PLAINS)));
 
-            BiomeUtil.TERRA_BIOME_MAP.computeIfAbsent(vanilla.getValue(), i -> new ArrayList<>()).add(identifier);
+            BiomeUtil.TERRA_BIOME_MAP.computeIfAbsent(vanilla.identifier(), i -> new ArrayList<>()).add(identifier);
         }
     }
 

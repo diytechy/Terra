@@ -27,20 +27,17 @@ public class DimensionUtil {
 
         MonsterSettings monsterSettings = getMonsterSettings(defaultDimension, monsterSettingsConfig);
 
+        // 26.1 overhauled DimensionType: time/ultrawarm/natural/bed/respawn-anchor/effects/cloud-height
+        // became skybox + cardinal-lighting + environment attributes + timelines, which are copied
+        // wholesale from the default dimension. Only the height/infiniburn/ambient overrides remain.
         return new DimensionType(
-            vanillaWorldProperties.getFixedTime() == null ? defaultDimension.fixedTime() : OptionalLong.of(
-                vanillaWorldProperties.getFixedTime()),
+            defaultDimension.hasFixedTime(),
             vanillaWorldProperties.getHasSkyLight() == null ? defaultDimension.hasSkyLight() : vanillaWorldProperties.getHasSkyLight(),
             vanillaWorldProperties.getHasCeiling() == null ? defaultDimension.hasCeiling() : vanillaWorldProperties.getHasCeiling(),
-            vanillaWorldProperties.getUltraWarm() == null ? defaultDimension.ultrawarm() : vanillaWorldProperties.getUltraWarm(),
-            vanillaWorldProperties.getNatural() == null ? defaultDimension.natural() : vanillaWorldProperties.getNatural(),
+            defaultDimension.hasEnderDragonFight(),
             vanillaWorldProperties.getCoordinateScale() == null
             ? defaultDimension.coordinateScale()
             : vanillaWorldProperties.getCoordinateScale(),
-            vanillaWorldProperties.getBedWorks() == null ? defaultDimension.bedWorks() : vanillaWorldProperties.getBedWorks(),
-            vanillaWorldProperties.getRespawnAnchorWorks() == null
-            ? defaultDimension.respawnAnchorWorks()
-            : vanillaWorldProperties.getRespawnAnchorWorks(),
             vanillaWorldProperties.getHeight() == null ? defaultDimension.minY() : vanillaWorldProperties.getHeight().getMin(),
             vanillaWorldProperties.getHeight() == null ? defaultDimension.height() : vanillaWorldProperties.getHeight().getRange(),
             vanillaWorldProperties.getLogicalHeight() == null
@@ -48,13 +45,14 @@ public class DimensionUtil {
             : vanillaWorldProperties.getLogicalHeight(),
             vanillaWorldProperties.getInfiniburn() == null
             ? defaultDimension.infiniburn()
-            : TagKey.of(Registries.BLOCK, vanillaWorldProperties.getInfiniburn()),
-            vanillaWorldProperties.getEffects() == null ? defaultDimension.effects() : vanillaWorldProperties.getEffects(),
+            : TagKey.create(Registries.BLOCK, vanillaWorldProperties.getInfiniburn()),
             vanillaWorldProperties.getAmbientLight() == null ? defaultDimension.ambientLight() : vanillaWorldProperties.getAmbientLight(),
-            vanillaWorldProperties.getCloudHeight() == null
-            ? defaultDimension.cloudHeight()
-            : vanillaWorldProperties.getCloudHeight().describeConstable(),
-            monsterSettings
+            monsterSettings,
+            defaultDimension.skybox(),
+            defaultDimension.cardinalLightType(),
+            defaultDimension.attributes(),
+            defaultDimension.timelines(),
+            defaultDimension.defaultClock()
         );
     }
 
@@ -63,8 +61,6 @@ public class DimensionUtil {
         MonsterSettings defaultMonsterSettings = defaultDimension.monsterSettings();
 
         return new MonsterSettings(
-            monsterSettingsConfig.getPiglinSafe() == null ? defaultMonsterSettings.piglinSafe() : monsterSettingsConfig.getPiglinSafe(),
-            monsterSettingsConfig.getHasRaids() == null ? defaultMonsterSettings.hasRaids() : monsterSettingsConfig.getHasRaids(),
             monsterSettingsConfig.getMonsterSpawnLight() == null ? defaultMonsterSettings.monsterSpawnLightTest() : new TerraIntProvider(
                 monsterSettingsConfig.getMonsterSpawnLight()),
             monsterSettingsConfig.getMonsterSpawnBlockLightLimit() == null

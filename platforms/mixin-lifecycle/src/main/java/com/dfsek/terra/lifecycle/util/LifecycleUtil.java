@@ -16,6 +16,6 @@ public final class LifecycleUtil {
         CommonPlatform.get().getEventManager().callEvent(new PlatformInitializationEvent());
         LifecycleBiomeUtil.registerBiomes(biomeMutableRegistry);
         CommonPlatform.get().registerWorldTypes(
-            (id, preset) -> Registry.register(worldPresetMutableRegistry, ResourceKey.of(Registries.WORLD_PRESET, id), preset));
+            (id, preset) -> Registry.register(worldPresetMutableRegistry, ResourceKey.create(Registries.WORLD_PRESET, id), preset));
     }
 }

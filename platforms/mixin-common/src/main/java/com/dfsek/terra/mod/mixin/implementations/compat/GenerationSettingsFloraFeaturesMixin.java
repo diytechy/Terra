@@ -25,7 +25,7 @@ public class GenerationSettingsFloraFeaturesMixin {
         this.flora = features;
     }
 
-    @Inject(method = "getFlowerFeatures()Ljava/util/List;", cancellable = true, at = @At("HEAD"))
+    @Inject(method = "getBoneMealFeatures()Ljava/util/List;", cancellable = true, at = @At("HEAD"))
     public void inject(CallbackInfoReturnable<List<ConfiguredFeature<?, ?>>> cir) {
         if(flora != null) {
             cir.setReturnValue(flora);

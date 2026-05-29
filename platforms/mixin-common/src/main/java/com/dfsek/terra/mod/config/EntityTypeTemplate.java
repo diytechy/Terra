@@ -15,6 +15,6 @@ public class EntityTypeTemplate implements ObjectTemplate<EntityType<?>> {
 
     @Override
     public EntityType<?> get() {
-        return BuiltInRegistries.ENTITY_TYPE.getEntry(id).orElseThrow().value();
+        return BuiltInRegistries.ENTITY_TYPE.get(id).orElseThrow().value();
     }
 }

@@ -38,17 +38,17 @@ import com.dfsek.terra.api.entity.Player;
 @Implements(@Interface(iface = CommandSender.class, prefix = "terra$"))
 public abstract class ServerCommandSourceMixin {
     @Shadow
-    public abstract ServerPlayer getPlayer() throws CommandSyntaxException;
+    public abstract ServerPlayer getPlayerOrException() throws CommandSyntaxException;
 
     @Shadow
     @Nullable
-    public abstract net.minecraft.entity.@Nullable Entity getEntity();
+    public abstract net.minecraft.world.entity.@Nullable Entity getEntity();
 
     @Shadow
-    public abstract void sendMessage(Component message);
+    public abstract void sendSystemMessage(Component message);
 
     public void terra$sendMessage(String message) {
-        sendMessage(Component.literal(message));
+        sendSystemMessage(Component.literal(message));
     }
 
     @Nullable
@@ -58,7 +58,7 @@ public abstract class ServerCommandSourceMixin {
 
     public Optional<Player> terra$getPlayer() {
         try {
-            return Optional.ofNullable((Player) getPlayer());
+            return Optional.ofNullable((Player) getPlayerOrException());
         } catch(CommandSyntaxException e) {
             return Optional.empty();
         }

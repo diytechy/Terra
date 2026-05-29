@@ -25,6 +25,6 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 
 @Mixin(BaseSpawner.class)
 public interface MobSpawnerLogicAccessor {
-    @Accessor("spawnEntry")
+    @Accessor("nextSpawnData")
     SpawnData getSpawnEntry();
 }

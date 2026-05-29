@@ -7,6 +7,6 @@ import org.spongepowered.asm.mixin.gen.Invoker;
 
 @Mixin(Biome.class)
 public interface BiomeInvoker {
-    @Invoker("getDefaultGrassColor")
+    @Invoker("getBaseGrassColor")
     int invokeGetDefaultGrassColor();
 }

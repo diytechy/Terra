@@ -40,7 +40,7 @@ public abstract class SignBlockEntityMixin {
     public abstract boolean setText(SignText text, boolean front);
 
     public void terra$setLine(int index, @NotNull String line) throws IndexOutOfBoundsException {
-        setText(frontText.withMessage(index, Component.literal(line)), true);
+        setText(frontText.setMessage(index, Component.literal(line)), true);
     }
 
     public @NotNull String[] terra$getLines() {

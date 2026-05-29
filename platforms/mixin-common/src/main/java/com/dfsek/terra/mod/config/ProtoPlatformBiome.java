@@ -39,7 +39,7 @@ public class ProtoPlatformBiome implements PlatformBiome {
     }
 
     public ResourceKey<Biome> get(Registry<net.minecraft.world.level.biome.Biome> registry) {
-        return MinecraftUtil.getEntry(registry, identifier).orElseThrow().getKey().orElseThrow();
+        return MinecraftUtil.getEntry(registry, identifier).orElseThrow().unwrapKey().orElseThrow();
     }
 
     @Override

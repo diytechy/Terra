@@ -29,8 +29,8 @@ public class BiomeParticleConfigTemplate implements ObjectTemplate<AmbientPartic
 
         try {
             return new AmbientParticle(
-                ParticleArgument.readParameters(new StringReader(particle),
-                    HolderLookup.WrapperLookup.of(Stream.of(BuiltInRegistries.PARTICLE_TYPE))),
+                ParticleArgument.readParticle(new StringReader(particle),
+                    HolderLookup.Provider.create(Stream.of(BuiltInRegistries.PARTICLE_TYPE))),
                 probability);
         } catch(CommandSyntaxException e) {
             throw new RuntimeException(e);

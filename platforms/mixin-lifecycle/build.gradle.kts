@@ -8,6 +8,9 @@ loom {
 
     mixin {
         defaultRefmapName.set("terra.lifecycle.refmap.json")
+        // 26.1 is non-obfuscated: disable the legacy compile-time mixin AP (it has no obf map and
+        // fatally errors on named @Inject targets). Loom builds the refmap at remap time instead.
+        useLegacyMixinAp.set(false)
     }
 }
 
@@ -16,12 +19,11 @@ dependencies {
 
     compileOnly("net.fabricmc:sponge-mixin:${Versions.Mod.mixin}")
     compileOnly("io.github.llamalad7:mixinextras-common:${Versions.Mod.mixinExtras}")
-    annotationProcessor("net.fabricmc:sponge-mixin:${Versions.Mod.mixin}")
 
     implementation(project(":platforms:mixin-common"))
 
     minecraft("com.mojang:minecraft:${Versions.Mod.minecraft}")
 
-    // TODO Phase 3 — re-add cloud-fabric once its AW namespace is migrated to official
-    // implementation("org.incendo", "cloud-fabric", Versions.Fabric.cloud) { ... }
+    implementation("net.fabricmc:fabric-loader:${Versions.Mod.fabricLoader}")
+    implementation("org.incendo", "cloud-fabric", Versions.Fabric.cloud)
 }

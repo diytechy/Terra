@@ -31,7 +31,7 @@ import java.util.Objects;
 import com.dfsek.terra.api.inventory.ItemStack;
 import com.dfsek.terra.mod.CommonPlatform;
 
-import static net.minecraft.world.item.enchantment.Enchantment.canBeCombined;
+import static net.minecraft.world.item.enchantment.Enchantment.areCompatible;
 
 
 @Mixin(Enchantment.class)
@@ -50,10 +50,10 @@ public abstract class EnchantmentMixin {
     }
 
     public boolean terra$conflictsWith(com.dfsek.terra.api.inventory.item.Enchantment other) {
-        return canBeCombined(Holder.of((Enchantment) (Object) this), Holder.of((Enchantment) (Object) other));
+        return areCompatible(Holder.direct((Enchantment) (Object) this), Holder.direct((Enchantment) (Object) other));
     }
 
     public String terra$getID() {
-        return Objects.requireNonNull(CommonPlatform.get().enchantmentRegistry().getId((Enchantment) (Object) this)).toString();
+        return Objects.requireNonNull(CommonPlatform.get().enchantmentRegistry().getKey((Enchantment) (Object) this)).toString();
     }
 }

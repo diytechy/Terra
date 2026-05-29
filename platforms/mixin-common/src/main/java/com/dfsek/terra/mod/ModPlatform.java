@@ -103,7 +103,7 @@ public abstract class ModPlatform extends AbstractPlatform {
 
     private ProtoPlatformBiome parseBiome(String id, DepthTracker tracker) throws LoadException {
         Identifier identifier = Identifier.tryParse(id);
-        if(!biomeRegistry().containsId(identifier)) throw new LoadException("Invalid Biome ID: " + identifier, tracker); // failure.
+        if(!biomeRegistry().containsKey(identifier)) throw new LoadException("Invalid Biome ID: " + identifier, tracker); // failure.
         return new ProtoPlatformBiome(identifier);
     }
 

@@ -15,14 +15,14 @@ import com.dfsek.terra.mod.implmentation.TerraIntProvider;
 
 
 public final class Codecs {
-    public static final Codec<ResourceKey> TERRA_REGISTRY_KEY = RecordCodecBuilder
+    public static final Codec<RegistryKey> TERRA_REGISTRY_KEY = RecordCodecBuilder
         .create(registryKey -> registryKey.group(Codec.STRING.fieldOf("namespace")
                     .stable()
-                    .forGetter(ResourceKey::getNamespace),
+                    .forGetter(RegistryKey::getNamespace),
                 Codec.STRING.fieldOf("id")
                     .stable()
-                    .forGetter(ResourceKey::getID))
-            .apply(registryKey, registryKey.stable(ResourceKey::of)));
+                    .forGetter(RegistryKey::getID))
+            .apply(registryKey, registryKey.stable(RegistryKey::of)));
 
     public static final Codec<ConfigPack> CONFIG_PACK = RecordCodecBuilder
         .create(config -> config.group(TERRA_REGISTRY_KEY.fieldOf("pack")

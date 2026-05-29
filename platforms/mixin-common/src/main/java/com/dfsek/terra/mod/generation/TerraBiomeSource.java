@@ -17,13 +17,14 @@
 
 package com.dfsek.terra.mod.generation;
 
+import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.MapCodec;
 import net.minecraft.core.Holder;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.BiomeSource;
-import net.minecraft.world.level.biome.Climate.MultiNoiseSampler;
+import net.minecraft.world.level.biome.Climate.Sampler;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,16 +56,16 @@ public class TerraBiomeSource extends BiomeSource {
     public TerraBiomeSource(ConfigPack pack) {
         this.pack = pack;
 
-        LOGGER.debug("Biomes: " + getBiomes());
+        LOGGER.debug("Biomes: " + possibleBiomes());
     }
 
     @Override
-    protected MapCodec<? extends BiomeSource> getCodec() {
+    protected MapCodec<? extends BiomeSource> codec() {
         return Codecs.TERRA_BIOME_SOURCE;
     }
 
     @Override
-    protected Stream<Holder<Biome>> biomeStream() {
+    protected Stream<Holder<Biome>> collectPossibleBiomes() {
         return StreamSupport
             .stream(pack.getBiomeProvider()
                 .getBiomes()
@@ -77,19 +78,19 @@ public class TerraBiomeSource extends BiomeSource {
     // on the Minecraft version and mapping set. Verify against the active Minecraft jar's
     // BiomeSource class before enabling. The pattern is identical to NMSBiomeProvider.
     @Override
-    public @Nullable BlockPos findBiomeHorizontally(int x, int y, int z, int radius, int step,
+    public @Nullable Pair<BlockPos, Holder<Biome>> findBiomeHorizontal(int x, int y, int z, int radius, int step,
             Predicate<Holder<Biome>> predicate, RandomSource random,
             boolean bl, Sampler noiseSampler) {
         IN_STRUCTURE_SEARCH.set(true);
         try {
-            return super.findBiomeHorizontally(x, y, z, radius, step, predicate, random, bl, noiseSampler);
+            return super.findBiomeHorizontal(x, y, z, radius, step, predicate, random, bl, noiseSampler);
         } finally {
             IN_STRUCTURE_SEARCH.set(false);
         }
     }
 
     @Override
-    public Holder<Biome> getBiome(int biomeX, int biomeY, int biomeZ, Sampler noiseSampler) {
+    public Holder<Biome> getNoiseBiome(int biomeX, int biomeY, int biomeZ, Sampler noiseSampler) {
         long seed = SeedHack.getSeed(noiseSampler);
 
         if(IN_STRUCTURE_SEARCH.get()) {

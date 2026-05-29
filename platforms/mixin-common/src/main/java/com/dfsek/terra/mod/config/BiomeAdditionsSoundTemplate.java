@@ -22,7 +22,7 @@ public class BiomeAdditionsSoundTemplate implements ObjectTemplate<AmbientAdditi
         if(sound == null || soundChance == null) {
             return null;
         } else {
-            return new AmbientAdditionsSettings(BuiltInRegistries.SOUND_EVENT.getEntry(sound), soundChance);
+            return new AmbientAdditionsSettings(BuiltInRegistries.SOUND_EVENT.wrapAsHolder(sound), soundChance);
         }
     }
 }

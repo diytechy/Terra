@@ -28,14 +28,14 @@ public class SpawnSettingsTemplate implements ObjectTemplate<MobSpawnSettings> {
         for(SpawnTypeConfig spawn : spawns) {
             MobCategory group = spawn.getGroup();
             for(SpawnEntryConfig entry : spawn.getEntries()) {
-                builder.spawn(group, entry.getWeight(), entry.getSpawnEntry());
+                builder.addSpawn(group, entry.getWeight(), entry.getSpawnEntry());
             }
         }
         for(SpawnCostConfig cost : costs) {
-            builder.spawnCost(cost.getType(), cost.getMass(), cost.getGravity());
+            builder.addMobCharge(cost.getType(), cost.getMass(), cost.getGravity());
         }
         if(probability != null) {
-            builder.creatureSpawnProbability(probability);
+            builder.creatureGenerationProbability(probability);
         }
 
         return builder.build();

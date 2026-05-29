@@ -73,7 +73,7 @@ public class PresetUtil {
         Registry<MultiNoiseBiomeSourceParameterList> multiNoiseBiomeSourceParameterLists =
             platform.multiNoiseBiomeSourceParameterListRegistry();
 
-        Identifier generatorID = Identifier.of("terra",
+        Identifier generatorID = Identifier.fromNamespaceAndPath("terra",
             metaPack.getID().toLowerCase(Locale.ROOT) + "/" + metaPack.getNamespace().toLowerCase(
                 Locale.ROOT));
 
@@ -96,7 +96,7 @@ public class PresetUtil {
     private static void insertCustom(ModPlatform platform, String key, ConfigPack pack, Registry<DimensionType> dimensionTypeRegistry,
                                      Registry<NoiseGeneratorSettings> chunkGeneratorSettingsRegistry,
                                      HashMap<ResourceKey<LevelStem>, LevelStem> dimensionMap, boolean packInMetapack) {
-        Identifier demensionIdentifier = Identifier.of(key);
+        Identifier demensionIdentifier = Identifier.parse(key);
 
         VanillaWorldProperties vanillaWorldProperties;
 
@@ -106,11 +106,11 @@ public class PresetUtil {
             vanillaWorldProperties = new VanillaWorldProperties();
         }
 
-        DimensionType defaultDimension = dimensionTypeRegistry.get(Identifier.of(vanillaWorldProperties.getVanillaDimension()));
+        DimensionType defaultDimension = dimensionTypeRegistry.getValue(Identifier.parse(vanillaWorldProperties.getVanillaDimension()));
 
         assert defaultDimension != null;
 
-        Identifier dimensionTypeID = Identifier.of("terra", pack.getID().toLowerCase(Locale.ROOT));
+        Identifier dimensionTypeID = Identifier.fromNamespaceAndPath("terra", pack.getID().toLowerCase(Locale.ROOT));
 
         DimensionType dimensionType;
         if(!packInMetapack) {
@@ -118,34 +118,34 @@ public class PresetUtil {
             ResourceKey<DimensionType> dimensionTypeRegistryKey = MinecraftUtil.registerDimensionTypeKey(
                 dimensionTypeID);
 
-            Registry.registerReference(dimensionTypeRegistry, dimensionTypeRegistryKey, dimensionType);
+            Registry.registerForHolder(dimensionTypeRegistry, dimensionTypeRegistryKey, dimensionType);
         } else {
-            dimensionType = dimensionTypeRegistry.get(dimensionTypeID);
+            dimensionType = dimensionTypeRegistry.getValue(dimensionTypeID);
         }
 
-        Holder<DimensionType> dimensionTypeRegistryEntry = dimensionTypeRegistry.getEntry(dimensionType);
+        Holder<DimensionType> dimensionTypeRegistryEntry = dimensionTypeRegistry.wrapAsHolder(dimensionType);
 
         TerraBiomeSource biomeSource = new TerraBiomeSource(pack);
 
-        Holder<NoiseGeneratorSettings> defaultGeneratorSettings = chunkGeneratorSettingsRegistry.getEntry(
-            chunkGeneratorSettingsRegistry.get(Identifier.of(vanillaWorldProperties.getVanillaGeneration())));
+        Holder<NoiseGeneratorSettings> defaultGeneratorSettings = chunkGeneratorSettingsRegistry.get(
+            Identifier.parse(vanillaWorldProperties.getVanillaGeneration())).orElseThrow();
 
         GenerationSettings generatorSettings = new GenerationSettings(
             vanillaWorldProperties.getHeight() == null ? new ConstantRange(
-                defaultGeneratorSettings.value().generationShapeConfig().minimumY(),
-                defaultGeneratorSettings.value().generationShapeConfig().height()) : vanillaWorldProperties.getHeight(),
+                defaultGeneratorSettings.value().noiseSettings().minY(),
+                defaultGeneratorSettings.value().noiseSettings().height()) : vanillaWorldProperties.getHeight(),
             vanillaWorldProperties.getSealevel() == null
             ? defaultGeneratorSettings.value().seaLevel()
             : vanillaWorldProperties.getSealevel(),
             vanillaWorldProperties.getMobGeneration() == null
-            ? !defaultGeneratorSettings.value().mobGenerationDisabled()
+            ? !defaultGeneratorSettings.value().disableMobGeneration()
             : vanillaWorldProperties.getMobGeneration(),
             vanillaWorldProperties.getSpawnHeight());
 
         ChunkGenerator generator = new MinecraftChunkGeneratorWrapper(biomeSource, pack, generatorSettings);
 
         LevelStem dimensionOptions = new LevelStem(dimensionTypeRegistryEntry, generator);
-        ResourceKey<LevelStem> dimensionOptionsRegistryKey = ResourceKey.of(Registries.DIMENSION, demensionIdentifier);
+        ResourceKey<LevelStem> dimensionOptionsRegistryKey = ResourceKey.create(Registries.LEVEL_STEM, demensionIdentifier);
         dimensionMap.put(dimensionOptionsRegistryKey, dimensionOptions);
     }
 
@@ -154,49 +154,43 @@ public class PresetUtil {
                                        Registry<MultiNoiseBiomeSourceParameterList> multiNoiseBiomeSourceParameterLists,
                                        Registry<Biome> biomeRegistry, HashMap<ResourceKey<LevelStem>, LevelStem> map) {
         if(!map.containsKey(LevelStem.OVERWORLD)) {
-            Holder<DimensionType> overworldDimensionType = dimensionTypeRegistry.getEntry(
-                dimensionTypeRegistry.get(BuiltinDimensionTypes.OVERWORLD));
+            Holder<DimensionType> overworldDimensionType = dimensionTypeRegistry.getOrThrow(BuiltinDimensionTypes.OVERWORLD);
 
             Holder<MultiNoiseBiomeSourceParameterList> overworldChunkBiomeReference =
-                multiNoiseBiomeSourceParameterLists.getEntry(multiNoiseBiomeSourceParameterLists.get(
-                    MultiNoiseBiomeSourceParameterLists.OVERWORLD));
+                multiNoiseBiomeSourceParameterLists.getOrThrow(MultiNoiseBiomeSourceParameterLists.OVERWORLD);
 
-            Holder<NoiseGeneratorSettings> overworldChunkGeneratorSettings = chunkGeneratorSettingsRegistry.getEntry(
-                chunkGeneratorSettingsRegistry.get(
-                    NoiseGeneratorSettings.OVERWORLD));
+            Holder<NoiseGeneratorSettings> overworldChunkGeneratorSettings =
+                chunkGeneratorSettingsRegistry.getOrThrow(NoiseGeneratorSettings.OVERWORLD);
 
 
             LevelStem overworldDimensionOptions = new LevelStem(overworldDimensionType,
-                (new NoiseBasedChunkGenerator(MultiNoiseBiomeSource.create(overworldChunkBiomeReference), overworldChunkGeneratorSettings)));
+                (new NoiseBasedChunkGenerator(MultiNoiseBiomeSource.createFromPreset(overworldChunkBiomeReference),
+                    overworldChunkGeneratorSettings)));
             map.put(LevelStem.OVERWORLD, overworldDimensionOptions);
         }
         if(!map.containsKey(LevelStem.NETHER)) {
-            Holder<DimensionType> netherDimensionType = dimensionTypeRegistry.getEntry(
-                dimensionTypeRegistry.get(BuiltinDimensionTypes.THE_NETHER));
+            Holder<DimensionType> netherDimensionType = dimensionTypeRegistry.getOrThrow(BuiltinDimensionTypes.NETHER);
 
             Holder<MultiNoiseBiomeSourceParameterList> netherChunkBiomeReference =
-                multiNoiseBiomeSourceParameterLists.getEntry(multiNoiseBiomeSourceParameterLists.get(
-                    MultiNoiseBiomeSourceParameterLists.NETHER));
+                multiNoiseBiomeSourceParameterLists.getOrThrow(MultiNoiseBiomeSourceParameterLists.NETHER);
 
-            Holder<NoiseGeneratorSettings> netherChunkGeneratorSettings = chunkGeneratorSettingsRegistry.getEntry(
-                chunkGeneratorSettingsRegistry.get(
-                    NoiseGeneratorSettings.NETHER));
+            Holder<NoiseGeneratorSettings> netherChunkGeneratorSettings =
+                chunkGeneratorSettingsRegistry.getOrThrow(NoiseGeneratorSettings.NETHER);
 
             LevelStem overworldDimensionOptions = new LevelStem(netherDimensionType,
-                (new NoiseBasedChunkGenerator(MultiNoiseBiomeSource.create(netherChunkBiomeReference), netherChunkGeneratorSettings)));
+                (new NoiseBasedChunkGenerator(MultiNoiseBiomeSource.createFromPreset(netherChunkBiomeReference),
+                    netherChunkGeneratorSettings)));
             map.put(LevelStem.NETHER, overworldDimensionOptions);
         }
         if(!map.containsKey(LevelStem.END)) {
-            Holder<DimensionType> endDimensionType = dimensionTypeRegistry.getEntry(
-                dimensionTypeRegistry.get(BuiltinDimensionTypes.THE_END));
+            Holder<DimensionType> endDimensionType = dimensionTypeRegistry.getOrThrow(BuiltinDimensionTypes.END);
 
-            Holder<NoiseGeneratorSettings> endChunkGeneratorSettings = chunkGeneratorSettingsRegistry.getEntry(
-                chunkGeneratorSettingsRegistry.get(
-                    NoiseGeneratorSettings.END));
+            Holder<NoiseGeneratorSettings> endChunkGeneratorSettings =
+                chunkGeneratorSettingsRegistry.getOrThrow(NoiseGeneratorSettings.END);
 
 
             LevelStem overworldDimensionOptions = new LevelStem(endDimensionType,
-                (new NoiseBasedChunkGenerator(TheEndBiomeSource.createVanilla(biomeRegistry), endChunkGeneratorSettings)));
+                (new NoiseBasedChunkGenerator(TheEndBiomeSource.create(biomeRegistry), endChunkGeneratorSettings)));
             map.put(LevelStem.END, overworldDimensionOptions);
         }
     }

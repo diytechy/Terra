@@ -55,15 +55,15 @@ public abstract class MobSpawnerBlockEntityMixin extends BlockEntity {
     public abstract void setEntityType(net.minecraft.world.entity.EntityType<?> entityType, RandomSource random);
 
     public EntityType terra$getSpawnedType() {
-        return (EntityType) BuiltInRegistries.ENTITY_TYPE.getEntry(
-                Identifier.tryParse(((MobSpawnerLogicAccessor) getLogic()).getSpawnEntry().getNbt().getString("id").orElseThrow()))
-            .orElseThrow();
+        return (EntityType) BuiltInRegistries.ENTITY_TYPE.get(
+                Identifier.tryParse(((MobSpawnerLogicAccessor) getLogic()).getSpawnEntry().getEntityToSpawn().getString("id").orElseThrow()))
+            .orElseThrow().value();
     }
 
     public void terra$setSpawnedType(@NotNull EntityType creatureType) {
         RandomSource rand;
-        if(hasWorld()) {
-            rand = world.getRandom();
+        if(hasLevel()) {
+            rand = level.getRandom();
         } else {
             rand = RandomSource.create();
         }

@@ -30,7 +30,7 @@ public class BiomeMoodSoundTemplate implements ObjectTemplate<AmbientMoodSetting
         if(sound == null || soundCultivationTicks == null || soundSpawnRange == null || soundExtraDistance == null) {
             return null;
         } else {
-            return new AmbientMoodSettings(BuiltInRegistries.SOUND_EVENT.getEntry(sound), soundCultivationTicks, soundSpawnRange, soundExtraDistance);
+            return new AmbientMoodSettings(BuiltInRegistries.SOUND_EVENT.wrapAsHolder(sound), soundCultivationTicks, soundSpawnRange, soundExtraDistance);
         }
     }
 }

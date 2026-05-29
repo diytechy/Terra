@@ -28,7 +28,7 @@ public class MusicSoundTemplate implements ObjectTemplate<Music> {
         if(sound == null || delay == null || replaceCurrentMusic == null) {
             return null;
         } else {
-            return new Music(BuiltInRegistries.SOUND_EVENT.getEntry(sound), delay.getMin(), delay.getMax(), replaceCurrentMusic);
+            return new Music(BuiltInRegistries.SOUND_EVENT.wrapAsHolder(sound), delay.getMin(), delay.getMax(), replaceCurrentMusic);
         }
     }
 }

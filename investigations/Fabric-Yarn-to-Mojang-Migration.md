@@ -1,9 +1,88 @@
 # Fabric 26.1 — Yarn → Mojang Source Migration (WIP)
 
 **Branch:** `Fabric`
-**Status:** structural class/import migration applied; **does not compile yet** —
-`mixin-common` has ~309 compile errors remaining (per-site API porting). This doc is
-the turnkey resume reference. Start a fresh session and work from here.
+**Status:** ✅ **`:platforms:fabric:build` is BUILD SUCCESSFUL** — full chain (compile +
+mixin refmap + accesswidener + remap + jar) passes for `mixin-common`, `mixin-lifecycle`,
+and `fabric`. Jar produced at `platforms/fabric/build/libs/Terra-fabric-*.jar`.
+**Remaining: runtime verification** (launch + world-gen), and two mixins flagged below
+that compile but need their injection points re-derived against decompiled 26.1.
+
+## ⚠ Two mixins compile but are NOT yet runtime-correct (must fix before launch)
+Both carry a `TODO (26.1 runtime)` comment. The compile-time mixin AP is disabled (see below),
+so wrong injection points/locals do NOT fail compile — they fail at mixin-apply (load) time.
+- **`RegistryLoaderMixin`** — `RegistryDataLoader` became async and its internal `Loader` type was
+  removed (now anonymous classes + `LoaderFactory`). The `@At`/`@Local(List<WritableRegistry>)`
+  capture and `@Inject` targets are type-ported guesses; re-derive against decompiled
+  `RegistryDataLoader.load(ResourceManager, List<HolderLookup.RegistryLookup>, List<RegistryData>, Executor)`.
+  This is the registry-load interception that injects Terra biomes — **critical** for worldgen.
+- **`SaveLoadingMixin`** — yarn `SaveLoading` → Mojang `WorldLoader`; the `@ModifyArg` method/target
+  descriptors (and `ReloadableServerResources.reload`→`loadResources`) are best-effort and need
+  re-derivation against decompiled `WorldLoader.load`.
+
+## ✅ VanillaBiomeProperties overrides RESTORED via the 26.1 EnvironmentAttribute system
+The dropped biome overrides are back in `BiomeUtil.createBiome`: fog/sky/water-fog colors,
+music volume, music, particles, ambient sounds are re-applied with
+`BiomeBuilder.setAttribute(EnvironmentAttributes.X, value)` (each only when the pack sets it;
+vanilla's are carried via `putAttributes(vanilla.getAttributes())`). Type adapters:
+`new BackgroundMusic(Music)`, `List.of(AmbientParticle)`, `new AmbientSounds(Optional<Holder<SoundEvent>>,
+Optional<AmbientMoodSettings>, List<AmbientAdditionsSettings>)`. Faithful vanilla downfall/
+temperatureModifier read via `BiomeAccessor`(@Accessor climateSettings → Object) +
+`ClimateSettingsAccessor`(string-targeted @Invoker) — works now that the compile-time AP is off.
+
+## ⏳ VanillaWorldProperties (dimension) overrides — still dropped, recoverable the same way
+`DimensionUtil.createDimension` currently copies the new DimensionType fields (skybox,
+cardinalLightType, attributes, timelines, defaultClock) from the default and drops the
+ultrawarm/natural/bedWorks/respawnAnchorWorks/fixedTime/effects/cloudHeight config overrides.
+These map to `EnvironmentAttributes` too: `BED_RULE`, `RESPAWN_ANCHOR_WORKS`, `CLOUD_HEIGHT` are
+1:1; `ultrawarm`≈`WATER_EVAPORATES`+`FAST_LAVA`+`INCREASED_FIRE_BURNOUT`; `natural`≈
+`NETHER_PORTAL_SPAWNS_PIGLINS`/`CAN_START_RAID` combo; `fixedTime`/`effects`(skybox) now live in
+the timeline/skybox system (more involved). Build a modified `EnvironmentAttributeMap` from the
+default and pass it as the `attributes` ctor arg. Deferred pending a decision on fidelity scope.
+
+## ⚠ Build-config change made this session (important)
+On **non-obfuscated** MC 26.1, loom **rejects** `mappings(loom.officialMojangMappings())`
+("Cannot use Mojang mappings in a non-obfuscated environment"), and the legacy
+sponge-mixin annotation processor **fatally errors on named `@Inject` targets**
+("Unable to locate obfuscation mapping") because there is no obf map. Fix applied in
+`platforms/mixin-common/build.gradle.kts`:
+- `loom { mixin { useLegacyMixinAp.set(false) } }`
+- removed the explicit `annotationProcessor("net.fabricmc:sponge-mixin:…")` (kept `compileOnly`).
+This disables the **compile-time** mixin AP, so mixin `@At`/`@Inject`/`@Shadow`/`@Accessor`
+targets are **no longer validated at compile** — they will only fail at **runtime** if wrong.
+Loom still generates the refmap at remap time (identity, since dev names == runtime names).
+**mixin-lifecycle and fabric will almost certainly need the same build change.**
+Side effect that bit us: while the legacy AP was enabled it **silently masked real javac
+errors** in whole files (DimensionUtil/PresetUtil/MinecraftAdapter showed 0 errors that were
+actually ~38) — always disable it (or fix the @Inject) before trusting an error count.
+
+## ⚠ 26.1 API overhauls that forced behavior reductions (revisit at runtime-verify)
+- **`BiomeSpecialEffects`** slimmed to {waterColor, grass/foliage/dryFoliage overrides,
+  grassColorModifier}. Fog/sky/water-fog colors, music, particles, ambient sounds became
+  **`EnvironmentAttribute`s**. `BiomeUtil.createBiome` now copies vanilla attributes via
+  `BiomeBuilder.putAttributes(vanilla.getAttributes())` and **drops config overrides** for
+  fog/sky/music/particle/sounds (the `VanillaBiomeProperties` getters for those are now unused).
+- **`Biome.ClimateSettings` is package-private** with no public `downfall()`/`temperatureModifier()`
+  getter → `BiomeUtil` defaults downfall to `0.5f` and temp-modifier to `NONE` when config
+  doesn't override (was: copied from vanilla). `BiomeAccessor`/`ClimateSettingsAccessor` were
+  deleted (can't @Accessor a package-private-typed field).
+- **`DimensionType`** record fully restructured (16 components; added skybox, cardinalLightType,
+  EnvironmentAttributeMap, timelines, defaultClock; dropped fixedTime/ultrawarm/natural/bedWorks/
+  respawnAnchorWorks/effects/cloudHeight). `DimensionUtil` now copies the new fields from the
+  default dimension and **drops those config overrides**. `MonsterSettings` ctor is now
+  `(IntProvider, int)` — dropped piglinSafe/hasRaids.
+- **`StateHolder.PROPERTY_MAP_PRINTER` removed** → `StateAccessor` deleted; `BlockStateMixin.
+  terra$getAsString` now uses `BlockStateParser.serialize(state)`.
+- **yarn `BlockStateArgument` (result holder) = Mojang `BlockInput`** (NOT the `BlockStateArgument`
+  ArgumentType). Migration had mis-mapped it everywhere; corrected across 6 files.
+- **`IntProvider` is now an interface** (sample/minInclusive/maxInclusive/codec). `TerraIntProvider`
+  `implements` it; registration via `Registry.register(BuiltInRegistries.INT_PROVIDER_TYPE,…)`
+  returning `MapCodec<? extends IntProvider>`.
+- Tick scheduling rewritten: `MinecraftUtil.schedulePhysics(state, pos, ScheduledTickAccess)` uses
+  the `scheduleTick(pos, fluid/block, delay)` default (delay 0) instead of per-scheduler ticks.
+
+### Original (pre-session) status, kept for reference
+structural class/import migration applied; mixin-common had ~309 compile errors (per-site
+API porting), now all resolved.
 
 ---
 

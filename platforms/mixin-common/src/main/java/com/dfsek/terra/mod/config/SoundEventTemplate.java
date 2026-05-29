@@ -21,9 +21,9 @@ public class SoundEventTemplate implements ObjectTemplate<SoundEvent> {
         if(id == null) {
             return null;
         } else if(distanceToTravel == null) {
-            return SoundEvent.of(id);
+            return SoundEvent.createVariableRangeEvent(id);
         } else {
-            return SoundEvent.of(id, distanceToTravel);
+            return SoundEvent.createFixedRangeEvent(id, distanceToTravel);
         }
     }
 }

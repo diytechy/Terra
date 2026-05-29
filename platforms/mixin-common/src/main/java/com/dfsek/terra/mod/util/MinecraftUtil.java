@@ -1,13 +1,12 @@
 package com.dfsek.terra.mod.util;
 
-import net.minecraft.world.level.block.Block;
+import com.mojang.serialization.MapCodec;
 import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.entity.RandomizableContainerBlockEntity;
 import net.minecraft.world.level.block.entity.SpawnerBlockEntity;
 import net.minecraft.world.level.block.entity.SignBlockEntity;
-import net.minecraft.commands.arguments.blocks.BlockStateArgument;
-import net.minecraft.world.level.material.Fluid;
+import net.minecraft.commands.arguments.blocks.BlockInput;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceKey;
@@ -15,15 +14,15 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.core.Holder;
 import net.minecraft.resources.Identifier;
 import net.minecraft.core.BlockPos;
-import net.minecraft.util.math.intprovider.IntProviderType;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.util.valueproviders.IntProvider;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraft.world.level.levelgen.feature.ConfiguredFeature;
-import net.minecraft.world.ticks.ScheduledTick;
-import net.minecraft.world.ticks.TickAccess;
+import net.minecraft.world.level.ScheduledTickAccess;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,8 +53,7 @@ public final class MinecraftUtil {
     }
 
     public static <T> Optional<Holder<T>> getEntry(Registry<T> registry, Identifier identifier) {
-        return registry.getOptionalValue(identifier)
-            .flatMap(id -> Optional.ofNullable(registry.getEntry(id)));
+        return registry.getOptional(identifier).map(registry::wrapAsHolder);
     }
 
     public static BlockEntity createBlockEntity(LevelAccessor worldAccess, BlockPos pos) {
@@ -70,34 +68,33 @@ public final class MinecraftUtil {
         return null;
     }
 
-    public static void schedulePhysics(BlockState blockState, BlockPos blockPos, TickAccess<Fluid> fluidScheduler,
-                                       TickAccess<Block> blockScheduler) {
-        if(blockState.isLiquid()) {
-            fluidScheduler.scheduleTick(ScheduledTick.create(blockState.getFluidState().getFluid(), blockPos));
+    public static void schedulePhysics(BlockState blockState, BlockPos blockPos, ScheduledTickAccess tickAccess) {
+        if(!blockState.getFluidState().isEmpty()) {
+            tickAccess.scheduleTick(blockPos, blockState.getFluidState().getType(), 0);
         } else {
-            blockScheduler.scheduleTick(ScheduledTick.create(blockState.getBlock(), blockPos));
+            tickAccess.scheduleTick(blockPos, blockState.getBlock(), 0);
         }
     }
 
     public static boolean isCompatibleBlockStateExtended(com.dfsek.terra.api.block.state.BlockState blockState) {
-        return blockState.isExtended() && BlockStateArgument.class.isAssignableFrom(blockState.getClass());
+        return blockState.isExtended() && BlockInput.class.isAssignableFrom(blockState.getClass());
     }
 
     //[Vanilla Copy]
     public static void loadBlockEntity(ChunkAccess chunk, Level world, BlockPos blockPos, BlockState state, CompoundTag nbt) {
         net.minecraft.world.level.block.entity.BlockEntity blockEntity;
-        if("DUMMY".equals(nbt.getString("id", ""))) {
+        if("DUMMY".equals(nbt.getStringOr("id", ""))) {
             if(state.hasBlockEntity()) {
-                blockEntity = ((EntityBlock) state.getBlock()).createBlockEntity(blockPos, state);
+                blockEntity = ((EntityBlock) state.getBlock()).newBlockEntity(blockPos, state);
             } else {
                 blockEntity = null;
             }
         } else {
-            blockEntity = net.minecraft.world.level.block.entity.BlockEntity.createFromNbt(blockPos, state, nbt, world.getRegistryManager());
+            blockEntity = net.minecraft.world.level.block.entity.BlockEntity.loadStatic(blockPos, state, nbt, world.registryAccess());
         }
 
         if(blockEntity != null) {
-            blockEntity.setWorld(world);
+            blockEntity.setLevel(world);
             chunk.setBlockEntity(blockEntity);
         }
     }
@@ -107,8 +104,8 @@ public final class MinecraftUtil {
     }
 
     public static void registerIntProviderTypes() {
-        IntProviderType<TerraIntProvider> CONSTANT = IntProviderType.register("terra:constant_range",
-            Codecs.TERRA_CONSTANT_RANGE_INT_PROVIDER_TYPE);
+        MapCodec<? extends IntProvider> CONSTANT = Registry.register(BuiltInRegistries.INT_PROVIDER_TYPE,
+            "terra:constant_range", Codecs.TERRA_CONSTANT_RANGE_INT_PROVIDER_TYPE);
 
         TerraIntProvider.TERRA_RANGE_TYPE_TO_INT_PROVIDER_TYPE.put(ConstantRange.class, CONSTANT);
     }
@@ -130,14 +127,14 @@ public final class MinecraftUtil {
                                       com.dfsek.terra.api.registry.key.RegistryKey id,
                                       Registry<net.minecraft.world.level.biome.Biome> biomeRegistry) {
         ResourceKey<net.minecraft.world.level.biome.Biome> vanillaKey = ((ProtoPlatformBiome) biome.getPlatformBiome()).get(biomeRegistry);
-        biomeRegistry.getOptionalValue(vanillaKey)
+        biomeRegistry.getOptional(vanillaKey)
             .ifPresentOrElse(vanillaBiome -> {
-                    Identifier terraBiomeIdentifier = Identifier.of("terra", BiomeUtil.createBiomeID(pack, id));
-                    biomeRegistry.getOptionalValue(terraBiomeIdentifier).ifPresentOrElse(
+                    Identifier terraBiomeIdentifier = Identifier.fromNamespaceAndPath("terra", BiomeUtil.createBiomeID(pack, id));
+                    biomeRegistry.getOptional(terraBiomeIdentifier).ifPresentOrElse(
                         terraBiome -> {
                             List<ConfiguredFeature<?, ?>> flowerFeatures = List.copyOf(
                                 vanillaBiome.getGenerationSettings()
-                                    .getFlowerFeatures());
+                                    .getBoneMealFeatures());
                             logger.debug("Injecting flora into biome" +
                                          " {} : {}", terraBiomeIdentifier,
                                 flowerFeatures);
@@ -153,10 +150,10 @@ public final class MinecraftUtil {
     }
 
     public static ResourceKey<Biome> registerBiomeKey(Identifier identifier) {
-        return ResourceKey.of(Registries.BIOME, identifier);
+        return ResourceKey.create(Registries.BIOME, identifier);
     }
 
     public static ResourceKey<DimensionType> registerDimensionTypeKey(Identifier identifier) {
-        return ResourceKey.of(Registries.DIMENSION_TYPE, identifier);
+        return ResourceKey.create(Registries.DIMENSION_TYPE, identifier);
     }
 }

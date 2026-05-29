@@ -48,7 +48,7 @@ public abstract class ItemStackMetaMixin {
 
     public void terra$addEnchantment(Enchantment enchantment, int level) {
         ;
-        addEnchantment(Holder.of((net.minecraft.world.item.enchantment.Enchantment) (Object) enchantment), level);
+        addEnchantment(Holder.direct((net.minecraft.world.item.enchantment.Enchantment) (Object) enchantment), level);
     }
 
     @Intrinsic(displace = true)
@@ -57,9 +57,9 @@ public abstract class ItemStackMetaMixin {
         Map<Enchantment, Integer> map = new HashMap<>();
 
         ItemEnchantments enchantments = getEnchantments();
-        enchantments.getEnchantments().forEach(enchantment -> {
+        enchantments.keySet().forEach(enchantment -> {
             net.minecraft.world.item.enchantment.Enchantment enchantmentValue = enchantment.value();
-            map.put((Enchantment) (Object) enchantmentValue, enchantments.getLevel(Holder.of(enchantmentValue)));
+            map.put((Enchantment) (Object) enchantmentValue, enchantments.getLevel(Holder.direct(enchantmentValue)));
         });
         return map;
     }

@@ -30,11 +30,11 @@ import com.dfsek.terra.api.block.BlockType;
 @Implements(@Interface(iface = BlockType.class, prefix = "terra$"))
 public abstract class BlockMixin {
     public com.dfsek.terra.api.block.state.BlockState terra$getDefaultState() {
-        return (com.dfsek.terra.api.block.state.BlockState) ((Block) (Object) this).getDefaultState();
+        return (com.dfsek.terra.api.block.state.BlockState) ((Block) (Object) this).defaultBlockState();
     }
 
     public boolean terra$isSolid() {
-        return ((Block) (Object) this).getDefaultState().isOpaque();
+        return ((Block) (Object) this).defaultBlockState().canOcclude();
     }
 
     @SuppressWarnings("ConstantConditions")

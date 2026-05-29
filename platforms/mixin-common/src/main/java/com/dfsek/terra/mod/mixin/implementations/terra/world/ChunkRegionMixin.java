@@ -17,18 +17,16 @@
 
 package com.dfsek.terra.mod.mixin.implementations.terra.world;
 
-import net.minecraft.world.level.block.Block;
-import net.minecraft.commands.arguments.blocks.BlockStateArgument;
+import net.minecraft.commands.arguments.blocks.BlockInput;
 import net.minecraft.world.entity.EntitySpawnReason;
-import net.minecraft.world.level.material.Fluid;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.util.collection.BoundedRegionArray;
+import net.minecraft.util.StaticCache2D;
 import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.GenerationChunkHolder;
 import net.minecraft.server.level.WorldGenRegion;
 import net.minecraft.world.level.WorldGenLevel;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.status.ChunkStep;
-import net.minecraft.world.ticks.LevelTickAccess;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Implements;
 import org.spongepowered.asm.mixin.Interface;
@@ -69,23 +67,15 @@ public abstract class ChunkRegionMixin implements WorldGenLevel {
     private long seed;
     @Shadow
     @Final
-    private ChunkAccess centerPos;
-
-    @Shadow
-    @Final
-    private LevelTickAccess<Fluid> fluidTickScheduler;
-
-    @Shadow
-    @Final
-    private LevelTickAccess<Block> blockTickScheduler;
+    private ChunkAccess center;
 
 
     @Inject(at = @At("RETURN"),
-            method = "<init>(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/util/collection/BoundedRegionArray;" +
+            method = "<init>(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/util/StaticCache2D;" +
                      "Lnet/minecraft/world/level/chunk/status/ChunkStep;Lnet/minecraft/world/level/chunk/ChunkAccess;)V")
-    public void injectConstructor(net.minecraft.server.level.ServerLevel world, BoundedRegionArray chunks,
-                                  ChunkStep generationStep, ChunkAccess centerPos, CallbackInfo ci) {
-        this.terra$config = ((ServerLevel) world).getPack();
+    public void injectConstructor(net.minecraft.server.level.ServerLevel world, StaticCache2D<GenerationChunkHolder> chunks,
+                                  ChunkStep generationStep, ChunkAccess center, CallbackInfo ci) {
+        this.terra$config = ((ServerWorld) world).getPack();
     }
 
 
@@ -98,19 +88,19 @@ public abstract class ChunkRegionMixin implements WorldGenLevel {
         boolean isExtended = MinecraftUtil.isCompatibleBlockStateExtended(data);
 
         if(isExtended) {
-            BlockStateArgument arg = ((BlockStateArgument) data);
-            state = arg.getBlockState();
-            setBlockState(blockPos, state, flags);
+            BlockInput arg = ((BlockInput) data);
+            state = arg.getState();
+            setBlock(blockPos, state, flags);
             net.minecraft.world.level.chunk.ChunkAccess chunk = getChunk(blockPos);
             CompoundTag nbt = ((CompoundTag) (Object) ((BlockStateExtended) data).getData());
             MinecraftUtil.loadBlockEntity(chunk, world, blockPos, state, nbt);
         } else {
             state = (net.minecraft.world.level.block.state.BlockState) data;
-            setBlockState(blockPos, state, flags);
+            setBlock(blockPos, state, flags);
         }
 
         if(physics) {
-            MinecraftUtil.schedulePhysics(state, blockPos, getFluidTickScheduler(), getBlockTickScheduler());
+            MinecraftUtil.schedulePhysics(state, blockPos, this);
         }
     }
 
@@ -120,7 +110,7 @@ public abstract class ChunkRegionMixin implements WorldGenLevel {
     }
 
     public int terraWorld$getMaxHeight() {
-        return world.getTopYInclusive();
+        return world.getMaxY();
     }
 
     @Intrinsic(displace = true)
@@ -134,11 +124,11 @@ public abstract class ChunkRegionMixin implements WorldGenLevel {
     }
 
     public int terraWorld$getMinHeight() {
-        return world.getBottomY();
+        return world.getMinY();
     }
 
     public ChunkGenerator terraWorld$getGenerator() {
-        return ((MinecraftChunkGeneratorWrapper) world.getChunkManager().getChunkGenerator()).getHandle();
+        return ((MinecraftChunkGeneratorWrapper) world.getChunkSource().getGenerator()).getHandle();
     }
 
     public BiomeProvider terraWorld$getBiomeProvider() {
@@ -152,30 +142,30 @@ public abstract class ChunkRegionMixin implements WorldGenLevel {
         if(isExtended) {
             MinecraftEntityTypeExtended type = ((MinecraftEntityTypeExtended) data);
             CompoundTag nbt = (CompoundTag) ((Object) type.getData());
-            entity = net.minecraft.world.entity.EntityType.loadEntityWithPassengers(nbt, world, EntitySpawnReason.CHUNK_GENERATION, (entityx) -> {
-                entityx.refreshPositionAndAngles(x, y, z, entityx.getYaw(), entityx.getPitch());
+            entity = net.minecraft.world.entity.EntityType.loadEntityRecursive(nbt, world, EntitySpawnReason.CHUNK_GENERATION, (entityx) -> {
+                entityx.snapTo(x, y, z, entityx.getYRot(), entityx.getXRot());
                 return entityx;
             });
-            spawnEntity(entity);
+            world.addFreshEntity(entity);
         } else {
             entity = ((net.minecraft.world.entity.EntityType<?>) data).create(world, EntitySpawnReason.CHUNK_GENERATION);
             entity.setPos(x, y, z);
-            spawnEntity(entity);
+            world.addFreshEntity(entity);
         }
 
         return (Entity) entity;
     }
 
     public int terraWorld$centerChunkX() {
-        return centerPos.getPos().x;
+        return center.getPos().x();
     }
 
     public int terraWorld$centerChunkZ() {
-        return centerPos.getPos().z;
+        return center.getPos().z();
     }
 
-    public ServerLevel terraWorld$getWorld() {
-        return (ServerLevel) world;
+    public ServerWorld terraWorld$getWorld() {
+        return (ServerWorld) world;
     }
 
     public ConfigPack terraWorld$getPack() {

@@ -2,7 +2,7 @@ package com.dfsek.terra.mod.util;
 
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
-import net.minecraft.world.level.biome.Climate.MultiNoiseSampler;
+import net.minecraft.world.level.biome.Climate.Sampler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

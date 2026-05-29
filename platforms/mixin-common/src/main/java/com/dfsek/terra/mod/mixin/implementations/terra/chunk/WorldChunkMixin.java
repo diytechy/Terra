@@ -18,9 +18,10 @@
 package com.dfsek.terra.mod.mixin.implementations.terra.chunk;
 
 import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.commands.arguments.blocks.BlockStateArgument;
+import net.minecraft.commands.arguments.blocks.BlockInput;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.LevelChunk;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -43,7 +44,7 @@ import com.dfsek.terra.mod.util.MinecraftUtil;
 public abstract class WorldChunkMixin {
     @Final
     @Shadow
-    net.minecraft.world.level.Level world;
+    net.minecraft.world.level.Level level;
 
     @Shadow
     public abstract net.minecraft.world.level.block.state.BlockState getBlockState(BlockPos pos);
@@ -53,7 +54,7 @@ public abstract class WorldChunkMixin {
     public abstract net.minecraft.world.level.block.state.BlockState setBlockState(BlockPos pos, net.minecraft.world.level.block.state.BlockState state, int flags);
 
     @Shadow
-    protected abstract BlockEntity loadBlockEntity(BlockPos pos, CompoundTag nbt);
+    protected abstract BlockEntity promotePendingBlockEntity(BlockPos pos, CompoundTag nbt);
 
     @SuppressWarnings("ConstantValue")
     public void terra$setBlock(int x, int y, int z, BlockState data, boolean physics) {
@@ -63,17 +64,17 @@ public abstract class WorldChunkMixin {
         boolean isExtended = MinecraftUtil.isCompatibleBlockStateExtended(data);
 
         if(isExtended) {
-            BlockStateArgument arg = ((BlockStateArgument) data);
-            state = arg.getBlockState();
+            BlockInput arg = ((BlockInput) data);
+            state = arg.getState();
             setBlockState(blockPos, state, 0);
-            loadBlockEntity(blockPos, ((CompoundTag) (Object) ((BlockStateExtended) data).getData()));
+            promotePendingBlockEntity(blockPos, ((CompoundTag) (Object) ((BlockStateExtended) data).getData()));
         } else {
             state = (net.minecraft.world.level.block.state.BlockState) data;
             setBlockState(blockPos, state, 0);
         }
 
         if(physics) {
-            MinecraftUtil.schedulePhysics(state, blockPos, world.getFluidTickScheduler(), world.getBlockTickScheduler());
+            MinecraftUtil.schedulePhysics(state, blockPos, level);
         }
     }
 
@@ -88,14 +89,14 @@ public abstract class WorldChunkMixin {
     }
 
     public int terra$getX() {
-        return ((net.minecraft.world.level.chunk.ChunkAccess) (Object) this).getPos().x;
+        return ((net.minecraft.world.level.chunk.ChunkAccess) (Object) this).getPos().x();
     }
 
     public int terra$getZ() {
-        return ((net.minecraft.world.level.chunk.ChunkAccess) (Object) this).getPos().z;
+        return ((net.minecraft.world.level.chunk.ChunkAccess) (Object) this).getPos().z();
     }
 
-    public ServerLevel terra$getWorld() {
-        return (ServerLevel) world;
+    public ServerWorld terra$getWorld() {
+        return (ServerWorld) level;
     }
 }

@@ -17,7 +17,7 @@
 
 package com.dfsek.terra.mod.mixin.implementations.terra.chunk.data;
 
-import net.minecraft.commands.arguments.blocks.BlockStateArgument;
+import net.minecraft.commands.arguments.blocks.BlockInput;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.LevelHeightAccessor;
@@ -50,11 +50,11 @@ public abstract class ProtoChunkMixin extends ChunkAccess {
     public abstract net.minecraft.world.level.block.state.BlockState getBlockState(BlockPos pos);
 
     @Shadow
-    public abstract LevelHeightAccessor getHeightLimitView();
+    public abstract LevelHeightAccessor getHeightAccessorForGeneration();
 
     public void terra$setBlock(int x, int y, int z, @NotNull BlockState data) {
         BlockPos blockPos = new BlockPos(x, y, z);
-        boolean isExtended = data.isExtended() && data.getClass().equals(BlockStateArgument.class);
+        boolean isExtended = data.isExtended() && data.getClass().equals(BlockInput.class);
         if(isExtended) {
             BlockStateExtended blockStateExtended = (BlockStateExtended) data;
 
@@ -70,6 +70,6 @@ public abstract class ProtoChunkMixin extends ChunkAccess {
     }
 
     public int terra$getMaxHeight() {
-        return getHeightLimitView().getTopYInclusive();
+        return getHeightAccessorForGeneration().getMaxY();
     }
 }

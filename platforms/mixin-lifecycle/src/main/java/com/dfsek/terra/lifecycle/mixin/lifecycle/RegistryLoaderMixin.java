@@ -36,6 +36,10 @@ import com.dfsek.terra.mod.CommonPlatform;
 import com.dfsek.terra.mod.ModPlatform;
 
 
+// TODO (26.1 runtime): RegistryDataLoader was refactored to an async `load(...)` and its internal
+// `Loader` type was removed (replaced by anonymous classes + LoaderFactory). The @Inject points and
+// the @Local capture below were ported for *types* only and MUST be re-derived against the decompiled
+// 26.1 `RegistryDataLoader.load` before they will apply at runtime (compile-time mixin AP is disabled).
 @Mixin(RegistryDataLoader.class)
 public class RegistryLoaderMixin {
 
@@ -45,27 +49,28 @@ public class RegistryLoaderMixin {
     @Final
     private static Logger LOGGER;
 
-    @Inject(method = "loadFromResource(Lnet/minecraft/server/packs/resources/ResourceManager;Ljava/util/List;Ljava/util/List;)" +
-                     "Lnet/minecraft/core/RegistryAccess$Immutable;",
+    @Inject(method = "load(Lnet/minecraft/server/packs/resources/ResourceManager;Ljava/util/List;Ljava/util/List;" +
+                     "Ljava/util/concurrent/Executor;)Ljava/util/concurrent/CompletableFuture;",
             at = @At("HEAD"))
-    private static void loadFromResources(ResourceManager resourceManager, List<HolderLookup.Impl<?>> registries,
-                                          List<RegistryDataLoader.Entry<?>> entries,
-                                          CallbackInfoReturnable<RegistryAccess.Immutable> cir) {
+    private static void loadFromResources(ResourceManager resourceManager, List<HolderLookup.RegistryLookup<?>> registries,
+                                          List<RegistryDataLoader.RegistryData<?>> entries,
+                                          CallbackInfoReturnable<java.util.concurrent.CompletableFuture<RegistryAccess.Frozen>> cir) {
         LOADING_DYNAMIC_REGISTRIES.set(entries.stream().anyMatch(entry -> entry.key() == Registries.BIOME));
     }
 
     @Inject(
-        method = "load(Lnet/minecraft/resources/RegistryDataLoader$RegistryLoadable;Ljava/util/List;Ljava/util/List;)" +
-                 "Lnet/minecraft/core/RegistryAccess$Immutable;",
+        method = "load(Lnet/minecraft/server/packs/resources/ResourceManager;Ljava/util/List;Ljava/util/List;" +
+                 "Ljava/util/concurrent/Executor;)Ljava/util/concurrent/CompletableFuture;",
         at = @At(
             value = "INVOKE",
             target = "Ljava/util/List;forEach(Ljava/util/function/Consumer;)V",
             ordinal = 1
         )
     )
-    private static void beforeFreeze(@Coerce Object loadable, List<HolderLookup.Impl<?>> wrappers, List<RegistryDataLoader.Entry<?>> entries,
-                                     CallbackInfoReturnable<RegistryAccess.Immutable> cir,
-                                     @Local(ordinal = 2) List<RegistryDataLoader.Loader<?>> registriesList) {
+    private static void beforeFreeze(ResourceManager resourceManager, List<HolderLookup.RegistryLookup<?>> wrappers,
+                                     List<RegistryDataLoader.RegistryData<?>> entries,
+                                     CallbackInfoReturnable<java.util.concurrent.CompletableFuture<RegistryAccess.Frozen>> cir,
+                                     @Local(ordinal = 2) List<WritableRegistry<?>> registriesList) {
         if(LOADING_DYNAMIC_REGISTRIES.getAndSet(false)) {
             ModPlatform platform = CommonPlatform.get();
             platform.getRawConfigRegistry().clear();
@@ -73,7 +78,7 @@ public class RegistryLoaderMixin {
             WritableRegistry<DimensionType> dimensionTypes = extractRegistry(registriesList, Registries.DIMENSION_TYPE).orElseThrow();
             WritableRegistry<WorldPreset> worldPresets = extractRegistry(registriesList, Registries.WORLD_PRESET).orElseThrow();
             WritableRegistry<NoiseGeneratorSettings> chunkGeneratorSettings = extractRegistry(registriesList,
-                Registries.CHUNK_GENERATOR_SETTINGS).orElseThrow();
+                Registries.NOISE_SETTINGS).orElseThrow();
             WritableRegistry<MultiNoiseBiomeSourceParameterList> multiNoiseBiomeSourceParameterLists = extractRegistry(registriesList,
                 Registries.MULTI_NOISE_BIOME_SOURCE_PARAMETER_LIST).orElseThrow();
             WritableRegistry<Enchantment> enchantments = extractRegistry(registriesList, Registries.ENCHANTMENT).orElseThrow();
@@ -86,11 +91,11 @@ public class RegistryLoaderMixin {
 
     @Unique
     @SuppressWarnings("unchecked")
-    private static <T> Optional<WritableRegistry<T>> extractRegistry(List<RegistryDataLoader.Loader<?>> instance,
+    private static <T> Optional<WritableRegistry<T>> extractRegistry(List<WritableRegistry<?>> instance,
                                                                     ResourceKey<Registry<T>> key) {
         List<? extends WritableRegistry<?>> matches = instance
-            .stream().map(RegistryDataLoader.Loader::registry)
-            .filter(r -> r.getKey().equals(key))
+            .stream()
+            .filter(r -> r.key().equals(key))
             .toList();
         if(matches.size() > 1) {
             throw new IllegalStateException("Illegal number of registries returned: " + matches);

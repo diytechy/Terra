@@ -2,7 +2,7 @@ package com.dfsek.terra.lifecycle.mixin;
 
 import net.minecraft.core.HolderGetter;
 import net.minecraft.world.level.levelgen.synth.NormalNoise;
-import net.minecraft.world.level.biome.Climate.MultiNoiseSampler;
+import net.minecraft.world.level.biome.Climate.Sampler;
 import net.minecraft.world.level.levelgen.NoiseGeneratorSettings;
 import net.minecraft.world.level.levelgen.RandomState;
 import org.spongepowered.asm.mixin.Final;
@@ -22,13 +22,13 @@ import com.dfsek.terra.mod.util.SeedHack;
 public class NoiseConfigMixin {
     @Shadow
     @Final
-    private Sampler multiNoiseSampler;
+    private Sampler sampler;
 
     @Inject(method = "<init>(Lnet/minecraft/world/level/levelgen/NoiseGeneratorSettings;Lnet/minecraft/core/HolderGetter;J)V",
             at = @At("TAIL"))
     private void mapMultiNoise(NoiseGeneratorSettings chunkGeneratorSettings,
                                HolderGetter<NormalNoise.NoiseParameters> noiseParametersLookup, long seed,
                                CallbackInfo ci) {
-        SeedHack.register(multiNoiseSampler, seed);
+        SeedHack.register(sampler, seed);
     }
 }

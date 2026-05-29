@@ -73,12 +73,12 @@ public abstract class ItemStackMixin {
     @SuppressWarnings("ConstantConditions")
     public void terra$setItemMeta(ItemMeta meta) {
         DataComponentPatch.Builder builder = DataComponentPatch.builder();
-        this.getComponents().getTypes().forEach(builder::remove);
+        this.getComponents().keySet().forEach(builder::remove);
 
         DataComponentMap components = ((ItemStack) (Object) meta).getComponents();
-        components.forEach(builder::add);
+        components.forEach(builder::set);
 
-        this.components.applyChanges(builder.build());
+        this.components.applyPatch(builder.build());
     }
 
     @Intrinsic

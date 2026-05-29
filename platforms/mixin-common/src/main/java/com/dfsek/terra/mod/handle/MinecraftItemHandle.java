@@ -21,16 +21,11 @@ import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.arguments.item.ItemArgument;
-import net.minecraft.core.Registry;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.core.HolderLookup.Impl;
 import net.minecraft.world.flag.FeatureFlagSet;
 import net.minecraft.resources.Identifier;
 
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import com.dfsek.terra.api.handle.ItemHandle;
 import com.dfsek.terra.api.inventory.Item;
@@ -43,22 +38,10 @@ public class MinecraftItemHandle implements ItemHandle {
     @Override
     public Item createItem(String data) {
         try {
-            return (Item) new ItemArgument(new CommandBuildContext() {
-                @Override
-                public FeatureFlagSet getEnabledFeatures() {
-                    return FeatureFlagSet.empty();
-                }
-
-                @Override
-                public Stream<ResourceKey<? extends Registry<?>>> streamAllRegistryKeys() {
-                    return CommonPlatform.get().getServer().getRegistryManager().streamAllRegistryKeys();
-                }
-
-                @Override
-                public <T> Optional<Impl<T>> getOptional(ResourceKey<? extends Registry<? extends T>> registryRef) {
-                    return Optional.of(CommonPlatform.get().getServer().getRegistryManager().getOrThrow(registryRef));
-                }
-            }).parse(new StringReader(data)).getItem();
+            CommandBuildContext context = CommandBuildContext.simple(
+                CommonPlatform.get().getServer().registryAccess(),
+                FeatureFlagSet.of());
+            return (Item) (Object) new ItemArgument(context).parse(new StringReader(data)).item().value();
         } catch(CommandSyntaxException e) {
             throw new IllegalArgumentException("Invalid item data \"" + data + "\"", e);
         }
@@ -66,7 +49,7 @@ public class MinecraftItemHandle implements ItemHandle {
 
     @Override
     public Enchantment getEnchantment(String id) {
-        return (Enchantment) (Object) (CommonPlatform.get().enchantmentRegistry().getEntry(Identifier.tryParse(id)));
+        return (Enchantment) (Object) (CommonPlatform.get().enchantmentRegistry().getValue(Identifier.tryParse(id)));
     }
 
     @Override

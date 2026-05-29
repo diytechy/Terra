@@ -32,16 +32,16 @@ import com.dfsek.terra.api.inventory.ItemStack;
 public class LockableContainerBlockEntityMixin {
     @SuppressWarnings("ConstantConditions")
     public void terra$setItem(int slot, ItemStack newStack) {
-        ((BaseContainerBlockEntity) (Object) this).setStack(slot, (net.minecraft.world.item.ItemStack) (Object) newStack);
+        ((BaseContainerBlockEntity) (Object) this).setItem(slot, (net.minecraft.world.item.ItemStack) (Object) newStack);
     }
 
     public int terra$getSize() {
-        return ((BaseContainerBlockEntity) (Object) this).size();
+        return ((BaseContainerBlockEntity) (Object) this).getContainerSize();
     }
 
     @SuppressWarnings("ConstantConditions")
     public ItemStack terra$getItem(int slot) {
-        net.minecraft.world.item.ItemStack itemStack = ((BaseContainerBlockEntity) (Object) this).getStack(slot);
+        net.minecraft.world.item.ItemStack itemStack = ((BaseContainerBlockEntity) (Object) this).getItem(slot);
         return itemStack.getItem() == Items.AIR ? null : (ItemStack) (Object) itemStack;
     }
 }

@@ -16,6 +16,6 @@ public class VillagerTypeTemplate implements ObjectTemplate<ResourceKey<Villager
 
     @Override
     public ResourceKey<VillagerType> get() {
-        return ResourceKey.of(Registries.VILLAGER_TYPE, id);
+        return ResourceKey.create(Registries.VILLAGER_TYPE, id);
     }
 }

@@ -42,12 +42,12 @@ public final class MinecraftAdapter {
 
             @Override
             public int getMaxHeight() {
-                return height.getTopYInclusive();
+                return height.getMaxY();
             }
 
             @Override
             public int getMinHeight() {
-                return height.getBottomY();
+                return height.getMinY();
             }
 
             @Override
@@ -96,7 +96,7 @@ public final class MinecraftAdapter {
 
             @Override
             public int nextInt(int origin, int bound) {
-                return random.nextBetween(origin, bound);
+                return random.nextIntBetweenInclusive(origin, bound);
             }
         };
     }

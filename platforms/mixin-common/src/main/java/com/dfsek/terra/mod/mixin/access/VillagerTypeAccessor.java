@@ -11,7 +11,7 @@ import java.util.Map;
 
 @Mixin(VillagerType.class)
 public interface VillagerTypeAccessor {
-    @Accessor("BIOME_TO_TYPE")
+    @Accessor("BY_BIOME")
     static Map<ResourceKey<Biome>, ResourceKey<VillagerType>> getBiomeTypeToIdMap() {
         throw new AssertionError("Untransformed Accessor!");
     }
