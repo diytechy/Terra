@@ -24,6 +24,7 @@ dependencies {
 
     minecraft("com.mojang:minecraft:${Versions.Mod.minecraft}")
 
-    implementation("net.fabricmc:fabric-loader:${Versions.Mod.fabricLoader}")
-    implementation("org.incendo", "cloud-fabric", Versions.Fabric.cloud)
+    // Loader-neutral: this module holds only Minecraft-targeting mixins + the abstract
+    // LifecyclePlatform / lifecycle utilities, so it can be consumed by both Fabric and NeoForge.
+    // Loader-specific bits (fabric-loader, cloud command manager) live in the platform modules.
 }
