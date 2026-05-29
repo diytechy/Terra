@@ -2,17 +2,13 @@
 //
 // NeoForge replaced Forge after 1.20.4. MC 26.1 is unobfuscated, so no mappings
 // declaration is needed and burningwave reflection (used in the old Forge
-// platform to reach obfuscated fields) can be dropped entirely.
+// platform to reach obfuscated fields) is dropped.
 //
-// This build script is parked at .disabled until the source tree
-// (platforms/neoforge/src/main/java/com/dfsek/terra/neoforge/*) is migrated:
-//   - net.minecraft.* yarn imports -> Mojang names
-//   - net.minecraftforge.* -> net.neoforged.*
-//   - Forge event bus / @Mod constructor patterns -> NeoForge ones
-//   - ForgeRegistries.Keys -> BuiltInRegistries
-//   - Drop AwfulForgeHacks reflection (unneeded in unobfuscated 26.1)
-//
-// See Multi-Platform-26.1-Plan.md section 2.4 for the migration plan.
+// Architecture (Path A1): the platform reuses the loader-neutral mixin-common +
+// mixin-lifecycle modules. NeoForge runs the identical Minecraft RegistryDataLoader /
+// BuiltInRegistries / WorldLoader, so the same mixins that register Terra's biomes +
+// codecs on Fabric apply here. The old RegisterEvent-based registration was invalid
+// for 26.1 (RegisterEvent only fires for builtin, not dynamic, registries).
 
 plugins {
     id("net.neoforged.moddev") version Versions.NeoForge.modDevGradle
@@ -20,6 +16,9 @@ plugins {
 
 neoForge {
     version = Versions.NeoForge.neoForge
+
+    // AT equivalent of mixin-common's terra.accesswidener (Biome.ClimateSettings -> public).
+    accessTransformers.from("src/main/resources/META-INF/accesstransformer.cfg")
 
     mods {
         register("terra") {
@@ -40,13 +39,14 @@ neoForge {
 dependencies {
     shadedApi(project(":common:implementation:base"))
 
-    // TODO Phase 4 source migration — re-enable once neoforge platform code
-    // is rewritten against Mojang names + NeoForge API.
-    // implementation(project(":platforms:mixin-common"))
-    //
-    // implementation("org.incendo", "cloud-neoforge", Versions.NeoForge.cloud) {
-    //     exclude("me.lucko", "fabric-permissions-api")
-    // }
+    // Reuse the loader-neutral shared modules (Path A1). shadedImplementation bundles their
+    // classes + *.mixins.json + accesswidener into the shadowJar (same packaging path as Fabric).
+    shadedImplementation(project(":platforms:mixin-common"))
+    shadedImplementation(project(":platforms:mixin-lifecycle"))
+
+    implementation("org.incendo", "cloud-neoforge", Versions.NeoForge.cloud) {
+        exclude("me.lucko", "fabric-permissions-api")
+    }
 }
 
 tasks {

@@ -22,3 +22,12 @@ type = "required"
 versionRange = "[26.1,)"
 ordering = "NONE"
 side = "BOTH"
+
+# Mixin configs come from the shared loader-neutral modules (bundled via shadedImplementation):
+#   terra.common.mixins.json    -> mixin-common
+#   terra.lifecycle.mixins.json -> mixin-lifecycle (RegistryDataLoader biome/codec injection etc.)
+[[mixins]]
+config = "terra.common.mixins.json"
+
+[[mixins]]
+config = "terra.lifecycle.mixins.json"

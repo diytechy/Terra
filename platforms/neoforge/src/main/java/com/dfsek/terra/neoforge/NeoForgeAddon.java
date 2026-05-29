@@ -15,8 +15,20 @@
  * along with Terra.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/**
- * Mixins that inject behavior into the client/server lifecycle.
- */
+package com.dfsek.terra.neoforge;
 
-package com.dfsek.terra.neoforge.mixin.lifecycle;
+import com.dfsek.terra.mod.MinecraftAddon;
+import com.dfsek.terra.mod.ModPlatform;
+
+
+public class NeoForgeAddon extends MinecraftAddon {
+
+    public NeoForgeAddon(ModPlatform modPlatform) {
+        super(modPlatform);
+    }
+
+    @Override
+    public String getID() {
+        return "terra-neoforge";
+    }
+}
