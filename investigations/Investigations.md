@@ -876,3 +876,7 @@ A. For a step distance of n,
 Plan a change that would allow terra to parse a blend level option in it's corresponding sections (Ex "blend-terrain: false" from "C:\Projects\ORIGEN2\biome-distribution\presets\CHIMERA.yml") to disable y-blending and / or x/z blending for the sparse chunk interpolation.  This would likely need to be another input into the Get-Biome input to turn off those blending shifts only for chunk interpolation.
 
 Please update "C:\Projects\ORIGEN2\biome-distribution\presets\CHIMERA.yml" to have the correct key-names if they deviate from the originall proposal "blend-terrain"
+
+############################
+
+Can you plan an update to Terra that allows it to interpolate between biome cache sample values or verify if that functionality already existed in the root Polydev project?  Today, with the CHIMERA pack -which has a biome pipeline resolution of 4 blocks wide-  even with blend on the pallette distinct square-like shapes can be seen where two biomes border eachother on a diagonal, as it appears the coordinates within the 4x4 region are all ascribed to the same biome, with the blend only helping to break up the biome a small amount.
