@@ -14,12 +14,11 @@ builds aligned with the Minecraft Java Edition 26.1 release line.
 The plan below was written assuming everything was still `.disabled`. Most of Phases 0–3 have
 since landed. **Current reality:**
 
-> ⚠️ **NO RUNTIME VERIFICATION YET ON ANY NEWER PLATFORM.** Allay, Minestom, and Fabric are
-> wired into the build graph and Fabric compiles green, but **none has been launched, smoke-tested,
-> or world-gen-verified** at runtime. "Build green" ≠ "works" — and on Fabric the compile-time mixin
-> AP is disabled, so wrong mixin targets only surface at world-load. NeoForge (Phase 4) inherits the
-> same caveat by default. Treat every ✅ below as "code/build complete," not "runtime-confirmed,"
-> until the per-phase smoke-test boxes are checked.
+> ⚠️ **NO RUNTIME VERIFICATION YET ON ANY NEWER PLATFORM.** Allay, Minestom, Fabric, and NeoForge are
+> wired into the build graph and Fabric + NeoForge compile green, but **none has been launched,
+> smoke-tested, or world-gen-verified** at runtime. "Build green" ≠ "works" — and the compile-time
+> mixin AP is disabled, so wrong mixin targets only surface at world-load. Treat every ✅ below as
+> "code/build complete," not "runtime-confirmed," until the per-phase smoke-test boxes are checked.
 
 - ✅ **Phase 0 (prep) done:** architectury **dropped — Path A chosen** (architectury never ported
   to 26.1, issue architectury-api#704; see [Versions.kt](../buildSrc/src/main/kotlin/Versions.kt) comment).
@@ -36,11 +35,17 @@ since landed. **Current reality:**
   runtime verification (launch + world-gen) and `release.yml` artifact wiring.
 - ⏳ **Phase 1 (Allay):** `platforms/allay` is ACTIVE (`Allay.api = "0.20.0"`), but the 0.20.0-resolves
   check and smoke test are not confirmed here.
-- ❌ **Phase 4 (NeoForge) — NOT started (this is what's next).** `Versions.NeoForge` block exists
-  (`neoForge = "26.1.2.59-beta"`, `cloud = "2.0.0-beta.15"`, `modDevGradle = "2.0.141"`), but
-  `platforms/neoforge/` still holds the **stale upstream Forge scaffolding** (`ForgePlatform`,
-  `AwfulForgeHacks`, `forge`-package classes, `build.gradle.kts.disabled`) and is still disabled.
-  This needs the seed-and-rewrite of §2.4.
+- ✅ **Phase 4 (NeoForge) — build green (branch `NeoForge`, 2026-05-28).** `platforms/neoforge` is
+  ACTIVE and **`:platforms:neoforge:build` is GREEN** alongside Fabric. Implemented via **Path A1**:
+  `mixin-common` + `mixin-lifecycle` were made loader-neutral and are consumed by neoforge through
+  `shadedImplementation` (ModDevGradle consumes the fabric-loom project deps fine). The stale Forge
+  scaffolding was deleted and replaced with thin glue — `NeoForgePlatform extends LifecyclePlatform`
+  (`ModList`/`FMLPaths`), `@Mod NeoForgeEntryPoint` with the cloud-neoforge command manager,
+  `NeoForgeAddon`. The shared `terra.common`/`terra.lifecycle` mixin configs are declared in
+  `neoforge.mods.toml`, and a `META-INF/accesstransformer.cfg` provides the NeoForge equivalent of the
+  Fabric accesswidener (`Biome.ClimateSettings` → public). The fat jar bundles 102 mod + 16 lifecycle +
+  4 neoforge classes, both mixin configs, the AT, and the manifest (verified by unzip). **Remaining:**
+  runtime verification (cannot launch here; 26.1 NeoForge is a moving beta) and `release.yml` wiring.
 - ⏳ **Phase 5 (release integration):** not started.
 
 Versions also drifted from the §0/§3.1 snapshots: `fabricLoader = 0.19.2` (not 0.18.4),
@@ -406,8 +411,10 @@ Phases are ordered so each leaves the tree in a buildable state.
 - [ ] **Runtime verify** on a Fabric 26.1.x server (launch + Terra world-gen) — still pending.
 - [ ] Add Fabric jar to `release.yml`.
 
-### Phase 4 — NeoForge 🚧 STARTED 2026-05-28 (branch `NeoForge`) — build infra works
-Versions block + NeoForged maven repo are in place; everything else below is outstanding.
+### Phase 4 — NeoForge ✅ BUILD GREEN 2026-05-28 (branch `NeoForge`) — runtime unverified
+Implemented via Path A1 (shared loader-neutral mixin modules). `:platforms:neoforge:build` green;
+fat jar verified to bundle the shared classes + mixin configs + AT. Remaining: runtime smoke test
+(can't launch here; moving beta) + `release.yml` wiring. The findings/decisions that drove it:
 
 **Findings this session (decompiled `neoforge-26.1.x-beta-sources.jar`):**
 - ✅ **Go/no-go cleared:** `net.neoforged:neoforge:26.1.2.59-beta` resolves and the
