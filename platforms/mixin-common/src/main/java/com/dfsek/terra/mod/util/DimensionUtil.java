@@ -2,11 +2,12 @@ package com.dfsek.terra.mod.util;
 
 import net.minecraft.core.registries.Registries;
 import net.minecraft.tags.TagKey;
+import net.minecraft.world.attribute.BedRule;
+import net.minecraft.world.attribute.EnvironmentAttributeMap;
+import net.minecraft.world.attribute.EnvironmentAttributes;
 import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraft.world.level.dimension.DimensionType.MonsterSettings;
 import org.jetbrains.annotations.NotNull;
-
-import java.util.OptionalLong;
 
 import com.dfsek.terra.mod.ModPlatform;
 import com.dfsek.terra.mod.config.MonsterSettingsConfig;
@@ -27,9 +28,14 @@ public class DimensionUtil {
 
         MonsterSettings monsterSettings = getMonsterSettings(defaultDimension, monsterSettingsConfig);
 
-        // 26.1 overhauled DimensionType: time/ultrawarm/natural/bed/respawn-anchor/effects/cloud-height
-        // became skybox + cardinal-lighting + environment attributes + timelines, which are copied
-        // wholesale from the default dimension. Only the height/infiniburn/ambient overrides remain.
+        // 26.1 moved ultra-warm / bed-works / respawn-anchor-works / cloud-height out of DimensionType
+        // and into its EnvironmentAttributeMap. Re-apply the configurable ones on top of the base
+        // dimension's attributes (mirrors how BiomeUtil.createBiome was restored).
+        // Deliberately deferred (carried from the base dimension unchanged): fixed-time (now
+        // timelines/defaultClock), natural, and effects (now skybox + cardinal-lighting). See
+        // investigations/Fabric-Yarn-to-Mojang-Migration.md for the rationale.
+        EnvironmentAttributeMap attributes = buildAttributes(vanillaWorldProperties, defaultDimension);
+
         return new DimensionType(
             defaultDimension.hasFixedTime(),
             vanillaWorldProperties.getHasSkyLight() == null ? defaultDimension.hasSkyLight() : vanillaWorldProperties.getHasSkyLight(),
@@ -50,10 +56,35 @@ public class DimensionUtil {
             monsterSettings,
             defaultDimension.skybox(),
             defaultDimension.cardinalLightType(),
-            defaultDimension.attributes(),
+            attributes,
             defaultDimension.timelines(),
             defaultDimension.defaultClock()
         );
+    }
+
+    private static EnvironmentAttributeMap buildAttributes(VanillaWorldProperties props, DimensionType defaultDimension) {
+        EnvironmentAttributeMap.Builder attrs = EnvironmentAttributeMap.builder()
+            .putAll(defaultDimension.attributes()); // carry the base dimension's vanilla defaults
+
+        if(props.getRespawnAnchorWorks() != null) {
+            attrs.set(EnvironmentAttributes.RESPAWN_ANCHOR_WORKS, props.getRespawnAnchorWorks());
+        }
+        if(props.getCloudHeight() != null) {
+            attrs.set(EnvironmentAttributes.CLOUD_HEIGHT, props.getCloudHeight().floatValue());
+        }
+        if(props.getBedWorks() != null) {
+            attrs.set(EnvironmentAttributes.BED_RULE,
+                props.getBedWorks() ? BedRule.CAN_SLEEP_WHEN_DARK : BedRule.EXPLODES);
+        }
+        if(props.getUltraWarm() != null) {
+            // ultra-warm was a single flag in pre-26.1; it now decomposes into these three attributes.
+            boolean ultraWarm = props.getUltraWarm();
+            attrs.set(EnvironmentAttributes.WATER_EVAPORATES, ultraWarm);
+            attrs.set(EnvironmentAttributes.FAST_LAVA, ultraWarm);
+            attrs.set(EnvironmentAttributes.INCREASED_FIRE_BURNOUT, ultraWarm);
+        }
+
+        return attrs.build();
     }
 
     @NotNull

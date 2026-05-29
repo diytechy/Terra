@@ -1,14 +1,19 @@
 # Plan — Fabric 26.1: runtime-critical mixins + dimension overrides
 
-**Branch:** `Fabric` · **Status of build:** `:platforms:fabric:build` is GREEN (commit
-`2d2116950`). This plan covers the two remaining correctness gaps. Companion reference:
+**Branch:** `Fabric` · **Status of build:** `:platforms:fabric:build` is GREEN. Companion reference:
 `investigations/Fabric-Yarn-to-Mojang-Migration.md` (the overall migration doc + API maps).
+
+> ✅ **ALL THREE ITEMS IMPLEMENTED & BUILD GREEN** (this session). Code-complete; the only thing
+> left is **runtime verification** (launch a Terra world — could not be done in this environment).
+> See "Implementation summary" at the bottom for exactly what changed.
 
 Two independent work items:
 - **Item 1** — make `RegistryLoaderMixin` + `SaveLoadingMixin` actually apply at runtime
-  (they compile but their injection points are 26.1-stale placeholders).
+  (they compile but their injection points are 26.1-stale placeholders). ✅ DONE — `RegistryLoaderMixin`
+  re-derived against decompiled 26.1; `SaveLoadingMixin` deleted as redundant.
 - **Item 3** — restore `VanillaWorldProperties` dimension overrides via the 26.1
-  `EnvironmentAttribute` system (currently dropped; biome overrides already restored).
+  `EnvironmentAttribute` system (currently dropped; biome overrides already restored). ✅ DONE for the
+  4 attribute-mappable props; fixedTime/natural/effects deferred + documented.
 
 > ⚠ The compile-time mixin AP is **disabled** (`useLegacyMixinAp=false`, non-obfuscated MC).
 > So a wrong `@At`/`@Inject`/`@Local` will NOT fail compile — it fails at **mixin-apply (world
@@ -164,3 +169,50 @@ new DimensionType(..., attrs.build(), defaultDimension.timelines(), defaultDimen
   any deliberately-deferred prop (likely `fixedTime`, `effects`/skybox, possibly `natural`) is
   documented in code + the migration doc.
 - Update `investigations/Fabric-Yarn-to-Mojang-Migration.md` status when each item lands.
+
+---
+
+## Implementation summary (this session)
+
+**Build:** `:platforms:fabric:build` GREEN after all changes. **Runtime verification still pending**
+(could not launch a client/server here — the acceptance "create a Terra world, see Terra biomes" step
+remains to be done; the AP is off so a wrong target only shows at world-load).
+
+### Item 1a — `RegistryLoaderMixin` (rewritten)
+The 26.1 architecture (from genSources): `RegistryDataLoader.load(...)` is async; the writable
+registries are NOT a `List<WritableRegistry<?>>` local anymore — each lives as the private `registry`
+field (a `MappedRegistry`) of a `RegistryLoadTask`. Freeze happens inside the private `load`'s
+`thenApplyAsync` body: `loadTasks.stream().filter(t -> t.freezeRegistry(loadingErrors))`. At the HEAD
+of that lambda the `allOf(...)` has completed (all `registerElements`/`registerTags` done) and nothing
+is frozen yet.
+- New **`RegistryLoadTaskAccessor`** (`mixin/RegistryLoadTaskAccessor.java`, `@Accessor("registry")`)
+  exposes each task's writable registry. Added to `terra.lifecycle.mixins.json`.
+- `RegistryLoaderMixin`: HEAD inject on the `ResourceManager` `load(...)` overload sets a
+  `LOADING_DYNAMIC_REGISTRIES` flag iff `entries` contains `Registries.BIOME` (server-datapack worldgen
+  load only). Second inject at HEAD of `lambda$load$2(List,Map,Void)RegistryAccess$Frozen` (synthetic
+  name confirmed via `javap -p`) consumes the flag, pulls BIOME/DIMENSION_TYPE/WORLD_PRESET/
+  NOISE_SETTINGS/MULTI_NOISE/ENCHANTMENT out of `loadTasks` via the accessor, `terra_bind()`s each, and
+  calls `setRegistries` + `LifecycleUtil.initialize`. ⚠ `lambda$load$2` is synthetic — re-derive if
+  `RegistryDataLoader.load`'s body changes.
+
+### Item 1b — `SaveLoadingMixin` (deleted)
+Redundant. `mixin-common/DataPackContentsMixin` injects at the RETURN of
+`ReloadableServerResources.loadResources(...)` itself (calls `registerFlora` + biome/world-preset tags)
+and so covers every caller incl. `WorldLoader.load`. Deleted the file and its entry in
+`terra.lifecycle.mixins.json`. (`registerFlora` is idempotent, so even double-application was harmless.)
+
+### Item 3 — `DimensionUtil.createDimension` (dimension overrides restored)
+Builds `EnvironmentAttributeMap.builder().putAll(defaultDimension.attributes())` then applies, each
+only when the pack sets it: `RESPAWN_ANCHOR_WORKS`, `CLOUD_HEIGHT` (`.floatValue()`), `BED_RULE`
+(`CAN_SLEEP_WHEN_DARK`/`EXPLODES`), and ultrawarm → `WATER_EVAPORATES`+`FAST_LAVA`+
+`INCREASED_FIRE_BURNOUT`. Passed as the `attributes` ctor arg. **Deferred + documented in-code:**
+`fixedTime` (timelines/defaultClock, not an attribute), `natural` (no clean attribute mapping),
+`effects` (now skybox+cardinalLightType, inherited from the base `vanilla-dimension`).
+
+### Verify-at-runtime checklist (remaining)
+1. Launch dev client/server from `platforms/fabric`, create a Terra world.
+2. Log shows **no mixin-apply failure** for `RegistryLoaderMixin` / `RegistryLoadTaskAccessor`
+   (esp. "could not find lambda$load$2" → re-derive the lambda index via `javap`).
+3. Terra biomes exist + Terra terrain generates (`/locate biome terra:...`).
+4. A pack setting e.g. `bed-works: false` / `respawn-anchor-works: true` / custom `cloud-height`
+   reflects in-game.

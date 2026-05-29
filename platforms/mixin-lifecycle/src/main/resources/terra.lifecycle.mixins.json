@@ -6,11 +6,11 @@
     "mixins": [
         "NoiseConfigMixin",
         "RegistryEntryReferenceInvoker",
+        "RegistryLoadTaskAccessor",
         "RegistryMixin",
         "SimpleRegistryMixin",
         "lifecycle.MinecraftServerMixin",
-        "lifecycle.RegistryLoaderMixin",
-        "lifecycle.SaveLoadingMixin"
+        "lifecycle.RegistryLoaderMixin"
     ],
     "server": [
     ],

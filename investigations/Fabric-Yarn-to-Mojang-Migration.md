@@ -4,20 +4,30 @@
 **Status:** ✅ **`:platforms:fabric:build` is BUILD SUCCESSFUL** — full chain (compile +
 mixin refmap + accesswidener + remap + jar) passes for `mixin-common`, `mixin-lifecycle`,
 and `fabric`. Jar produced at `platforms/fabric/build/libs/Terra-fabric-*.jar`.
-**Remaining: runtime verification** (launch + world-gen), and two mixins flagged below
-that compile but need their injection points re-derived against decompiled 26.1.
+**Remaining: runtime verification** (launch + world-gen) — the mixin injection points below were
+re-derived against decompiled/`javap` 26.1 and the build is green, but the compile-time mixin AP
+is off so a wrong target only surfaces at world-load. Validate by launching and generating a Terra
+world (watch the log for any mixin-apply failure).
 
-## ⚠ Two mixins compile but are NOT yet runtime-correct (must fix before launch)
-Both carry a `TODO (26.1 runtime)` comment. The compile-time mixin AP is disabled (see below),
-so wrong injection points/locals do NOT fail compile — they fail at mixin-apply (load) time.
-- **`RegistryLoaderMixin`** — `RegistryDataLoader` became async and its internal `Loader` type was
-  removed (now anonymous classes + `LoaderFactory`). The `@At`/`@Local(List<WritableRegistry>)`
-  capture and `@Inject` targets are type-ported guesses; re-derive against decompiled
-  `RegistryDataLoader.load(ResourceManager, List<HolderLookup.RegistryLookup>, List<RegistryData>, Executor)`.
-  This is the registry-load interception that injects Terra biomes — **critical** for worldgen.
-- **`SaveLoadingMixin`** — yarn `SaveLoading` → Mojang `WorldLoader`; the `@ModifyArg` method/target
-  descriptors (and `ReloadableServerResources.reload`→`loadResources`) are best-effort and need
-  re-derivation against decompiled `WorldLoader.load`.
+## ✅ Two runtime-critical mixins re-derived against decompiled 26.1
+The compile-time mixin AP is disabled (see below), so wrong injection points/locals do NOT fail
+compile — they fail at mixin-apply (load) time. Both were re-worked against the genSources output:
+- **`RegistryLoaderMixin`** — `RegistryDataLoader.load(...)` is now async and the writable registries
+  are encapsulated in per-registry `RegistryLoadTask` objects (private `registry` field), frozen
+  inside the `thenApplyAsync` lambda by `loadTasks.stream().filter(t -> t.freezeRegistry(...))`.
+  Rewritten to (1) flag the server-datapack worldgen load at the HEAD of the `ResourceManager`
+  `load(...)` overload (only it carries `Registries.BIOME`), and (2) `@Inject` at HEAD of that
+  freeze lambda (`lambda$load$2(List,Map,Void)RegistryAccess$Frozen`, confirmed via
+  `javap -p net.minecraft.resources.RegistryDataLoader`) where every registry is fully populated yet
+  unfrozen. New `RegistryLoadTaskAccessor` (`@Accessor("registry")`) pulls the writable `MappedRegistry`
+  out of each task; `extractRegistry` then `terra_bind()`s and hands them to `setRegistries` +
+  `LifecycleUtil.initialize`. ⚠ `lambda$load$2` is a synthetic name — re-derive via `javap` if
+  `RegistryDataLoader.load`'s body changes between MC versions.
+- **`SaveLoadingMixin`** — **deleted** (removed from `terra.lifecycle.mixins.json`). It was a
+  redundant `@ModifyArg` grabbing the `LayeredRegistryAccess` at the `loadResources(...)` call site
+  inside `WorldLoader.load` to call `registerFlora`. `mixin-common`'s `DataPackContentsMixin` already
+  injects at the RETURN of `ReloadableServerResources.loadResources(...)` itself and calls
+  `registerFlora` (+ biome/world-preset tags), covering every caller including `WorldLoader.load`.
 
 ## ✅ VanillaBiomeProperties overrides RESTORED via the 26.1 EnvironmentAttribute system
 The dropped biome overrides are back in `BiomeUtil.createBiome`: fog/sky/water-fog colors,
@@ -29,15 +39,18 @@ Optional<AmbientMoodSettings>, List<AmbientAdditionsSettings>)`. Faithful vanill
 temperatureModifier read via `BiomeAccessor`(@Accessor climateSettings → Object) +
 `ClimateSettingsAccessor`(string-targeted @Invoker) — works now that the compile-time AP is off.
 
-## ⏳ VanillaWorldProperties (dimension) overrides — still dropped, recoverable the same way
-`DimensionUtil.createDimension` currently copies the new DimensionType fields (skybox,
-cardinalLightType, attributes, timelines, defaultClock) from the default and drops the
-ultrawarm/natural/bedWorks/respawnAnchorWorks/fixedTime/effects/cloudHeight config overrides.
-These map to `EnvironmentAttributes` too: `BED_RULE`, `RESPAWN_ANCHOR_WORKS`, `CLOUD_HEIGHT` are
-1:1; `ultrawarm`≈`WATER_EVAPORATES`+`FAST_LAVA`+`INCREASED_FIRE_BURNOUT`; `natural`≈
-`NETHER_PORTAL_SPAWNS_PIGLINS`/`CAN_START_RAID` combo; `fixedTime`/`effects`(skybox) now live in
-the timeline/skybox system (more involved). Build a modified `EnvironmentAttributeMap` from the
-default and pass it as the `attributes` ctor arg. Deferred pending a decision on fidelity scope.
+## ✅ VanillaWorldProperties (dimension) overrides — RESTORED via EnvironmentAttributeMap
+`DimensionUtil.createDimension` now builds an `EnvironmentAttributeMap` from the base dimension's
+`attributes()` (`putAll`) and re-applies the configurable overrides on top, passing it as the
+`attributes` ctor arg (mirrors `BiomeUtil.createBiome`): `respawnAnchorWorks`→`RESPAWN_ANCHOR_WORKS`,
+`cloudHeight`→`CLOUD_HEIGHT` (`.floatValue()`), `bedWorks`→`BED_RULE`
+(`CAN_SLEEP_WHEN_DARK`/`EXPLODES`), `ultraWarm`→`WATER_EVAPORATES`+`FAST_LAVA`+`INCREASED_FIRE_BURNOUT`.
+Each applied only when the pack sets it (null = keep vanilla).
+**Deliberately deferred** (carried from the base dimension unchanged, documented in-code): `fixedTime`
+(moved to `timelines`/`defaultClock` — needs a `Timeline`/`WorldClock`, not an attribute), `natural`
+(no clean 1:1 — would need to diff vanilla overworld vs nether attribute maps; candidates
+`NETHER_PORTAL_SPAWNS_PIGLINS`/`CAN_START_RAID`), and `effects` (now `skybox` + `cardinalLightType`,
+already inherited from whichever vanilla `vanilla-dimension` the pack bases on).
 
 ## ⚠ Build-config change made this session (important)
 On **non-obfuscated** MC 26.1, loom **rejects** `mappings(loom.officialMojangMappings())`
@@ -67,9 +80,10 @@ actually ~38) — always disable it (or fix the @Inject) before trusting an erro
   deleted (can't @Accessor a package-private-typed field).
 - **`DimensionType`** record fully restructured (16 components; added skybox, cardinalLightType,
   EnvironmentAttributeMap, timelines, defaultClock; dropped fixedTime/ultrawarm/natural/bedWorks/
-  respawnAnchorWorks/effects/cloudHeight). `DimensionUtil` now copies the new fields from the
-  default dimension and **drops those config overrides**. `MonsterSettings` ctor is now
-  `(IntProvider, int)` — dropped piglinSafe/hasRaids.
+  respawnAnchorWorks/effects/cloudHeight). `DimensionUtil` rebuilds the `EnvironmentAttributeMap`
+  and re-applies ultrawarm/bedWorks/respawnAnchorWorks/cloudHeight (see the ✅ dimension-overrides
+  section above); fixedTime/natural/effects are deferred + documented in-code. `MonsterSettings`
+  ctor is now `(IntProvider, int)` — dropped piglinSafe/hasRaids.
 - **`StateHolder.PROPERTY_MAP_PRINTER` removed** → `StateAccessor` deleted; `BlockStateMixin.
   terra$getAsString` now uses `BlockStateParser.serialize(state)`.
 - **yarn `BlockStateArgument` (result holder) = Mojang `BlockInput`** (NOT the `BlockStateArgument`
