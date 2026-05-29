@@ -10,8 +10,8 @@ plugins {
 dependencies {
     shadedApi(project(":common:implementation:base"))
 
-    implementation(project(":platforms:mixin-common"))
-    implementation(project(":platforms:mixin-lifecycle"))
+    shadedImplementation(project(":platforms:mixin-common"))
+    shadedImplementation(project(":platforms:mixin-lifecycle"))
 
     minecraft("com.mojang:minecraft:${Versions.Mod.minecraft}")
 

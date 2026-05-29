@@ -442,7 +442,17 @@ Versions block + NeoForged maven repo are in place; everything else below is out
   `BiomeUtil` here duplicate logic already in `mixin-common`/`mixin-lifecycle` and are likely deletable.
 - ❗ Still **runtime-blocked**: cannot launch NeoForge here, and it's a moving beta. Treat any compile
   success as unverified.
-- 🐛 **Packaging gap found (affects Fabric too — fix before either ships).** The built Fabric jar
+- ✅ **Packaging gap FIXED for Fabric (2026-05-28).** Switched the mixin subprojects to
+  `shadedImplementation(project(...))` in `platforms/fabric/build.gradle.kts`, so the fat
+  `Terra-fabric-*-shaded.jar` now bundles the `com.dfsek.terra.mod.*` (102) + `.lifecycle.*` (16)
+  classes, all three `*.mixins.json`, and `terra.accesswidener` (verified by unzip — was 0/0).
+  Also corrected `fabric.mod.json` (`minecraft "1.21.10"` → `">=26.1"`, `java ">=21"` → `">=25"`).
+  **NeoForge must use the same `shadedImplementation` pattern** so the shared classes + mixin configs
+  land in its jar (referenced from `neoforge.mods.toml`). ⚠️ Residual, pre-existing, *all-platform*
+  concern: the **plain `jar`** task (which `:merged` consumes via its default `"jar"` override) stays
+  thin — only the platform's own classes. The shippable artifact is the `-shaded` fat jar; if `:merged`
+  is a real ship path it needs to consume `shadowJar` per platform. Not introduced by this change.
+  <details><summary>Original gap (now fixed)</summary>The built Fabric jar
   (`platforms/fabric/build/libs/Terra-fabric-*.jar`) declares `terra.lifecycle.mixins.json` and
   `terra.common.mixins.json` in `fabric.mod.json`, but **bundles neither those configs nor the
   `com.dfsek.terra.mod.*` / `com.dfsek.terra.lifecycle.*` classes** — there is no jar-in-jar, and
@@ -452,7 +462,7 @@ Versions block + NeoForged maven repo are in place; everything else below is out
   + handler/target classes). Likely fix: make the mixin subprojects `shadedImplementation` (or add a
   loom `include`/JiJ). The same packaging path must be sorted for NeoForge so the shared mixin classes
   + `*.mixins.json` land in its jar and are referenced from `neoforge.mods.toml`. (Also: `fabric.mod.json`
-  still hardcodes `"minecraft": "1.21.10"` — stale, should be 26.1.)
+  still hardcodes `"minecraft": "1.21.10"` — stale, should be 26.1.)</details>
 
 Remaining checklist:
 `platforms/neoforge/` currently holds only stale upstream **Forge** scaffolding
