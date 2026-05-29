@@ -14,6 +14,13 @@ builds aligned with the Minecraft Java Edition 26.1 release line.
 The plan below was written assuming everything was still `.disabled`. Most of Phases 0–3 have
 since landed. **Current reality:**
 
+> ⚠️ **NO RUNTIME VERIFICATION YET ON ANY NEWER PLATFORM.** Allay, Minestom, and Fabric are
+> wired into the build graph and Fabric compiles green, but **none has been launched, smoke-tested,
+> or world-gen-verified** at runtime. "Build green" ≠ "works" — and on Fabric the compile-time mixin
+> AP is disabled, so wrong mixin targets only surface at world-load. NeoForge (Phase 4) inherits the
+> same caveat by default. Treat every ✅ below as "code/build complete," not "runtime-confirmed,"
+> until the per-phase smoke-test boxes are checked.
+
 - ✅ **Phase 0 (prep) done:** architectury **dropped — Path A chosen** (architectury never ported
   to 26.1, issue architectury-api#704; see [Versions.kt](../buildSrc/src/main/kotlin/Versions.kt) comment).
   Forge maven repo removed, **NeoForged maven repo added** in
