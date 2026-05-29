@@ -406,8 +406,44 @@ Phases are ordered so each leaves the tree in a buildable state.
 - [ ] **Runtime verify** on a Fabric 26.1.x server (launch + Terra world-gen) — still pending.
 - [ ] Add Fabric jar to `release.yml`.
 
-### Phase 4 — NeoForge ❌ NOT STARTED ← **NEXT** (3+ days, beta-volatility risk)
+### Phase 4 — NeoForge 🚧 STARTED 2026-05-28 (branch `NeoForge`) — build infra works
 Versions block + NeoForged maven repo are in place; everything else below is outstanding.
+
+**Findings this session (decompiled `neoforge-26.1.x-beta-sources.jar`):**
+- ✅ **Go/no-go cleared:** `net.neoforged:neoforge:26.1.2.59-beta` resolves and the
+  `net.neoforged.moddev` ModDevGradle plugin configures cleanly. Build script enabled
+  (`platforms/neoforge/build.gradle.kts`, auto-included by `settings.gradle.kts`). `dependencies`
+  resolves the full `:common:implementation:base` graph. **No source compiled yet.**
+- ⚠️ **The upstream scaffolding's biome-registration approach is invalid for 26.1.**
+  `net.neoforged.neoforge.registries.RegisterEvent` is documented as firing **only for builtin
+  registries** (`BuiltInRegistries`). `BIOME`/`DIMENSION_TYPE`/`WORLD_PRESET` are **dynamic/datapack
+  registries**, so `RegisterEvent.register(Keys.BIOMES, …)` (as in `ForgeEntryPoint`) will never fire
+  for them. `DataPackRegistryEvent.NewRegistry` only registers *new datapack registry types that load
+  from JSON* — it cannot inject Terra's programmatically-generated biomes either.
+- ✅ **Recommended architecture — reuse the `RegistryDataLoader` mixin logic, not `RegisterEvent`.**
+  NeoForge runs the **identical** Minecraft `net.minecraft.resources.RegistryDataLoader` (NeoForge's own
+  `DataPackRegistryEvent` imports that very class) with the same Mojang names, and NeoForge supports
+  Mixin (`mixin` field in `neoforge.mods.toml`). So the `RegistryLoaderMixin` + `RegistryLoadTaskAccessor`
+  + `LifecyclePlatform`/`LifecycleUtil`/`LifecycleBiomeUtil` **logic** is what NeoForge wants — *not* the
+  `RegisterEvent`/`RegisterHelper`/`AwfulForgeHacks` machinery (which can't see dynamic registries).
+  ⚠️ **But `:platforms:mixin-lifecycle` cannot be depended on as-is**: it is built with the
+  `net.fabricmc.fabric-loom` plugin and pulls `fabric-loader` + `cloud-fabric` as `implementation`
+  (verified in its `build.gradle.kts`). The *source* of `LifecyclePlatform` etc. has no `net.fabricmc`
+  imports, but consuming the module would leak Fabric onto the NeoForge classpath and relies on
+  loom's refmap/accesswidener wiring. **Two viable paths (decide before coding):**
+  - **A1 — extract a loader-neutral module** (e.g. `:platforms:mixin-mod-lifecycle`) holding the
+    Minecraft-only mixins + lifecycle classes, built without a loader plugin, consumed by *both* Fabric
+    and NeoForge with each loader's own mixin tooling. Cleanest; touches the Fabric build too.
+  - **A2 — copy the mixin + lifecycle classes into `:platforms:neoforge`** and apply them via NeoForge's
+    mixin config. Faster, but duplicates code that must stay in sync with Fabric's copy.
+  Remaining glue either way: `@Mod` entrypoint (NeoForge constructor injection of
+  `IEventBus`/`ModContainer`, *not* `FMLJavaModLoadingContext`), `platformName`/`getDataFolder`, and
+  `getPlatformMods()` enumeration via NeoForge's `ModList`. The stale yarn-named `NoiseConfigMixin` and
+  `BiomeUtil` here duplicate logic already in `mixin-common`/`mixin-lifecycle` and are likely deletable.
+- ❗ Still **runtime-blocked**: cannot launch NeoForge here, and it's a moving beta. Treat any compile
+  success as unverified.
+
+Remaining checklist:
 `platforms/neoforge/` currently holds only stale upstream **Forge** scaffolding
 (`ForgePlatform`, `ForgeAddon`, `ForgeEntryPoint`, `AwfulForgeHacks`, `BiomeUtil`, `NoiseConfigMixin`,
 `neoforge.mods.toml`, `terra.forge.mixins.json`) behind `build.gradle.kts.disabled`.
