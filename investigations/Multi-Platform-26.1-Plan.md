@@ -442,6 +442,17 @@ Versions block + NeoForged maven repo are in place; everything else below is out
   `BiomeUtil` here duplicate logic already in `mixin-common`/`mixin-lifecycle` and are likely deletable.
 - ❗ Still **runtime-blocked**: cannot launch NeoForge here, and it's a moving beta. Treat any compile
   success as unverified.
+- 🐛 **Packaging gap found (affects Fabric too — fix before either ships).** The built Fabric jar
+  (`platforms/fabric/build/libs/Terra-fabric-*.jar`) declares `terra.lifecycle.mixins.json` and
+  `terra.common.mixins.json` in `fabric.mod.json`, but **bundles neither those configs nor the
+  `com.dfsek.terra.mod.*` / `com.dfsek.terra.lifecycle.*` classes** — there is no jar-in-jar, and
+  `shadowJar` only shades the `shaded` configuration while `mixin-common`/`mixin-lifecycle` are pulled
+  via plain `implementation(project(...))`. The shaded jar has `api`/`config`/`tectonic`/`strata` but
+  0 `mod`/0 `lifecycle` classes. Net: the current Fabric jar would fail to load (missing mixin configs
+  + handler/target classes). Likely fix: make the mixin subprojects `shadedImplementation` (or add a
+  loom `include`/JiJ). The same packaging path must be sorted for NeoForge so the shared mixin classes
+  + `*.mixins.json` land in its jar and are referenced from `neoforge.mods.toml`. (Also: `fabric.mod.json`
+  still hardcodes `"minecraft": "1.21.10"` — stale, should be 26.1.)
 
 Remaining checklist:
 `platforms/neoforge/` currently holds only stale upstream **Forge** scaffolding
