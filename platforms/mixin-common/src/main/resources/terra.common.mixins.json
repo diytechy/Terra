@@ -5,8 +5,8 @@
     "compatibilityLevel": "JAVA_21",
     "mixins": [
         "access.BiomeAccessor",
+        "access.ClimateSettingsAccessor",
         "access.MobSpawnerLogicAccessor",
-        "access.StateAccessor",
         "access.StructureAccessorAccessor",
         "access.VillagerTypeAccessor",
         "access.WorldChunkAccessor",

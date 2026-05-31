@@ -17,18 +17,16 @@
 
 package com.dfsek.terra.mod.mixin.implementations.terra.world;
 
-import net.minecraft.block.Block;
-import net.minecraft.command.argument.BlockStateArgument;
-import net.minecraft.entity.SpawnReason;
-import net.minecraft.fluid.Fluid;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.util.collection.BoundedRegionArray;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.ChunkRegion;
-import net.minecraft.world.StructureWorldAccess;
-import net.minecraft.world.chunk.Chunk;
-import net.minecraft.world.chunk.ChunkGenerationStep;
-import net.minecraft.world.tick.MultiTickScheduler;
+import net.minecraft.commands.arguments.blocks.BlockInput;
+import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.util.StaticCache2D;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.GenerationChunkHolder;
+import net.minecraft.server.level.WorldGenRegion;
+import net.minecraft.world.level.WorldGenLevel;
+import net.minecraft.world.level.chunk.ChunkAccess;
+import net.minecraft.world.level.chunk.status.ChunkStep;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Implements;
 import org.spongepowered.asm.mixin.Interface;
@@ -54,37 +52,29 @@ import com.dfsek.terra.mod.implmentation.MinecraftEntityTypeExtended;
 import com.dfsek.terra.mod.util.MinecraftUtil;
 
 
-@Mixin(ChunkRegion.class)
+@Mixin(WorldGenRegion.class)
 @Implements(@Interface(iface = ProtoWorld.class, prefix = "terraWorld$"))
-public abstract class ChunkRegionMixin implements StructureWorldAccess {
+public abstract class ChunkRegionMixin implements WorldGenLevel {
     private ConfigPack terra$config;
 
 
     @Shadow
     @Final
-    private net.minecraft.server.world.ServerWorld world;
+    private net.minecraft.server.level.ServerLevel world;
 
     @Shadow
     @Final
     private long seed;
     @Shadow
     @Final
-    private Chunk centerPos;
-
-    @Shadow
-    @Final
-    private MultiTickScheduler<Fluid> fluidTickScheduler;
-
-    @Shadow
-    @Final
-    private MultiTickScheduler<Block> blockTickScheduler;
+    private ChunkAccess center;
 
 
     @Inject(at = @At("RETURN"),
-            method = "<init>(Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/util/collection/BoundedRegionArray;" +
-                     "Lnet/minecraft/world/chunk/ChunkGenerationStep;Lnet/minecraft/world/chunk/Chunk;)V")
-    public void injectConstructor(net.minecraft.server.world.ServerWorld world, BoundedRegionArray chunks,
-                                  ChunkGenerationStep generationStep, Chunk centerPos, CallbackInfo ci) {
+            method = "<init>(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/util/StaticCache2D;" +
+                     "Lnet/minecraft/world/level/chunk/status/ChunkStep;Lnet/minecraft/world/level/chunk/ChunkAccess;)V")
+    public void injectConstructor(net.minecraft.server.level.ServerLevel world, StaticCache2D<GenerationChunkHolder> chunks,
+                                  ChunkStep generationStep, ChunkAccess center, CallbackInfo ci) {
         this.terra$config = ((ServerWorld) world).getPack();
     }
 
@@ -92,25 +82,25 @@ public abstract class ChunkRegionMixin implements StructureWorldAccess {
     @Intrinsic(displace = true)
     public void terraWorld$setBlockState(int x, int y, int z, BlockState data, boolean physics) {
         BlockPos blockPos = new BlockPos(x, y, z);
-        net.minecraft.block.BlockState state;
+        net.minecraft.world.level.block.state.BlockState state;
 
         int flags = physics ? 3 : 1042;
         boolean isExtended = MinecraftUtil.isCompatibleBlockStateExtended(data);
 
         if(isExtended) {
-            BlockStateArgument arg = ((BlockStateArgument) data);
-            state = arg.getBlockState();
-            setBlockState(blockPos, state, flags);
-            net.minecraft.world.chunk.Chunk chunk = getChunk(blockPos);
-            NbtCompound nbt = ((NbtCompound) (Object) ((BlockStateExtended) data).getData());
+            BlockInput arg = ((BlockInput) data);
+            state = arg.getState();
+            setBlock(blockPos, state, flags);
+            net.minecraft.world.level.chunk.ChunkAccess chunk = getChunk(blockPos);
+            CompoundTag nbt = ((CompoundTag) (Object) ((BlockStateExtended) data).getData());
             MinecraftUtil.loadBlockEntity(chunk, world, blockPos, state, nbt);
         } else {
-            state = (net.minecraft.block.BlockState) data;
-            setBlockState(blockPos, state, flags);
+            state = (net.minecraft.world.level.block.state.BlockState) data;
+            setBlock(blockPos, state, flags);
         }
 
         if(physics) {
-            MinecraftUtil.schedulePhysics(state, blockPos, getFluidTickScheduler(), getBlockTickScheduler());
+            MinecraftUtil.schedulePhysics(state, blockPos, this);
         }
     }
 
@@ -120,7 +110,7 @@ public abstract class ChunkRegionMixin implements StructureWorldAccess {
     }
 
     public int terraWorld$getMaxHeight() {
-        return world.getTopYInclusive();
+        return world.getMaxY();
     }
 
     @Intrinsic(displace = true)
@@ -134,11 +124,11 @@ public abstract class ChunkRegionMixin implements StructureWorldAccess {
     }
 
     public int terraWorld$getMinHeight() {
-        return world.getBottomY();
+        return world.getMinY();
     }
 
     public ChunkGenerator terraWorld$getGenerator() {
-        return ((MinecraftChunkGeneratorWrapper) world.getChunkManager().getChunkGenerator()).getHandle();
+        return ((MinecraftChunkGeneratorWrapper) world.getChunkSource().getGenerator()).getHandle();
     }
 
     public BiomeProvider terraWorld$getBiomeProvider() {
@@ -148,30 +138,30 @@ public abstract class ChunkRegionMixin implements StructureWorldAccess {
     @SuppressWarnings("DataFlowIssue")
     public Entity terraWorld$spawnEntity(double x, double y, double z, EntityType data) {
         boolean isExtended = MinecraftUtil.isCompatibleEntityTypeExtended(data);
-        net.minecraft.entity.Entity entity;
+        net.minecraft.world.entity.Entity entity;
         if(isExtended) {
             MinecraftEntityTypeExtended type = ((MinecraftEntityTypeExtended) data);
-            NbtCompound nbt = (NbtCompound) ((Object) type.getData());
-            entity = net.minecraft.entity.EntityType.loadEntityWithPassengers(nbt, world, SpawnReason.CHUNK_GENERATION, (entityx) -> {
-                entityx.refreshPositionAndAngles(x, y, z, entityx.getYaw(), entityx.getPitch());
+            CompoundTag nbt = (CompoundTag) ((Object) type.getData());
+            entity = net.minecraft.world.entity.EntityType.loadEntityRecursive(nbt, world, EntitySpawnReason.CHUNK_GENERATION, (entityx) -> {
+                entityx.snapTo(x, y, z, entityx.getYRot(), entityx.getXRot());
                 return entityx;
             });
-            spawnEntity(entity);
+            world.addFreshEntity(entity);
         } else {
-            entity = ((net.minecraft.entity.EntityType<?>) data).create(world, SpawnReason.CHUNK_GENERATION);
+            entity = ((net.minecraft.world.entity.EntityType<?>) data).create(world, EntitySpawnReason.CHUNK_GENERATION);
             entity.setPos(x, y, z);
-            spawnEntity(entity);
+            world.addFreshEntity(entity);
         }
 
         return (Entity) entity;
     }
 
     public int terraWorld$centerChunkX() {
-        return centerPos.getPos().x;
+        return center.getPos().x();
     }
 
     public int terraWorld$centerChunkZ() {
-        return centerPos.getPos().z;
+        return center.getPos().z();
     }
 
     public ServerWorld terraWorld$getWorld() {

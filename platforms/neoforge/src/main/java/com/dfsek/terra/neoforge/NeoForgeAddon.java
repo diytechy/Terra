@@ -15,21 +15,20 @@
  * along with Terra.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.dfsek.terra.mod.mixin.access;
+package com.dfsek.terra.neoforge;
 
-import net.minecraft.state.State;
-import net.minecraft.state.property.Property;
-import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.gen.Accessor;
-
-import java.util.Map;
-import java.util.function.Function;
+import com.dfsek.terra.mod.MinecraftAddon;
+import com.dfsek.terra.mod.ModPlatform;
 
 
-@Mixin(State.class)
-public interface StateAccessor {
-    @Accessor("PROPERTY_MAP_PRINTER")
-    static Function<Map.Entry<Property<?>, Comparable<?>>, String> getPropertyMapPrinter() {
-        throw new UnsupportedOperationException();
+public class NeoForgeAddon extends MinecraftAddon {
+
+    public NeoForgeAddon(ModPlatform modPlatform) {
+        super(modPlatform);
+    }
+
+    @Override
+    public String getID() {
+        return "terra-neoforge";
     }
 }

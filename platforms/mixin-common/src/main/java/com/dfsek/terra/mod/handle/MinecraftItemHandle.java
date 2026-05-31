@@ -19,18 +19,13 @@ package com.dfsek.terra.mod.handle;
 
 import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
-import net.minecraft.command.CommandRegistryAccess;
-import net.minecraft.command.argument.ItemStackArgumentType;
-import net.minecraft.registry.Registry;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.RegistryWrapper.Impl;
-import net.minecraft.resource.featuretoggle.FeatureSet;
-import net.minecraft.util.Identifier;
+import net.minecraft.commands.CommandBuildContext;
+import net.minecraft.commands.arguments.item.ItemArgument;
+import net.minecraft.world.flag.FeatureFlagSet;
+import net.minecraft.resources.Identifier;
 
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import com.dfsek.terra.api.handle.ItemHandle;
 import com.dfsek.terra.api.inventory.Item;
@@ -43,22 +38,10 @@ public class MinecraftItemHandle implements ItemHandle {
     @Override
     public Item createItem(String data) {
         try {
-            return (Item) new ItemStackArgumentType(new CommandRegistryAccess() {
-                @Override
-                public FeatureSet getEnabledFeatures() {
-                    return FeatureSet.empty();
-                }
-
-                @Override
-                public Stream<RegistryKey<? extends Registry<?>>> streamAllRegistryKeys() {
-                    return CommonPlatform.get().getServer().getRegistryManager().streamAllRegistryKeys();
-                }
-
-                @Override
-                public <T> Optional<Impl<T>> getOptional(RegistryKey<? extends Registry<? extends T>> registryRef) {
-                    return Optional.of(CommonPlatform.get().getServer().getRegistryManager().getOrThrow(registryRef));
-                }
-            }).parse(new StringReader(data)).getItem();
+            CommandBuildContext context = CommandBuildContext.simple(
+                CommonPlatform.get().getServer().registryAccess(),
+                FeatureFlagSet.of());
+            return (Item) (Object) new ItemArgument(context).parse(new StringReader(data)).item().value();
         } catch(CommandSyntaxException e) {
             throw new IllegalArgumentException("Invalid item data \"" + data + "\"", e);
         }
@@ -66,7 +49,7 @@ public class MinecraftItemHandle implements ItemHandle {
 
     @Override
     public Enchantment getEnchantment(String id) {
-        return (Enchantment) (Object) (CommonPlatform.get().enchantmentRegistry().getEntry(Identifier.tryParse(id)));
+        return (Enchantment) (Object) (CommonPlatform.get().enchantmentRegistry().getValue(Identifier.tryParse(id)));
     }
 
     @Override

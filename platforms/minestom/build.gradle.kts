@@ -9,7 +9,3 @@ dependencies {
 tasks.named("jar") {
     finalizedBy("installAddonsIntoDefaultJar")
 }
-
-tasks.withType<JavaCompile>().configureEach {
-    options.release = 25
-}

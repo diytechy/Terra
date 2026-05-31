@@ -36,6 +36,8 @@ public class TerrainSurfaceLocatorAddon implements AddonInitializer {
                     .register(addon.key("TERRAIN_SURFACE"), TerrainSurfaceLocatorTemplate::new);
                 event.getPack().getOrCreateRegistry(LOCATOR_TOKEN)
                     .register(addon.key("TOP_TERRAIN_SURFACE"), TopTerrainSurfaceLocatorTemplate::new);
+                event.getPack().getOrCreateRegistry(LOCATOR_TOKEN)
+                    .register(addon.key("BELOW_TOP_TERRAIN_SURFACE"), BelowTopTerrainSurfaceLocatorTemplate::new);
             })
             .failThrough();
     }

@@ -48,7 +48,7 @@ public class ChunkInterpolator {
      */
     public ChunkInterpolator(long seed, int chunkX, int chunkZ, BiomeProvider provider, int min, int max,
                              PropertyKey<BiomeNoiseProperties> noisePropertiesKey, int maxBlend,
-                             int blendMinY, int blendMaxY) {
+                             int blendMinY, int blendMaxY, boolean blendExtrudedNeighbors) {
         this.min = min;
         this.max = max;
 
@@ -89,17 +89,30 @@ public class ChunkInterpolator {
                 int absoluteZ = zOrigin + scaledZ;
                 Column<Biome> col = provider.getColumnForTerrain(absoluteX, absoluteZ, seed, min, max);
                 centerColumns[x * 5 + z] = col;
-                // Blend is a 2D spatial concept — use the surface biome's settings, which are
-                // Y-independent. Eliminates the inner Y loop that was previously needed.
-                BiomeNoiseProperties props = col.getSurface().getContext().get(noisePropertiesKey);
-                int localBlend = props.samplers().blendDistance() * props.samplers().blendStep();
+                int localBlend;
+                if(blendExtrudedNeighbors) {
+                    // Scan every Y level this center column will visit so the columns array is
+                    // sized large enough for the widest blend radius across all depths.
+                    localBlend = 0;
+                    for(int yi = 0; yi < size; yi++) {
+                        int scaledYi = (yi << 2) + min;
+                        BiomeNoiseSamplers s = col.get(scaledYi).getContext().get(noisePropertiesKey).samplers();
+                        int yBlend = s.blendDistance() * s.blendStep();
+                        if(yBlend > localBlend) localBlend = yBlend;
+                    }
+                } else {
+                    // Blend is a 2D spatial concept — use the surface biome's settings, which are
+                    // Y-independent. Eliminates the inner Y loop that was previously needed.
+                    BiomeNoiseProperties props = col.getSurface().getContext().get(noisePropertiesKey);
+                    localBlend = props.samplers().blendDistance() * props.samplers().blendStep();
+                }
                 if(localBlend > localMaxBlend) localMaxBlend = localBlend;
             }
         }
 
         int localMaxBlendAndChunk = 17 + 2 * localMaxBlend;
 
-        @SuppressWarnings("unchecked")
+        @SuppressWarnings({"unchecked", "rawtypes"})
         Column<Biome>[] columns = new Column[localMaxBlendAndChunk * localMaxBlendAndChunk];
 
         // Pre-populate center columns into the main columns array at their correct offsets.
@@ -123,37 +136,40 @@ public class ChunkInterpolator {
 
                 Column<Biome> biomeColumn = centerColumns[x * 5 + z];
 
-                // Read surface blend settings once per (x,z): blend is a 2D spatial concept
-                // determined by the XZ biome identity, not the per-Y extruded biome.
-                BiomeNoiseSamplers surfaceSamplers = biomeColumn.getSurface().getContext().get(noisePropertiesKey).samplers();
-                int step  = surfaceSamplers.blendStep();
-                int blend = surfaceSamplers.blendDistance();
+                // When using surface-biome neighbors, build the neighbor blend map once per
+                // (x,z) — blend is a 2D spatial concept and surface biomes are Y-independent.
+                // When using extruded neighbors the map is rebuilt inside the Y loop instead.
+                if(!blendExtrudedNeighbors) {
+                    BiomeNoiseSamplers surfaceSamplers = biomeColumn.getSurface().getContext().get(noisePropertiesKey).samplers();
+                    int step  = surfaceSamplers.blendStep();
+                    int blend = surfaceSamplers.blendDistance();
 
-                // Build neighbor-only blend map once per (x,z).
-                // All positions EXCEPT the center (xi=0, zi=0) use their surface biome via
-                // getSurface(), which bypasses extrusion entirely — zero extrude() calls here.
-                // The center contributes its per-Y extruded biome directly inside the Y loop.
-                blendMap.reset();
-                if(blend > 0) {
-                    for(int xi = -blend; xi <= blend; xi++) {
-                        for(int zi = -blend; zi <= blend; zi++) {
-                            if(xi == 0 && zi == 0) continue; // center handled per-Y below
-                            int blendX = xi * step;
-                            int blendZ = zi * step;
-                            int localIndex = (scaledX + localMaxBlend + blendX)
-                                           + localMaxBlendAndChunk * (scaledZ + localMaxBlend + blendZ);
-                            if(columns[localIndex] == null) {
-                                columns[localIndex] = provider.getColumnForTerrain(
-                                    absoluteX + blendX, absoluteZ + blendZ, seed, min, max);
-                            }
-                            // getSurface(): free field read on BiomePipelineColumn; returns base
-                            // (pre-extrusion) biome on BaseBiomeColumn with no extrude() call.
-                            Biome surfaceBiome = columns[localIndex].getSurface();
-                            BiomeNoiseSamplers ns = surfaceBiome.getContext().get(noisePropertiesKey).samplers();
-                            blendMap.accumulate(ns, ns.blendWeight(),
-                                debugChunk ? surfaceBiome.getID() : null);
-                            if(SamplerFloorFeature.ENABLED && ns.densityFloor() == null) {
-                                blendMap.allHaveFloor = false;
+                    // Build neighbor-only blend map once per (x,z).
+                    // All positions EXCEPT the center (xi=0, zi=0) use their surface biome via
+                    // getSurface(), which bypasses extrusion entirely — zero extrude() calls here.
+                    // The center contributes its per-Y extruded biome directly inside the Y loop.
+                    blendMap.reset();
+                    if(blend > 0) {
+                        for(int xi = -blend; xi <= blend; xi++) {
+                            for(int zi = -blend; zi <= blend; zi++) {
+                                if(xi == 0 && zi == 0) continue; // center handled per-Y below
+                                int blendX = xi * step;
+                                int blendZ = zi * step;
+                                int localIndex = (scaledX + localMaxBlend + blendX)
+                                               + localMaxBlendAndChunk * (scaledZ + localMaxBlend + blendZ);
+                                if(columns[localIndex] == null) {
+                                    columns[localIndex] = provider.getColumnForTerrain(
+                                        absoluteX + blendX, absoluteZ + blendZ, seed, min, max);
+                                }
+                                // getSurface(): free field read on BiomePipelineColumn; returns base
+                                // (pre-extrusion) biome on BaseBiomeColumn with no extrude() call.
+                                Biome surfaceBiome = columns[localIndex].getSurface();
+                                BiomeNoiseSamplers ns = surfaceBiome.getContext().get(noisePropertiesKey).samplers();
+                                blendMap.accumulate(ns, ns.blendWeight(),
+                                    debugChunk ? surfaceBiome.getID() : null);
+                                if(SamplerFloorFeature.ENABLED && ns.densityFloor() == null) {
+                                    blendMap.allHaveFloor = false;
+                                }
                             }
                         }
                     }
@@ -173,9 +189,47 @@ public class ChunkInterpolator {
                     Biome centerBiome = biomeColumn.get(scaledY);
                     BiomeNoiseSamplers centerSamplers = centerBiome.getContext().get(noisePropertiesKey).samplers();
 
-                    if(blend == 0 || scaledY < blendMinY || scaledY > blendMaxY) {
-                        // Blend disabled: either the surface biome has blendDistance=0, or this
-                        // Y level is outside the pack-configured blend range. Use center's
+                    // Feature A: use the extruded center biome's blend distance for the per-Y
+                    // gate. This ensures that if an extruded biome declares blend.distance: 0,
+                    // blending is correctly disabled at that depth even when the surface biome
+                    // has a non-zero blend distance.
+                    int centerBlend = centerSamplers.blendDistance();
+
+                    if(blendExtrudedNeighbors) {
+                        // Feature B: rebuild neighbor map at each Y level so that neighbor
+                        // positions contribute their extruded biome's noise rather than the
+                        // surface biome's noise. More expensive than the surface-biome path but
+                        // produces accurate underground terrain blending.
+                        blendMap.reset();
+                        if(centerBlend > 0 && scaledY >= blendMinY && scaledY <= blendMaxY) {
+                            int centerStep = centerSamplers.blendStep();
+                            for(int xi = -centerBlend; xi <= centerBlend; xi++) {
+                                for(int zi = -centerBlend; zi <= centerBlend; zi++) {
+                                    if(xi == 0 && zi == 0) continue; // center handled below
+                                    int blendX = xi * centerStep;
+                                    int blendZ = zi * centerStep;
+                                    int localIndex = (scaledX + localMaxBlend + blendX)
+                                                   + localMaxBlendAndChunk * (scaledZ + localMaxBlend + blendZ);
+                                    if(columns[localIndex] == null) {
+                                        columns[localIndex] = provider.getColumnForTerrain(
+                                            absoluteX + blendX, absoluteZ + blendZ, seed, min, max);
+                                    }
+                                    // Use extruded biome at this Y level for the neighbor.
+                                    Biome neighborBiome = columns[localIndex].get(scaledY);
+                                    BiomeNoiseSamplers ns = neighborBiome.getContext().get(noisePropertiesKey).samplers();
+                                    blendMap.accumulate(ns, ns.blendWeight(),
+                                        debugChunk ? neighborBiome.getID() : null);
+                                    if(SamplerFloorFeature.ENABLED && ns.densityFloor() == null) {
+                                        blendMap.allHaveFloor = false;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if(centerBlend == 0 || scaledY < blendMinY || scaledY > blendMaxY) {
+                        // Blend disabled: either the extruded center biome has blendDistance=0,
+                        // or this Y level is outside the pack-configured blend range. Use center's
                         // extruded sampler directly.
                         noise = centerSamplers.base().getSample(seed, absoluteX, scaledY, absoluteZ);
                         if(SamplerFloorFeature.ENABLED) {
@@ -185,8 +239,9 @@ public class ChunkInterpolator {
                                 : Float.NEGATIVE_INFINITY;
                         }
                     } else {
-                        // Blend active: combine pre-built neighbor map (surface biomes) with
-                        // the center's per-Y extruded biome contribution.
+                        // Blend active: combine the neighbor map with the center's per-Y
+                        // extruded biome contribution. Neighbors are surface biomes when
+                        // blendExtrudedNeighbors=false, extruded biomes per-Y when true.
                         double centerWeight = centerSamplers.blendWeight();
                         double totalWeight  = blendMap.totalWeight + centerWeight;
 
@@ -201,7 +256,7 @@ public class ChunkInterpolator {
                                     : Float.NEGATIVE_INFINITY;
                             }
                         } else {
-                            // Heterogeneous: center (extruded) + unique neighbor surface biomes.
+                            // Heterogeneous: center (extruded) + unique neighbor biomes.
                             // Floor is accumulated only when EVERY contributor defines it.
                             boolean allHaveFloor = SamplerFloorFeature.ENABLED
                                 && blendMap.allHaveFloor

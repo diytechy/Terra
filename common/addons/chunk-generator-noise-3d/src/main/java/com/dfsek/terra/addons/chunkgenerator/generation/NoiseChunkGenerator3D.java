@@ -67,7 +67,8 @@ public class NoiseChunkGenerator3D implements ChunkGenerator {
                                  SlantCalculationMethod slantCalculationMethod, boolean useSlantPalettes,
                                  int blendMinY, int blendMaxY,
                                  @Nullable Sampler minDensitySampler, boolean minDensitySmooth,
-                                 double minDensitySmoothK, List<String> minDensitySkipTags) {
+                                 double minDensitySmoothK, List<String> minDensitySkipTags,
+                                 boolean blendExtrudedNeighbors) {
         this.platform = platform;
         this.air = platform.getWorldHandle().air();
         this.carverHorizontalResolution = carverHorizontalResolution;
@@ -88,7 +89,7 @@ public class NoiseChunkGenerator3D implements ChunkGenerator {
             .max()
             .orElse(0);
 
-        this.samplerCache = new SamplerProvider(platform, elevationBlend, noisePropertiesKey, maxBlend, blendMinY, blendMaxY);
+        this.samplerCache = new SamplerProvider(platform, elevationBlend, noisePropertiesKey, maxBlend, blendMinY, blendMaxY, blendExtrudedNeighbors);
     }
 
     private static double smoothMax(double a, double b, double k) {

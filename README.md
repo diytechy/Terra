@@ -1,101 +1,150 @@
-<img align="left" width="64" height="64" src="https://raw.githubusercontent.com/wiki/PolyhedralDev/Terra/images/terra_logo.png" alt="Terra Logo">
+# ⚠️ This is NOT Terra. This is a Vibe-Coded Abomination. ⚠️
 
-# Terra
+Let's get the important part out of the way first, in bold, so nobody can say they
+weren't warned:
 
-Terra is a modern world generation modding platform, primarily for Minecraft.
-Terra allows complete customization of world generation with an advanced API,
-tightly integrated with a powerful configuration system.
+> **This repository is not Terra.** It is a personal, vibe-coded fork that has
+> wandered off from the real [Terra](https://github.com/PolyhedralDev/Terra)
+> project, eaten some things it shouldn't have, and is now wearing Terra's
+> skin. The wonderful people at Polyhedral Development did not write this, did
+> not review this, and are not responsible for whatever this does to your world
+> save.
 
-Terra consists of several parts:
+If you came here looking for the actual, supported, community-loved world
+generator, **turn around now** and go to the real thing.
 
-* A voxel world generation API with emphasis on configuration and extensibility
-* Several platform implementations, the layer between the API and the platform
-  it's running on.
-* An addon loader, which allows addons to interface with the Terra API in a
-  platform-agnostic setting
-* Several "core addons," which implement the "default" configurations of Terra.
-  These addons can be thought of as the config "standard library"
+## What is this, then?
 
-Terra currently officially supports the Fabric mod loader and the Bukkit API
-(Paper and friends). We welcome Pull Requests implementing additional platforms!
+This is my own project, for my own Minecraft world, left out in the open in case
+anyone else wants to poke it with a stick. It exists to do exactly two things:
 
-## Downloads:
+1. Run on **Minecraft 26.1 (Paper 26.1)**, and
+2. Generate a world pack that mashes together the major community-driven Terra
+   packs into one combined experience:
+   **[CHIMERA](https://github.com/diytechy/CHIMERA)**.
 
-* Fabric: [Modrinth](https://modrinth.com/mod/terra)
-  / [CurseForge](https://www.curseforge.com/minecraft/mc-mods/terra-world-generator)
-* Paper+ servers (Paper, Tuinity, Purpur,
-  etc): [SpigotMC](https://www.spigotmc.org/resources/85151/)
+That's the whole mission. Everything in here bends toward making *my* world boot
+and look the way I want it to. It was built by vibes, prompts, and stubbornness —
+**not** by formal review, careful benchmarking, or anything resembling
+engineering discipline.
 
-## Building and Running Terra
+## The Rules of Engagement (please read)
 
-To build, simply run `./gradlew build` (`gradlew.bat build` on Windows). This
-will build all platforms, and produce JARs in `platforms/<platform>/build/libs`
+* **Found a bug? Raise it HERE.** Open an issue on *this* repo. Do **not** go
+  file it on the real Terra project. They didn't do this. You will only confuse
+  and sadden them.
+* **Unless** you have actually reproduced the issue against *stock, upstream
+  Terra* and proven it lives in their scope — then, sure, that's a real Terra
+  bug and belongs with Terra. The bar is "I proved it exists upstream," not "it
+  broke and Terra is the closest name on the box."
+* **My support is best-effort, and "best" may be very small.** This is a hobby
+  fork for one world. I may fix your issue tomorrow, in six months, or never. No
+  promises, no SLAs, no hard feelings.
+* **This is not official, not community-supported, and not blessed by anyone.**
+  It's a thing I made. You're welcome to try it. Caveat emptor, and bring a
+  backup of your save.
 
-### Production JARs:
+## What's been done to poor Terra
 
-* Bukkit: `Terra-<version>-shaded.jar`
-* Fabric: `Terra-<version>-shaded-mapped.jar`
+This fork has diverged substantially from upstream Terra's 1.21.11 line. The
+full, gory accounting lives in
+[investigations/Branch-vs-Upstream-1.21.11.md](investigations/Branch-vs-Upstream-1.21.11.md).
+The highlights, derived from that document and the code itself:
 
-### Building a Specific Platform
+* **Multi-platform, sort of.** Targets MC 26.1 / Paper 26.1 on **JDK 25**. The
+  live build graph covers **Bukkit/Paper, CLI, Allay, and Minestom** (plus a
+  `merged` jar that bundles them). **Fabric** and **NeoForge** have build
+  systems staged but kept disabled — WIP, untested, with architectury dropped
+  because it hasn't ported to 26.1. **Forge, Quilt, and Sponge** remain dormant.
+  All the disabled platforms' sources still sit in the tree, quietly rotting.
+* **A custom pack-publishing pipeline.** Every merge to `main` cuts a
+  `VIBE-`tagged GitHub release with built platform jars, and the build pulls and
+  bundles the CHIMERA pack (treated as *required* — a missing CHIMERA fails the
+  build).
+* **Heavily reworked terrain engine.** The 3D chunk generator
+  (`ChunkInterpolator`, `Sampler3D`, `NoiseChunkGenerator3D`), a from-scratch
+  rewrite of the noise `CacheSampler` (literally committed with the message
+  *"Claude's cache rewrite - UNTESTED"*), a new chunk-scoped caching layer in the
+  biome pipeline plus a `StructureSearchBiomeProvider`, a new max-Y biome
+  extrusion type, new surface-locator addons, and DendryTerra / BubblesOnChunkGen
+  integrations.
+* **NMS post-processors** that fill in vanilla-like behaviour after generation:
+  chest and BrushableBlock loot, beehive population, End gateway teleport
+  targets, and bedrock suppression around End crystals.
+* **Custom forks of upstream libraries** (Tectonic and Seismic, see below),
+  resolved from a public `diytechy` Repsy repo.
 
-To build a specific platform, run `gradlew :platforms:<platform>:build`.
+**Enormous flashing caveat:** none of these changes have been formally reviewed,
+properly benchmarked, or validated against upstream. They could be subtly wrong.
+They could **reduce performance**. They could generate beautiful terrain on
+Tuesday and cursed terrain on Wednesday. They exist because they made my world
+work, not because they're correct.
 
-JARs are produced in `platforms/<platform>/build/libs`.
+## The other abominations it depends on
 
-### Running Minecraft in the IDE
+This fork doesn't stop at Terra — it drags two of Terra's own dependencies down
+with it. Both are similarly vibe-augmented forks:
 
-To run Minecraft with Terra in the IDE (for testing) use the following tasks:
+### Vibe-augmented Seismic — https://github.com/diytechy/Seismic
 
-* Bukkit
-    * `runServer` - Run the Paper test server with Terra installed.
-* Fabric
-    * `runClient` - Run a Minecraft Fabric client with Terra installed.
-    * `runServer` - Run a Minecraft Fabric server with Terra installed.
+Fork of [PolyhedralDev/Seismic](https://github.com/PolyhedralDev/Seismic),
+pinned as `2.5.7-PATCHED`. Notable changes:
 
-## Contributing
+* **Fixed two real bugs in `OpenSimplex2SSampler` 2D `getNoiseRaw`** — an `a1`
+  attenuation term missing its `+ a0` (which was exposing the raw simplex
+  lattice as visible seams across the whole output), and a `y2` coordinate using
+  the wrong unskew constant. Both found by diffing against the already-correct
+  derivative variant and verifying algebraically.
+* Added local / Repsy publishing (no GPG) and a `publishToMavenLocal` finalizer
+  for patch testing.
 
-Contributions are welcome! If you want to see a feature in Terra, please, open
-an issue, or implement it yourself and submit a PR!
-Join the discord [here](https://discord.gg/PXUEbbF) if you would like to talk
-more about the project!
+### Vibe-augmented Tectonic — https://github.com/diytechy/Tectonic
+
+Fork of [PolyhedralDev/Tectonic](https://github.com/PolyhedralDev/Tectonic),
+pinned as `4.3.2-diytechy`. Notable changes:
+
+* **A session-scoped type-load cache** (`beginSession()` / `endSession()` on
+  `ConfigLoader`) that deduplicates type-load results across configs sharing
+  inherited raw YAML from a common parent — thread-safe because Terra loads
+  configs in a parallel stream. **This API does not exist upstream**, and this
+  fork's Terra calls it directly, so you cannot simply drop back to stock
+  Tectonic.
+* **Java 25 retargeting**, including a `ScopedValue` (`CURRENT_DEPTH`) for the
+  `DepthTracker` instead of threading it through every call frame, plus assorted
+  reflective-loader changes. Gradle bumped to 9.2.1. A broader roadmap of
+  Java-25-era ideas lives in
+  [Tectonic's Java25Improvements.md](https://github.com/diytechy/Tectonic/blob/master/Java25Improvements.md).
+
+Same disclaimer applies to both: unreviewed, vibe-driven, here because they made
+my world work.
+
+## Building
+
+If you really want to build this thing: `./gradlew build` (`gradlew.bat build`
+on Windows). You will need a JDK 25 toolchain reachable by Gradle, and network
+access to the `diytechy` Repsy artifacts (should be public) for the custom Tectonic/Seismic/pack
+dependencies — a clean offline checkout will not build.
 
 ## Licensing
+
+This is a fork of Terra and inherits Terra's licensing. Nothing here changes
+that — all credit for the underlying platform belongs to Polyhedral Development.
 
 Parts of Terra are licensed under either the MIT License or the GNU General
 Public License, version 3.0.
 
-* Our API is licensed under the [MIT License](LICENSE), to ensure that everyone
-  is able to freely use it however they want.
-* Our core addons are also licensed under the [MIT License](LICENSE), to ensure
-  that people can freely use code from them to learn and make their own addons,
-  without worrying about GPL infection.
-* Our platform-agnostic implementations and platform implementations are
-  licensed under
-  the [GNU General Public License, version 3.0](common/implementation/LICENSE),
-  to ensure that they remain free software wherever they are used.
+* The API is licensed under the [MIT License](LICENSE).
+* The core addons are also licensed under the [MIT License](LICENSE).
+* The platform-agnostic implementations and platform implementations are
+  licensed under the
+  [GNU General Public License, version 3.0](common/implementation/LICENSE).
 
-If you're not sure which license a particular file is under, check:
+If you're not sure which license a particular file is under, check the file's
+header or the LICENSE file in the closest parent folder.
 
-* The file's header
-* The LICENSE file in the closest parent folder of the file in question
+## Credit where it's due
 
-## Beta
-
-Terra is still in beta! While it is stable, it is not feature-complete. There is
-a lot to be added!
-
-## Special Thanks
-
-[![YourKit-Logo](https://www.yourkit.com/images/yklogo.png)](https://www.yourkit.com/)
-
-YourKit has granted Polyhedral Development an open-source license to their
-outstanding Java profiler, allowing us to make our software as performant as it
-can be!
-
-YourKit supports open source projects with innovative and intelligent tools for
-monitoring and profiling Java and .NET applications. YourKit is the creator of
-the
-[YourKit Java Profiler](https://www.yourkit.com/java/profiler/),
-[YourKit .NET Profiler](https://www.yourkit.com/.net/profiler/),
-and [YourKit YouMonitor](https://www.yourkit.com/youmonitor/).
-
+The real Terra is the work of [Polyhedral Development](https://github.com/PolyhedralDev)
+and its contributors. They built something genuinely excellent. I vibe-coded on
+top of it for my own amusement. Please direct your admiration to them — and your
+bug reports to me.

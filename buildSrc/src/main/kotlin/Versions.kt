@@ -1,6 +1,6 @@
 object Versions {
     object Terra {
-        const val chimeraConfig = "0.0.4"
+        const val chimeraConfig = "0.0.5"
         const val reimagENDConfig = "3.0.0"
         const val tartarusConfig = "1.0.0"
     }
@@ -16,8 +16,8 @@ object Versions {
         const val cloud = "2.0.0"
         
         const val caffeine = "3.2.2"
-        const val dendryTerra = "1.0.0-BETA-G"
-        const val bubblesOnChunkGen = "1.2.2"
+        const val dendryTerra = "1.0.0-BETA-J"
+        const val bubblesOnChunkGen = "1.4.0"
 
         const val slf4j = "2.0.17"
 
@@ -35,33 +35,46 @@ object Versions {
     }
     
     object Fabric {
-        const val fabricAPI = "0.140.0+${Mod.minecraft}"
-        const val cloud = "2.0.0-beta.13"
+        const val fabricAPI = "0.149.1+${Mod.minecraft}"
+        // beta.16 is the first cloud-fabric to add MC 26.1 support (PR #123).
+        const val cloud = "2.0.0-beta.16"
     }
 //
 //    object Quilt {
 //        const val quiltLoader = "0.20.2"
 //        const val fabricApi = "7.3.1+0.89.3-1.20.1"
 //    }
-    
+
+    // MC 26.1 is the first unobfuscated release; Mojang's official mappings are now
+    // canonical, and Fabric's old yarn mappings have been deprecated. The new
+    // `net.fabricmc.fabric-loom` plugin builds against the unobfuscated jar directly.
+    // Architectury has not yet ported to 26.1 (issue architectury-api#704 open
+    // as of 2026-05-19), so this branch uses fabric-loom directly without
+    // architectury's cross-platform abstraction.
     object Mod {
         const val mixin = "0.16.5+mixin.0.8.7"
         const val mixinExtras = "0.5.0"
-        
-        const val minecraft = "1.21.11"
-        const val yarn = "$minecraft+build.3"
-        const val fabricLoader = "0.18.3"
-        
-        const val architecturyLoom = "1.13.463"
-        const val architecturyPlugin = "3.4.162"
 
+        const val minecraft = "26.1.2"
+        const val fabricLoader = "0.19.2"
+        const val fabricLoom = "1.16.2"
     }
 //
 //    object Forge {
 //        const val forge = "${Mod.minecraft}-48.0.13"
 //        const val burningwave = "12.63.0"
 //    }
-    
+
+    // NeoForge replaces Forge for MC 1.21+. Versioning is 4-component
+    // <mcMajor>.<mcMinor>.<mcHotfix>.<neoforgeRelease>-<channel>.
+    // MC 26.1 line is still in beta as of 2026-05; revisit when stable RC ships.
+    // Requires Gradle 9.1.0+ and Java 25 (already in place).
+    object NeoForge {
+        const val neoForge = "26.1.2.59-beta"
+        const val cloud = "2.0.0-beta.15"
+        const val modDevGradle = "2.0.141"
+    }
+
     object Bukkit {
         const val minecraft = "26.1"
         const val paper = "26.1.1.build.+"
@@ -97,6 +110,6 @@ object Versions {
     }
     
     object Minestom {
-        const val minestom = "2025.10.31-1.21.10"
+        const val minestom = "2026.05.17c-26.1.1"
     }
 }

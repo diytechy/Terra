@@ -40,17 +40,28 @@ public class PipelineBiomeProvider implements BiomeProvider {
     private final Set<Biome> biomes;
     private final Profiler profiler;
     private final @Nullable StructureSearchBiomeProvider structureFastPath;
+    private final boolean interpolate;
+    private final @Nullable Sampler interpolationSampler;
 
     public PipelineBiomeProvider(Pipeline pipeline, int resolution, Sampler mutator, double noiseAmp, Profiler profiler) {
-        this(pipeline, resolution, mutator, noiseAmp, profiler, null);
+        this(pipeline, resolution, mutator, noiseAmp, profiler, null, false, null);
     }
 
     public PipelineBiomeProvider(Pipeline pipeline, int resolution, Sampler mutator, double noiseAmp, Profiler profiler,
                                  @Nullable StructureSearchBiomeProvider structureFastPath) {
+        this(pipeline, resolution, mutator, noiseAmp, profiler, structureFastPath, false, null);
+    }
+
+    public PipelineBiomeProvider(Pipeline pipeline, int resolution, Sampler mutator, double noiseAmp, Profiler profiler,
+                                 @Nullable StructureSearchBiomeProvider structureFastPath,
+                                 boolean interpolate, @Nullable Sampler interpolationSampler) {
         this.profiler = profiler;
         this.resolution = resolution;
         this.mutator = mutator;
         this.noiseAmp = noiseAmp;
+        // Interpolation only has meaning when more than one block maps to a cell.
+        this.interpolate = interpolate && resolution > 1;
+        this.interpolationSampler = interpolationSampler;
         this.chunkSize = pipeline.getChunkSize();
         this.biomeChunkCache = Caffeine.newBuilder()
             .maximumSize(256)
@@ -102,19 +113,73 @@ public class PipelineBiomeProvider implements BiomeProvider {
         x += (int) (mutator.getSample(seed + 1, x, z) * noiseAmp);
         z += (int) (mutator.getSample(seed + 2, x, z) * noiseAmp);
 
-        x /= resolution;
-        z /= resolution;
+        if(!interpolate) {
+            // Legacy path: snap to a single resolution cell. Truncating division is
+            // retained here so existing worlds generate identically.
+            return cellBiome(x / resolution, z / resolution, seed);
+        }
 
-        int chunkX = Math.floorDiv(x, chunkSize);
-        int chunkZ = Math.floorDiv(z, chunkSize);
+        // Sub-resolution interpolation. Cell samples sit at the cell's lower-left
+        // corner (world coordinate = gridIndex * resolution), so the block's
+        // fractional offset within the cell gives the bilinear weights toward the
+        // adjacent cells. The per-block roll then selects one of the four cells with
+        // probability equal to its weight. Biomes are categorical, so this dithers
+        // between samples rather than averaging them, breaking the axis-aligned
+        // border steps into a noise-feathered gradient. Each call still performs
+        // exactly one chunk-cache lookup.
+        int gx = Math.floorDiv(x, resolution);
+        int gz = Math.floorDiv(z, resolution);
+        double tx = (double) Math.floorMod(x, resolution) / resolution;
+        double tz = (double) Math.floorMod(z, resolution) / resolution;
+
+        double roll = interpolationSampler != null
+            ? clamp01((interpolationSampler.getSample(seed + 3, x, z) + 1.0) * 0.5)
+            : hashRoll(seed, x, z);
+
+        double w00 = (1.0 - tx) * (1.0 - tz);
+        double w10 = tx * (1.0 - tz);
+        double w01 = (1.0 - tx) * tz;
+
+        if(roll < w00) return cellBiome(gx, gz, seed);
+        if(roll < w00 + w10) return cellBiome(gx + 1, gz, seed);
+        if(roll < w00 + w10 + w01) return cellBiome(gx, gz + 1, seed);
+        return cellBiome(gx + 1, gz + 1, seed);
+    }
+
+    /**
+     * Resolves the biome for a single resolution-grid cell, identified by its grid
+     * coordinates (world coordinate / resolution).
+     */
+    private Biome cellBiome(int gridX, int gridZ, long seed) {
+        int chunkX = Math.floorDiv(gridX, chunkSize);
+        int chunkZ = Math.floorDiv(gridZ, chunkSize);
 
         int chunkWorldX = chunkX * chunkSize;
         int chunkWorldZ = chunkZ * chunkSize;
 
-        int xInChunk = x - chunkWorldX;
-        int zInChunk = z - chunkWorldZ;
+        int xInChunk = gridX - chunkWorldX;
+        int zInChunk = gridZ - chunkWorldZ;
 
         return biomeChunkCache.get(new SeededVector2Key(chunkWorldX, chunkWorldZ, seed)).get(xInChunk, zInChunk).getBiome();
+    }
+
+    private static double clamp01(double v) {
+        if(v <= 0.0) return 0.0;
+        return v >= 1.0 ? Math.nextDown(1.0) : v;
+    }
+
+    /**
+     * Deterministic per-block white-noise hash in {@code [0, 1)} used as the default
+     * interpolation roll when no sampler is configured (splitmix64 finalizer).
+     */
+    private static double hashRoll(long seed, int x, int z) {
+        long h = seed * 0x9E3779B97F4A7C15L;
+        h ^= (x & 0xFFFFFFFFL) * 0xC2B2AE3D27D4EB4FL;
+        h ^= (z & 0xFFFFFFFFL) * 0x165667B19E3779F9L;
+        h ^= h >>> 29;
+        h *= 0xBF58476D1CE4E5B9L;
+        h ^= h >>> 32;
+        return (h >>> 11) * 0x1.0p-53;
     }
 
     @Override

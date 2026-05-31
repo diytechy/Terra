@@ -53,8 +53,8 @@ fun Project.configureDependencies() {
         maven("https://repo.papermc.io/repository/maven-public/") {
             name = "PaperMC"
         }
-        maven("https://files.minecraftforge.net/maven/") {
-            name = "Forge"
+        maven("https://maven.neoforged.net/releases/") {
+            name = "NeoForged"
         }
         maven("https://maven.quiltmc.org/repository/release/") {
             name = "Quilt"

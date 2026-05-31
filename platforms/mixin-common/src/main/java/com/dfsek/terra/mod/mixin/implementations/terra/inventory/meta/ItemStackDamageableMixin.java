@@ -17,7 +17,7 @@
 
 package com.dfsek.terra.mod.mixin.implementations.terra.inventory.meta;
 
-import net.minecraft.item.ItemStack;
+import net.minecraft.world.item.ItemStack;
 import org.spongepowered.asm.mixin.Implements;
 import org.spongepowered.asm.mixin.Interface;
 import org.spongepowered.asm.mixin.Intrinsic;

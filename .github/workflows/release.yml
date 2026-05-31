@@ -48,6 +48,7 @@ jobs:
           echo "== bukkit =="; ls -la platforms/bukkit/build/libs/ || true
           echo "== cli =="; ls -la platforms/cli/build/libs/ || true
           echo "== allay =="; ls -la platforms/allay/build/libs/ || true
+          echo "== minestom =="; ls -la platforms/minestom/build/libs/ || true
           echo "== merged =="; ls -la platforms/merged/build/libs/ || true
 
       # Insert VIBE- right after Terra- in each shaded jar's filename so the
@@ -62,6 +63,7 @@ jobs:
             platforms/bukkit/build/libs/Terra-bukkit-*-shaded.jar \
             platforms/cli/build/libs/Terra-cli-*-shaded.jar \
             platforms/allay/build/libs/Terra-allay-*-shaded.jar \
+            platforms/minestom/build/libs/Terra-minestom-*-shaded.jar \
             platforms/merged/build/libs/Terra-merged-*-shaded.jar; do
             [ -e "$src" ] || continue
             base=$(basename "$src")
@@ -82,4 +84,5 @@ jobs:
             release-artifacts/Terra-VIBE-bukkit-*-shaded.jar
             release-artifacts/Terra-VIBE-cli-*-shaded.jar
             release-artifacts/Terra-VIBE-allay-*-shaded.jar
+            release-artifacts/Terra-VIBE-minestom-*-shaded.jar
             release-artifacts/Terra-VIBE-merged-*-shaded.jar

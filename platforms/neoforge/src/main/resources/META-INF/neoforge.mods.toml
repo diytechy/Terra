@@ -1,0 +1,33 @@
+modLoader = "javafml"
+loaderVersion = "[4,)"
+license = "GNU General Public License, v3.0"
+issueTrackerURL = "https://github.com/PolyhedralDev/Terra/issues"
+
+[[mods]]
+modId = "terra"
+version = "@VERSION@"
+displayName = "Terra"
+description = "@DESCRIPTION@"
+
+[[dependencies.terra]]
+modId = "neoforge"
+type = "required"
+versionRange = "[4,)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.terra]]
+modId = "minecraft"
+type = "required"
+versionRange = "[26.1,)"
+ordering = "NONE"
+side = "BOTH"
+
+# Mixin configs come from the shared loader-neutral modules (bundled via shadedImplementation):
+#   terra.common.mixins.json    -> mixin-common
+#   terra.lifecycle.mixins.json -> mixin-lifecycle (RegistryDataLoader biome/codec injection etc.)
+[[mixins]]
+config = "terra.common.mixins.json"
+
+[[mixins]]
+config = "terra.lifecycle.mixins.json"

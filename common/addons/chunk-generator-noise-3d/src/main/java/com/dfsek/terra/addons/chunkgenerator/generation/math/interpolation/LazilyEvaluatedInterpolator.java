@@ -52,13 +52,17 @@ public class LazilyEvaluatedInterpolator {
         this.max = max - 1;
     }
 
-    private double sample(int xIndex, int yIndex, int zIndex, int ox, int oy, int oz) {
+    // Pins each cache cell to its canonical grid point so the cached value is independent
+    // of which caller populated it first. Without this, a top-down column scan caches every
+    // cell at its top y, and the interpolator (which treats samples as if they sit at cell
+    // bottoms) shifts y-dependent carving down by verticalRes-1 blocks.
+    private double cachedSample(int xIndex, int yIndex, int zIndex) {
         int index = xIndex + (zIndex * zMul) + (yIndex * yMul);
         float sample = samples[index];
         if(Float.isNaN(sample)) {
-            int xi = ox + chunkX;
-            int zi = oz + chunkZ;
-            int y = Math.min(max, oy);
+            int xi = xIndex * horizontalRes + chunkX;
+            int zi = zIndex * horizontalRes + chunkZ;
+            int y = Math.min(max, yIndex * verticalRes + min);
 
             Biome biome = biomeProvider.getBiome(xi, y, zi, seed);
             Sampler carver = carvingSamplerCache.computeIfAbsent(
@@ -75,17 +79,17 @@ public class LazilyEvaluatedInterpolator {
         int yIndex = (y - min) / verticalRes;
         int zIndex = z / horizontalRes;
 
-        double sample_0_0_0 = sample(xIndex, yIndex, zIndex, x, y, z);
+        double sample_0_0_0 = cachedSample(xIndex, yIndex, zIndex);
 
         boolean yRange = y % verticalRes == 0;
         if(x % horizontalRes == 0 && yRange && z % horizontalRes == 0) { // we're at the sampling point
             return sample_0_0_0;
         }
 
-        double sample_0_0_1 = sample(xIndex, yIndex, zIndex + 1, x, y, z + horizontalRes);
+        double sample_0_0_1 = cachedSample(xIndex, yIndex, zIndex + 1);
 
-        double sample_1_0_0 = sample(xIndex + 1, yIndex, zIndex, x + horizontalRes, y, z);
-        double sample_1_0_1 = sample(xIndex + 1, yIndex, zIndex + 1, x + horizontalRes, y, z + horizontalRes);
+        double sample_1_0_0 = cachedSample(xIndex + 1, yIndex, zIndex);
+        double sample_1_0_1 = cachedSample(xIndex + 1, yIndex, zIndex + 1);
 
         double xFrac = (double) (x % horizontalRes) / horizontalRes;
         double zFrac = (double) (z % horizontalRes) / horizontalRes;
@@ -101,12 +105,12 @@ public class LazilyEvaluatedInterpolator {
         double yFrac = (double) Math.floorMod(y, verticalRes) / verticalRes;
 
 
-        double sample_0_1_0 = sample(xIndex, yIndex + 1, zIndex, x, y + verticalRes, z);
-        double sample_0_1_1 = sample(xIndex, yIndex + 1, zIndex + 1, x, y + verticalRes, z + horizontalRes);
+        double sample_0_1_0 = cachedSample(xIndex, yIndex + 1, zIndex);
+        double sample_0_1_1 = cachedSample(xIndex, yIndex + 1, zIndex + 1);
 
 
-        double sample_1_1_0 = sample(xIndex + 1, yIndex + 1, zIndex, x + horizontalRes, y + verticalRes, z);
-        double sample_1_1_1 = sample(xIndex + 1, yIndex + 1, zIndex + 1, x + horizontalRes, y + verticalRes, z + horizontalRes);
+        double sample_1_1_0 = cachedSample(xIndex + 1, yIndex + 1, zIndex);
+        double sample_1_1_1 = cachedSample(xIndex + 1, yIndex + 1, zIndex + 1);
 
         double lerp_top_0 = InterpolationFunctions.lerp(sample_0_1_0, sample_0_1_1, zFrac);
         double lerp_top_1 = InterpolationFunctions.lerp(sample_1_1_0, sample_1_1_1, zFrac);
