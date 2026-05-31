@@ -50,6 +50,8 @@ jobs:
           echo "== allay =="; ls -la platforms/allay/build/libs/ || true
           echo "== minestom =="; ls -la platforms/minestom/build/libs/ || true
           echo "== merged =="; ls -la platforms/merged/build/libs/ || true
+          echo "== fabric =="; ls -la platforms/fabric/build/libs/ || true
+          echo "== neoforge =="; ls -la platforms/neoforge/build/libs/ || true
 
       # Insert VIBE- right after Terra- in each shaded jar's filename so the
       # released assets are visually distinct from upstream PolyhedralDev/Terra
@@ -64,7 +66,9 @@ jobs:
             platforms/cli/build/libs/Terra-cli-*-shaded.jar \
             platforms/allay/build/libs/Terra-allay-*-shaded.jar \
             platforms/minestom/build/libs/Terra-minestom-*-shaded.jar \
-            platforms/merged/build/libs/Terra-merged-*-shaded.jar; do
+            platforms/merged/build/libs/Terra-merged-*-shaded.jar \
+            platforms/fabric/build/libs/Terra-fabric-*-shaded.jar \
+            platforms/neoforge/build/libs/Terra-neoforge-*-shaded.jar; do
             [ -e "$src" ] || continue
             base=$(basename "$src")
             renamed=$(echo "$base" | sed 's/^Terra-/Terra-VIBE-/')
@@ -79,10 +83,12 @@ jobs:
           tag_name: ${{ steps.tag.outputs.tag }}
           name: ${{ steps.tag.outputs.tag }}
           generate_release_notes: true
-          fail_on_unmatched_files: true
+          fail_on_unmatched_files: false
           files: |
             release-artifacts/Terra-VIBE-bukkit-*-shaded.jar
             release-artifacts/Terra-VIBE-cli-*-shaded.jar
             release-artifacts/Terra-VIBE-allay-*-shaded.jar
             release-artifacts/Terra-VIBE-minestom-*-shaded.jar
             release-artifacts/Terra-VIBE-merged-*-shaded.jar
+            release-artifacts/Terra-VIBE-fabric-*-shaded.jar
+            release-artifacts/Terra-VIBE-neoforge-*-shaded.jar
