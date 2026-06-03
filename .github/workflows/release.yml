@@ -45,11 +45,10 @@ jobs:
 
       - name: List built artifacts
         run: |
-          echo "== bukkit =="; ls -la platforms/bukkit/build/libs/ || true
+          echo "== paper (bukkit) =="; ls -la platforms/bukkit/build/libs/ || true
           echo "== cli =="; ls -la platforms/cli/build/libs/ || true
           echo "== allay =="; ls -la platforms/allay/build/libs/ || true
           echo "== minestom =="; ls -la platforms/minestom/build/libs/ || true
-          echo "== merged =="; ls -la platforms/merged/build/libs/ || true
           echo "== fabric =="; ls -la platforms/fabric/build/libs/ || true
           echo "== neoforge =="; ls -la platforms/neoforge/build/libs/ || true
 
@@ -66,12 +65,13 @@ jobs:
             platforms/cli/build/libs/Terra-cli-*-shaded.jar \
             platforms/allay/build/libs/Terra-allay-*-shaded.jar \
             platforms/minestom/build/libs/Terra-minestom-*-shaded.jar \
-            platforms/merged/build/libs/Terra-merged-*-shaded.jar \
             platforms/fabric/build/libs/Terra-fabric-*-shaded.jar \
             platforms/neoforge/build/libs/Terra-neoforge-*-shaded.jar; do
             [ -e "$src" ] || continue
             base=$(basename "$src")
-            renamed=$(echo "$base" | sed 's/^Terra-/Terra-VIBE-/')
+            # Insert the VIBE marker and publish the Paper platform jar (gradle
+            # project ":platforms:bukkit") under the clearer "paper" asset name.
+            renamed=$(echo "$base" | sed 's/^Terra-/Terra-VIBE-/; s/-bukkit-/-paper-/')
             cp "$src" "release-artifacts/$renamed"
             echo "  $base -> $renamed"
           done
@@ -85,10 +85,9 @@ jobs:
           generate_release_notes: true
           fail_on_unmatched_files: false
           files: |
-            release-artifacts/Terra-VIBE-bukkit-*-shaded.jar
+            release-artifacts/Terra-VIBE-paper-*-shaded.jar
             release-artifacts/Terra-VIBE-cli-*-shaded.jar
             release-artifacts/Terra-VIBE-allay-*-shaded.jar
             release-artifacts/Terra-VIBE-minestom-*-shaded.jar
-            release-artifacts/Terra-VIBE-merged-*-shaded.jar
             release-artifacts/Terra-VIBE-fabric-*-shaded.jar
             release-artifacts/Terra-VIBE-neoforge-*-shaded.jar

@@ -52,8 +52,8 @@ full, gory accounting lives in
 The highlights, derived from that document and the code itself:
 
 * **Multi-platform, sort of.** Targets MC 26.1 / Paper 26.1 on **JDK 25**. The
-  live build graph covers **Bukkit/Paper, CLI, Allay, and Minestom** (plus a
-  `merged` jar that bundles them). **Fabric** and **NeoForge** have build
+  live build graph covers **Bukkit/Paper, CLI, Allay, and Minestom**. **Fabric**
+  and **NeoForge** have build
   systems staged but kept disabled — WIP, untested, with architectury dropped
   because it hasn't ported to 26.1. **Forge, Quilt, and Sponge** remain dormant.
   All the disabled platforms' sources still sit in the tree, quietly rotting.
