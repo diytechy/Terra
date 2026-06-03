@@ -1,6 +1,6 @@
 object Versions {
     object Terra {
-        const val chimeraConfig = "0.0.7"
+        const val chimeraConfig = "0.0.8"
         const val reimagENDConfig = "3.0.0"
         const val tartarusConfig = "1.0.0"
     }
@@ -76,8 +76,8 @@ object Versions {
     }
 
     object Bukkit {
-        const val minecraft = "26.1"
-        const val paper = "26.1.1.build.+"
+        const val minecraft = "26.1.2"
+        const val paper = "26.1.2.build.+"
         const val paperDevBundle = paper
         const val paperLib = "1.0.8"
         const val reflectionRemapper = "0.1.3"
