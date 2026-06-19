@@ -71,6 +71,9 @@ fun Project.configureDependencies() {
         maven("https://repo.repsy.io/mvn/diytechy/dendryterra") {
             name = "DendryTerra"
         }
+        maven("https://repo.repsy.io/mvn/diytechy/cloud-minecraft") {
+            name = "RepsyCloudMinecraft"
+        }
         maven("https://repo.repsy.io/mvn/diytechy/terra-packs") {
             name = "TerraPacks"
         }

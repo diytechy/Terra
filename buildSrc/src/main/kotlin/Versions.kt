@@ -1,6 +1,6 @@
 object Versions {
     object Terra {
-        const val chimeraConfig = "0.0.9"
+        const val chimeraConfig = "0.1.0"
         const val reimagENDConfig = "3.0.0"
         const val tartarusConfig = "1.0.0"
     }
@@ -16,7 +16,7 @@ object Versions {
         const val cloud = "2.0.0"
         
         const val caffeine = "3.2.2"
-        const val dendryTerra = "1.0.0-BETA-J"
+        const val dendryTerra = "1.0.0-BETA-K"
         const val bubblesOnChunkGen = "1.4.0"
 
         const val slf4j = "2.0.17"
@@ -83,7 +83,9 @@ object Versions {
         const val reflectionRemapper = "0.1.3"
         const val runPaper = "2.3.1"
         const val paperWeight = "2.0.0-beta.21"
-        const val cloud = "2.0.0-beta.15"
+        // diytechy fork of cloud-minecraft (adds Paper 26.2 CraftItemStack reflection
+        // support), published to Repsy. Resolved via RepsyCloudMinecraft in DependencyConfig.kt.
+        const val cloud = "2.0.0-beta.16-diytechy"
         const val multiverse = "5.6.1"
     }
     
