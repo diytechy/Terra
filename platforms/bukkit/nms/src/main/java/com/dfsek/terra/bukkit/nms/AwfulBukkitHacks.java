@@ -26,6 +26,18 @@ import com.dfsek.terra.bukkit.world.BukkitPlatformBiome;
 import com.dfsek.terra.registry.master.ConfigRegistry;
 
 
+/**
+ * Injects Terra's custom biomes into the (already-frozen) vanilla biome registry on Bukkit/Paper,
+ * reaching into registry internals via {@link Reflection} because Paper's registry-modification API
+ * does not yet expose the biome registry.
+ *
+ * <p>TODO: replace with {@code RegistryEvents.BIOME.compose()} once Paper exposes the biome registry.
+ * Paper already drives this for ~16 registries (game event, enchantment, mob variants, sulfur cube
+ * archetype, dialog, ...) through {@code RegistryComposeEvent}, which exposes
+ * {@code registry().register(...)} and {@code getOrCreateTag(...)} and lets Paper own the freeze
+ * lifecycle. When {@code worldgen/biome} is added there, this class and most of {@link Reflection}
+ * can collapse into a small compose listener.
+ */
 public class AwfulBukkitHacks {
     private static final Logger LOGGER = LoggerFactory.getLogger(AwfulBukkitHacks.class);
 
