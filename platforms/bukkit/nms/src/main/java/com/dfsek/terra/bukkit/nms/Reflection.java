@@ -77,6 +77,10 @@ public class Reflection {
         @MethodName("fromMap")
         @Static
         <T> Object invokeFromMap(Map<TagKey<T>, HolderSet.Named<T>> map);
+
+        @MethodName("unbound")
+        @Static
+        Object invokeUnbound();
     }
 
 
