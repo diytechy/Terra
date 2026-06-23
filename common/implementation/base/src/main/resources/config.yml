@@ -18,6 +18,11 @@ cache:
 script:
   max-recursion: 1000
 ignored-resources:
+# A bare managed-directory name ("addons", "packs", "metapacks") skips that whole directory.
+# A name fragment skips a single bundled resource and matches it across versions. Anything
+# listed here is also deleted from the data folder if an earlier launch already extracted it.
 #  - "addons"
 #  - "packs"
 #  - "metapacks"
+# Uncomment to exclude the BubblesOnChunkGen addon (e.g. to measure its worldgen overhead):
+#  - "bubbles-chunk-gen"
