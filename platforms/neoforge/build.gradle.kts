@@ -47,6 +47,10 @@ dependencies {
     implementation("org.incendo", "cloud-neoforge", Versions.NeoForge.cloud) {
         exclude("me.lucko", "fabric-permissions-api")
     }
+
+    // cloud-core 2.0.0 was compiled with org.immutables annotations; without this on the
+    // classpath javac emits "Cannot find annotation method" classfile warnings.
+    compileOnly("org.immutables", "value", "2.10.1") { isTransitive = false }
 }
 
 tasks {

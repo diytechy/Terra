@@ -108,7 +108,7 @@ public class TerraMinestomExample {
     }
 
     public void addCommands() {
-        MinecraftServer.getCommandManager().register(new RegenerateCommand());
+        MinecraftServer.getCommandManager().register(new RegenerateCommand(this));
     }
 
     public void bind() {
@@ -117,24 +117,26 @@ public class TerraMinestomExample {
     }
 
 
-    public class RegenerateCommand extends Command {
-        public RegenerateCommand() {
+    public static class RegenerateCommand extends Command {
+        private final TerraMinestomExample example;
+
+        public RegenerateCommand(TerraMinestomExample example) {
             super("regenerate");
-            setDefaultExecutor((sender, context) -> regenerate());
+            this.example = example;
+            setDefaultExecutor((sender, context) -> this.example.regenerate());
         }
+    }
 
-        private void regenerate() {
-            instance.sendMessage(Component.text("Regenerating world"));
-            Instance oldInstance = instance;
-            platform.reload();
-            createNewInstance();
-            attachTerra();
-            preloadWorldAndMeasure();
-            MinecraftServer.getConnectionManager().getOnlinePlayers().forEach(player ->
-                player.setInstance(instance, new Pos(0, 100, 0))
-            );
-
-            MinecraftServer.getInstanceManager().unregisterInstance(oldInstance);
-        }
+    private void regenerate() {
+        instance.sendMessage(Component.text("Regenerating world"));
+        Instance oldInstance = instance;
+        platform.reload();
+        createNewInstance();
+        attachTerra();
+        preloadWorldAndMeasure();
+        MinecraftServer.getConnectionManager().getOnlinePlayers().forEach(player ->
+            player.setInstance(instance, new Pos(0, 100, 0))
+        );
+        MinecraftServer.getInstanceManager().unregisterInstance(oldInstance);
     }
 }

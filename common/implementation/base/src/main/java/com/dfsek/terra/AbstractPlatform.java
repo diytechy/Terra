@@ -41,6 +41,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -338,8 +339,9 @@ public abstract class AbstractPlatform implements Platform {
             Map<String, List<String>> resources = new Yaml().load(resourceYaml);
             resources.forEach((dir, entries) -> entries.forEach(entry -> {
                 String resourceClassPath = dir + "/" + entry;
-                if(ignoredResources.contains(dir) || ignoredResources.contains(entry) || ignoredResources.contains(resourceClassPath)) {
+                if(isResourceIgnored(ignoredResources, dir, entry, resourceClassPath)) {
                     logger.info("Not dumping resource {} because it is ignored.", resourceClassPath);
+                    removeIgnoredResource(data.resolve(dir), entry, ignoredResources);
                 } else {
                     String resourcePath = resourceClassPath.replace('/', File.separatorChar);
                     File resource = new File(getDataFolder(), resourcePath);
@@ -391,6 +393,58 @@ public abstract class AbstractPlatform implements Platform {
             }));
         } catch(IOException e) {
             logger.error("Error while dumping resources...", e);
+        }
+    }
+
+    /**
+     * Whether a bundled resource should be skipped when dumping. In addition to the original exact
+     * matches (a managed directory name, the full classpath, or the exact jar filename) this also
+     * does a case-insensitive substring match against the jar filename, so a stable token such as
+     * {@code bubbles-chunk-gen} matches the versioned {@code Terra-bubbles-chunk-gen-1.26.2-...-all.jar}.
+     */
+    private static boolean isResourceIgnored(List<String> ignoredResources, String dir, String entry, String classPath) {
+        return ignoredResources.contains(dir)
+               || ignoredResources.contains(entry)
+               || ignoredResources.contains(classPath)
+               || ignoredTokenMatches(entry, ignoredResources);
+    }
+
+    private static boolean ignoredTokenMatches(String entry, List<String> ignoredResources) {
+        String lower = entry.toLowerCase(Locale.ROOT);
+        for(String token : ignoredResources) {
+            String t = token.toLowerCase(Locale.ROOT);
+            if(!t.isEmpty() && lower.contains(t)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Deletes any already-extracted copy of an ignored resource from the data folder, so an addon
+     * that was dumped before being ignored stops loading. Only files matching the ignored entry
+     * (its exact name, or an ignored name token) are removed; user-supplied files are left alone.
+     */
+    private void removeIgnoredResource(Path dirPath, String entry, List<String> ignoredResources) {
+        if(!Files.isDirectory(dirPath)) {
+            return;
+        }
+        try(var files = Files.list(dirPath)) {
+            files.filter(Files::isRegularFile)
+                .filter(path -> {
+                    String name = path.getFileName().toString();
+                    return name.equals(entry) || ignoredTokenMatches(name, ignoredResources);
+                })
+                .forEach(path -> {
+                    try {
+                        Files.delete(path);
+                        logger.info("Removed previously-dumped ignored resource {}.", path);
+                    } catch(IOException e) {
+                        logger.warn("Could not remove ignored resource {}: {}", path, e.getMessage());
+                    }
+                });
+        } catch(IOException e) {
+            logger.warn("Could not scan {} for ignored resources: {}", dirPath, e.getMessage());
         }
     }
 

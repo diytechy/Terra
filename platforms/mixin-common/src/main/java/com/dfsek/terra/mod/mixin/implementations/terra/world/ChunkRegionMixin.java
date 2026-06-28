@@ -19,6 +19,7 @@ package com.dfsek.terra.mod.mixin.implementations.terra.world;
 
 import net.minecraft.commands.arguments.blocks.BlockInput;
 import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.entity.EntitySpawnRequest;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.util.StaticCache2D;
 import net.minecraft.core.BlockPos;
@@ -142,7 +143,7 @@ public abstract class ChunkRegionMixin implements WorldGenLevel {
         if(isExtended) {
             MinecraftEntityTypeExtended type = ((MinecraftEntityTypeExtended) data);
             CompoundTag nbt = (CompoundTag) ((Object) type.getData());
-            entity = net.minecraft.world.entity.EntityType.loadEntityRecursive(nbt, world, EntitySpawnReason.CHUNK_GENERATION, (entityx) -> {
+            entity = net.minecraft.world.entity.EntityType.loadEntityRecursive(nbt, world, new EntitySpawnRequest(EntitySpawnReason.CHUNK_GENERATION, false), (entityx) -> {
                 entityx.snapTo(x, y, z, entityx.getYRot(), entityx.getXRot());
                 return entityx;
             });

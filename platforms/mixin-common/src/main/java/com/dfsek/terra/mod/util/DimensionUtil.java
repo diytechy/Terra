@@ -1,5 +1,6 @@
 package com.dfsek.terra.mod.util;
 
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.attribute.BedRule;
@@ -51,7 +52,7 @@ public class DimensionUtil {
             : vanillaWorldProperties.getLogicalHeight(),
             vanillaWorldProperties.getInfiniburn() == null
             ? defaultDimension.infiniburn()
-            : TagKey.create(Registries.BLOCK, vanillaWorldProperties.getInfiniburn()),
+            : BuiltInRegistries.BLOCK.getOrThrow(TagKey.create(Registries.BLOCK, vanillaWorldProperties.getInfiniburn())),
             vanillaWorldProperties.getAmbientLight() == null ? defaultDimension.ambientLight() : vanillaWorldProperties.getAmbientLight(),
             monsterSettings,
             defaultDimension.skybox(),

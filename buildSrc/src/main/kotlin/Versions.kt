@@ -1,6 +1,6 @@
 object Versions {
     object Terra {
-        const val chimeraConfig = "0.0.9"
+        const val chimeraConfig = "0.1.0"
         const val reimagENDConfig = "3.0.0"
         const val tartarusConfig = "1.0.0"
     }
@@ -16,8 +16,8 @@ object Versions {
         const val cloud = "2.0.0"
         
         const val caffeine = "3.2.2"
-        const val dendryTerra = "1.0.0-BETA-J"
-        const val bubblesOnChunkGen = "1.4.0"
+        const val dendryTerra = "1.0.0-BETA-K"
+        const val bubblesOnChunkGen = "1.26.2"
 
         const val slf4j = "2.0.17"
 
@@ -35,9 +35,10 @@ object Versions {
     }
     
     object Fabric {
-        const val fabricAPI = "0.149.1+${Mod.minecraft}"
-        // beta.16 is the first cloud-fabric to add MC 26.1 support (PR #123).
-        const val cloud = "2.0.0-beta.16"
+        const val fabricAPI = "0.153.0+${Mod.minecraft}"
+        // diytechy fork of cloud-fabric with MC 26.2 support, published to Repsy.
+        // Resolved via RepsyCloudMinecraftModded in DependencyConfig.kt.
+        const val cloud = "2.0.0-beta.17-diytechy"
     }
 //
 //    object Quilt {
@@ -55,9 +56,9 @@ object Versions {
         const val mixin = "0.16.5+mixin.0.8.7"
         const val mixinExtras = "0.5.0"
 
-        const val minecraft = "26.1.2"
-        const val fabricLoader = "0.19.2"
-        const val fabricLoom = "1.16.2"
+        const val minecraft = "26.2"
+        const val fabricLoader = "0.19.3"
+        const val fabricLoom = "1.17.12"
     }
 //
 //    object Forge {
@@ -70,20 +71,24 @@ object Versions {
     // MC 26.1 line is still in beta as of 2026-05; revisit when stable RC ships.
     // Requires Gradle 9.1.0+ and Java 25 (already in place).
     object NeoForge {
-        const val neoForge = "26.1.2.59-beta"
-        const val cloud = "2.0.0-beta.15"
+        const val neoForge = "26.2.0.7-beta"
+        // diytechy fork of cloud-neoforge with MC 26.2 support, published to Repsy.
+        // Resolved via RepsyCloudMinecraftModded in DependencyConfig.kt.
+        const val cloud = "2.0.0-beta.17-diytechy"
         const val modDevGradle = "2.0.141"
     }
 
     object Bukkit {
-        const val minecraft = "26.1.2"
-        const val paper = "26.1.2.build.+"
+        const val minecraft = "26.2"
+        const val paper = "26.2.build.+"
         const val paperDevBundle = paper
         const val paperLib = "1.0.8"
         const val reflectionRemapper = "0.1.3"
         const val runPaper = "2.3.1"
         const val paperWeight = "2.0.0-beta.21"
-        const val cloud = "2.0.0-beta.15"
+        // diytechy fork of cloud-minecraft (adds Paper 26.2 CraftItemStack reflection
+        // support), published to Repsy. Resolved via RepsyCloudMinecraft in DependencyConfig.kt.
+        const val cloud = "2.0.0-beta.16-diytechy"
         const val multiverse = "5.6.1"
     }
     

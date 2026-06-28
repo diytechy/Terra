@@ -5,6 +5,7 @@ import org.gradle.kotlin.dsl.getValue
 import org.gradle.kotlin.dsl.getting
 import org.gradle.kotlin.dsl.maven
 import org.gradle.kotlin.dsl.repositories
+import java.util.concurrent.TimeUnit
 
 fun Project.configureDependencies() {
     val testImplementation by configurations.getting
@@ -71,6 +72,12 @@ fun Project.configureDependencies() {
         maven("https://repo.repsy.io/mvn/diytechy/dendryterra") {
             name = "DendryTerra"
         }
+        maven("https://repo.repsy.io/mvn/diytechy/cloud-minecraft") {
+            name = "RepsyCloudMinecraft"
+        }
+        maven("https://repo.repsy.io/mvn/diytechy/cloud-minecraft-modded") {
+            name = "RepsyCloudMinecraftModded"
+        }
         maven("https://repo.repsy.io/mvn/diytechy/terra-packs") {
             name = "TerraPacks"
         }
@@ -86,5 +93,18 @@ fun Project.configureDependencies() {
         
         compileOnly("com.google.guava", "guava", Versions.Libraries.Internal.guava)
         testImplementation("com.google.guava", "guava", Versions.Libraries.Internal.guava)
+    }
+
+    // Local addon artifacts (e.g. BubblesOnChunkGen) are frequently rebuilt and re-published
+    // to mavenLocal under the *same* release version. Gradle treats a fixed version as
+    // immutable and caches it, so a plain `gradlew` build would keep using the stale jar.
+    // Never cache "changing" modules so the latest mavenLocal content is always re-resolved;
+    // the affected dependency is flagged `isChanging = true` at its declaration site.
+    //
+    // CHIMERA and the other config packs need nothing here: the `downloadDefaultPacks` task
+    // copies them straight from ~/.m2 on every build (no Gradle module cache involved).
+    configurations.all {
+        resolutionStrategy.cacheChangingModulesFor(0, TimeUnit.SECONDS)
+        resolutionStrategy.cacheDynamicVersionsFor(0, TimeUnit.SECONDS)
     }
 }
