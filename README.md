@@ -18,7 +18,7 @@ generator, **turn around now** and go to the real thing.
 This is my own project, for my own Minecraft world, left out in the open in case
 anyone else wants to poke it with a stick. It exists to do exactly two things:
 
-1. Run on **Minecraft 26.1 (Paper 26.1)**, and
+1. Run on **Minecraft 26.2 (Paper 26.2)**, and
 2. Generate a world pack that mashes together the major community-driven Terra
    packs into one combined experience:
    **[CHIMERA](https://github.com/diytechy/CHIMERA)**.
@@ -51,12 +51,15 @@ full, gory accounting lives in
 [investigations/Branch-vs-Upstream-1.21.11.md](investigations/Branch-vs-Upstream-1.21.11.md).
 The highlights, derived from that document and the code itself:
 
-* **Multi-platform, sort of.** Targets MC 26.1 / Paper 26.1 on **JDK 25**. The
-  live build graph covers **Bukkit/Paper, CLI, Allay, and Minestom**. **Fabric**
-  and **NeoForge** have build
-  systems staged but kept disabled — WIP, untested, with architectury dropped
-  because it hasn't ported to 26.1. **Forge, Quilt, and Sponge** remain dormant.
-  All the disabled platforms' sources still sit in the tree, quietly rotting.
+* **Multi-platform, sort of.** Targets MC 26.2 / Paper 26.2 on **JDK 25**. The
+  live build graph covers **Bukkit/Paper, CLI, Allay, Minestom, Fabric, and
+  NeoForge**. **Fabric** and **NeoForge** were rebuilt without architectury
+  (it hasn't ported to the 26.x line) — both now compile green, but their
+  *runtime* is unverified, so treat them as WIP. One caveat: upstream Minestom
+  has no 26.2 build yet, so the Minestom platform is pinned to a 26.1.x build
+  and lags the rest of the stack. **Forge, Quilt, and Sponge** remain dormant
+  (`.disabled`). All the disabled platforms' sources still sit in the tree,
+  quietly rotting.
 * **A custom pack-publishing pipeline.** Every merge to `main` cuts a
   `VIBE-`tagged GitHub release with built platform jars, and the build pulls and
   bundles the CHIMERA pack (treated as *required* — a missing CHIMERA fails the
