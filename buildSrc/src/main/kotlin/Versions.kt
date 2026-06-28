@@ -71,7 +71,7 @@ object Versions {
     // MC 26.1 line is still in beta as of 2026-05; revisit when stable RC ships.
     // Requires Gradle 9.1.0+ and Java 25 (already in place).
     object NeoForge {
-        const val neoForge = "26.2.0.6-beta"
+        const val neoForge = "26.2.0.7-beta"
         // diytechy fork of cloud-neoforge with MC 26.2 support, published to Repsy.
         // Resolved via RepsyCloudMinecraftModded in DependencyConfig.kt.
         const val cloud = "2.0.0-beta.17-diytechy"
