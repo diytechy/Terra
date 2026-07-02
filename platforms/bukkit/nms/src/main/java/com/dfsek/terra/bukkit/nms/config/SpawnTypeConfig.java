@@ -22,7 +22,7 @@ public class SpawnTypeConfig implements ObjectTemplate<SpawnTypeConfig> {
     }
 
     public List<SpawnEntryConfig> getEntries() {
-        return entries;
+        return entries == null ? List.of() : entries;
     }
 
     @Override
