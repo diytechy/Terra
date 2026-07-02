@@ -1,6 +1,8 @@
 package com.dfsek.terra.addons.biome.extrusion.config;
 
+import com.dfsek.seismic.type.sampler.Sampler;
 import com.dfsek.tectonic.api.config.template.annotations.Default;
+import com.dfsek.tectonic.api.config.template.annotations.Description;
 import com.dfsek.tectonic.api.config.template.annotations.Value;
 import com.dfsek.tectonic.api.config.template.object.ObjectTemplate;
 
@@ -23,8 +25,43 @@ public class BiomeExtrusionTemplate implements ObjectTemplate<BiomeProvider> {
     @Value("extrusions")
     private @Meta List<@Meta Extrusion> extrusions;
 
+    @Value("blend.sampler")
+    @Default
+    @Description("Sampler for X/Z coordinate warping of extrusion boundaries, independent of the pipeline blend.")
+    private @Meta Sampler xzBlendSampler = Sampler.zero();
+
+    @Value("blend.amplitude")
+    @Default
+    @Description("Amplitude in blocks of the X/Z coordinate warp applied before extrusion evaluation.")
+    private @Meta double xzBlendAmplitude = 0d;
+
+    @Value("blend.terrain-coordinate-noise-warp")
+    @Default
+    @Description("Whether to apply the X/Z blend warp when querying biomes for terrain noise (chunk interpolation). " +
+                 "Set to false to use raw coordinates for terrain, while palette and feature placement still receive the warp.")
+    private @Meta boolean terrainWarpXZ = true;
+
+    @Value("y-blend.sampler")
+    @Default
+    @Description("Sampler for Y coordinate warping of extrusion boundaries. Evaluated in 2D (X/Z plane); can use a " +
+                 "different frequency and expression than the X/Z blend.")
+    private @Meta Sampler yBlendSampler = Sampler.zero();
+
+    @Value("y-blend.amplitude")
+    @Default
+    @Description("Amplitude in blocks of the Y coordinate warp. A value of 16 shifts vertical boundaries up/down by up to 16 blocks.")
+    private @Meta double yBlendAmplitude = 0d;
+
+    @Value("y-blend.terrain-coordinate-noise-warp")
+    @Default
+    @Description("Whether to apply the Y blend warp when querying biomes for terrain noise (chunk interpolation). " +
+                 "Set to false to use raw Y coordinates for terrain, while palette and feature placement still receive the warp.")
+    private @Meta boolean terrainWarpY = true;
+
     @Override
     public BiomeProvider get() {
-        return new BiomeExtrusionProvider(provider, extrusions, resolution);
+        return new BiomeExtrusionProvider(provider, extrusions, resolution,
+                                          xzBlendSampler, xzBlendAmplitude, terrainWarpXZ,
+                                          yBlendSampler, yBlendAmplitude, terrainWarpY);
     }
 }
