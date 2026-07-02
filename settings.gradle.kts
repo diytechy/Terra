@@ -1,9 +1,15 @@
 rootProject.name = "Terra"
 
 
-fun includeImmediateChildren(dir: File, type: String) {
+// Platforms whose build has not been ported to the MC 26.2 toolchain (fabric-loom /
+// unobfuscated mappings). They cannot configure against MC 26.2 and are excluded from
+// the build until ported.
+val unportedPlatforms = setOf("fabric", "minestom")
+
+fun includeImmediateChildren(dir: File, type: String, skip: Set<String> = emptySet()) {
     dir.walkTopDown().maxDepth(1).forEach {
         if (!it.isDirectory || !File(it, "build.gradle.kts").exists()) return@forEach
+        if (it.name in skip) return@forEach
         val addonDir = it.relativeTo(file(".")).path.replace("/", ":").replace("\\", ":")
         logger.info("Including $type directory \"$addonDir\" as subproject.")
         include(addonDir)
@@ -16,12 +22,11 @@ includeImmediateChildren(file("common/implementation"), "implementation")
 
 includeImmediateChildren(file("common/addons"), "addon")
 
-includeImmediateChildren(file("platforms"), "platform")
+includeImmediateChildren(file("platforms"), "platform", unportedPlatforms)
 
 includeImmediateChildren(file("platforms/bukkit/nms"), "Bukkit NMS")
 
 include(":platforms:bukkit:common")
-include(":platforms:minestom:example")
 
 pluginManagement {
     repositories {
@@ -38,8 +43,8 @@ pluginManagement {
         maven("https://maven.architectury.dev/") {
             name = "Architectury Maven"
         }
-        maven("https://files.minecraftforge.net/maven/") {
-            name = "Forge Maven"
+        maven("https://maven.neoforged.net/releases/") {
+            name = "NeoForged Maven"
         }
         maven("https://maven.quiltmc.org/repository/release/") {
             name = "Quilt"

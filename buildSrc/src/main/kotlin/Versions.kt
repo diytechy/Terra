@@ -32,7 +32,7 @@ object Versions {
     }
     
     object Fabric {
-        const val fabricAPI = "0.134.1+${Mod.minecraft}"
+        const val fabricAPI = "0.153.0+${Mod.minecraft}"
         const val cloud = "2.0.0-beta.13"
     }
 //
@@ -40,37 +40,39 @@ object Versions {
 //        const val quiltLoader = "0.20.2"
 //        const val fabricApi = "7.3.1+0.89.3-1.20.1"
 //    }
-    
+
+    // MC 26.1 is the first unobfuscated release; Mojang's official mappings are now
+    // canonical, and Fabric's old yarn mappings have been deprecated. The new
+    // `net.fabricmc.fabric-loom` plugin builds against the unobfuscated jar directly.
     object Mod {
-        const val mixin = "0.16.4+mixin.0.8.7"
+        const val mixin = "0.16.5+mixin.0.8.7"
         const val mixinExtras = "0.5.0"
-        
-        const val minecraft = "1.21.10"
+
+        const val minecraft = "26.2"
+        const val fabricLoader = "0.19.3"
+        const val fabricLoom = "1.17.12"
+
+        // Retained for the (currently unported) architectury-based Fabric platform.
         const val yarn = "$minecraft+build.1"
-        const val fabricLoader = "0.18.2"
-        
         const val architecuryLoom = "1.11.451"
         const val architecturyPlugin = "3.4.162"
-
     }
 //
 //    object Forge {
 //        const val forge = "${Mod.minecraft}-48.0.13"
 //        const val burningwave = "12.63.0"
 //    }
-    
+
     object Bukkit {
-        const val minecraft = "1.21.10"
-        const val nms = "$minecraft-R0.1"
-        const val paperBuild = "$nms-20251012.013929-7"
-        const val paper = paperBuild
+        const val minecraft = "26.2"
+        const val paper = "26.2.build.+"
+        const val paperDevBundle = paper
         const val paperLib = "1.0.8"
         const val reflectionRemapper = "0.1.3"
-        const val paperDevBundle = paperBuild
         const val runPaper = "2.3.1"
-        const val paperWeight = "2.0.0-beta.19"
-        const val cloud = "2.0.0-beta.12"
-        const val multiverse = "5.3.0"
+        const val paperWeight = "2.0.0-beta.21"
+        const val cloud = "2.0.0-beta.16"
+        const val multiverse = "5.6.1"
     }
     
 //

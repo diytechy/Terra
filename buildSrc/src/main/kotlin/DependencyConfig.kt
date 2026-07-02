@@ -5,6 +5,7 @@ import org.gradle.kotlin.dsl.getValue
 import org.gradle.kotlin.dsl.getting
 import org.gradle.kotlin.dsl.maven
 import org.gradle.kotlin.dsl.repositories
+import java.util.concurrent.TimeUnit
 
 fun Project.configureDependencies() {
     val testImplementation by configurations.getting
@@ -28,6 +29,14 @@ fun Project.configureDependencies() {
     }
     
     repositories {
+        mavenLocal()
+        // diytechy fork of Tectonic — try local then Repsy before falling back to upstream.
+        maven("https://repo.repsy.io/mvn/diytechy/tectonic") {
+            name = "RepsyTectonic"
+        }
+        maven("https://repo.repsy.io/mvn/diytechy/seismic") {
+            name = "RepsySeismic"
+        }
         mavenCentral()
         gradlePluginPortal()
         maven("https://maven.solo-studios.ca/releases") {
@@ -45,8 +54,8 @@ fun Project.configureDependencies() {
         maven("https://repo.papermc.io/repository/maven-public/") {
             name = "PaperMC"
         }
-        maven("https://files.minecraftforge.net/maven/") {
-            name = "Forge"
+        maven("https://maven.neoforged.net/releases/") {
+            name = "NeoForged"
         }
         maven("https://maven.quiltmc.org/repository/release/") {
             name = "Quilt"
@@ -60,14 +69,33 @@ fun Project.configureDependencies() {
         maven("https://repo.onarandombox.com/multiverse-releases") {
             name = "onarandombox"
         }
+        maven("https://repo.repsy.io/mvn/diytechy/dendryterra") {
+            name = "DendryTerra"
+        }
+        maven("https://repo.repsy.io/mvn/diytechy/terra-packs") {
+            name = "TerraPacks"
+        }
+        maven("https://repo.repsy.io/mvn/diytechy/bubblesonchunkgen") {
+            name = "BubblesOnChunkGen"
+        }
     }
-    
+
     dependencies {
         testImplementation("org.junit.jupiter", "junit-jupiter", Versions.Libraries.Internal.junit)
         "testRuntimeOnly"("org.junit.platform", "junit-platform-launcher")
         compileOnly("org.jetbrains", "annotations", Versions.Libraries.Internal.jetBrainsAnnotations)
-        
+
         compileOnly("com.google.guava", "guava", Versions.Libraries.Internal.guava)
         testImplementation("com.google.guava", "guava", Versions.Libraries.Internal.guava)
+    }
+
+    // Local addon artifacts (e.g. BubblesOnChunkGen) are frequently rebuilt and re-published
+    // to mavenLocal under the *same* release version. Gradle treats a fixed version as
+    // immutable and caches it, so a plain `gradlew` build would keep using the stale jar.
+    // Never cache "changing" modules so the latest mavenLocal content is always re-resolved;
+    // the affected dependency is flagged `isChanging = true` at its declaration site.
+    configurations.all {
+        resolutionStrategy.cacheChangingModulesFor(0, TimeUnit.SECONDS)
+        resolutionStrategy.cacheDynamicVersionsFor(0, TimeUnit.SECONDS)
     }
 }
