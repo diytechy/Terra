@@ -1,9 +1,8 @@
 object Versions {
     object Terra {
-        const val overworldConfig = "latest"
-        const val reimagENDConfig = "latest"
-        const val tartarusConfig = "latest"
-        const val defaultConfig = "latest"
+        const val chimeraConfig = "0.1.0"
+        const val reimagENDConfig = "3.0.0"
+        const val tartarusConfig = "1.0.0"
     }
     
     object Libraries {
@@ -16,9 +15,11 @@ object Versions {
         const val seismic = "2.5.7"
         
         const val cloud = "2.0.0"
-        
+
         const val caffeine = "3.2.2"
-        
+        const val dendryTerra = "1.0.0-BETA-K"
+        const val bubblesOnChunkGen = "1.26.2"
+
         const val slf4j = "2.0.17"
 
         object Internal {
