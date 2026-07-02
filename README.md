@@ -16,8 +16,12 @@ Terra consists of several parts:
 * Several "core addons," which implement the "default" configurations of Terra.
   These addons can be thought of as the config "standard library"
 
-Terra currently officially supports the Fabric mod loader and the Bukkit API
-(Paper and friends). We welcome Pull Requests implementing additional platforms!
+Terra currently targets **Minecraft 26.2** on the Bukkit API (Paper and
+friends), built against the unobfuscated `net.minecraft` jar with a JDK 25
+toolchain. The Fabric and NeoForge mod-loader platforms are being ported to the
+26.2 toolchain (fabric-loom without architectury) and are temporarily excluded
+from the default build until that port lands. We welcome Pull Requests
+implementing additional platforms!
 
 ## Downloads:
 
