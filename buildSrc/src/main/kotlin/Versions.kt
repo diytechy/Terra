@@ -7,7 +7,10 @@ object Versions {
     }
     
     object Libraries {
-        const val tectonic = "4.3.1"
+        // Requires the diytechy Tectonic branch — Terra now calls ConfigLoader.beginSession()/
+        // endSession() and the TypeLoader interface drops its explicit depth-tracker parameter in
+        // favour of ConfigLoader.CURRENT_DEPTH. Resolved from mavenLocal (local dev) or Repsy (CI).
+        const val tectonic = "4.3.2-diytechy"
         const val paralithic = "2.0.1"
         const val strata = "1.3.2"
         const val seismic = "2.5.7"

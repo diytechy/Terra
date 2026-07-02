@@ -24,12 +24,14 @@ import static com.dfsek.terra.api.util.cache.CacheUtils.CACHE_EXECUTOR;
 public class CachingBiomeProvider implements BiomeProvider, Handle {
     protected final BiomeProvider delegate;
     private final int res;
+    private final int yRes;
     private final ThreadLocal<Pair.Mutable<SeededVector3Key, LoadingCache<SeededVector3Key, Biome>>> cache;
     private final ThreadLocal<Pair.Mutable<SeededVector2Key, LoadingCache<SeededVector2Key, Optional<Biome>>>> baseCache;
 
     protected CachingBiomeProvider(BiomeProvider delegate) {
         this.delegate = delegate;
         this.res = delegate.resolution();
+        this.yRes = delegate.yResolution();
 
         this.baseCache = ThreadLocal.withInitial(() -> {
             LoadingCache<SeededVector2Key, Optional<Biome>> cache = Caffeine
@@ -63,7 +65,7 @@ public class CachingBiomeProvider implements BiomeProvider, Handle {
 
     private Biome sampleBiome(SeededVector3Key vec) {
         this.cache.get().setLeft(new SeededVector3Key(0, 0, 0, 0));
-        return this.delegate.getBiome(vec.x * res, vec.y * res, vec.z * res, vec.seed);
+        return this.delegate.getBiome(vec.x * res, vec.y * yRes, vec.z * res, vec.seed);
     }
 
     @Override
@@ -95,5 +97,10 @@ public class CachingBiomeProvider implements BiomeProvider, Handle {
     @Override
     public int resolution() {
         return delegate.resolution();
+    }
+
+    @Override
+    public int yResolution() {
+        return delegate.yResolution();
     }
 }

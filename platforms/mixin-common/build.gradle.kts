@@ -1,6 +1,8 @@
+// Path A — fabric-loom directly, no architectury wrapper.
+// MC 26.1 is unobfuscated; mappings are resolved automatically by loom from
+// the Mojang jar — no yarn dependency.
 plugins {
-    id("dev.architectury.loom") version Versions.Mod.architecuryLoom
-    id("architectury-plugin") version Versions.Mod.architecturyPlugin
+    id("net.fabricmc.fabric-loom") version Versions.Mod.fabricLoom
 }
 
 loom {
@@ -8,6 +10,10 @@ loom {
 
     mixin {
         defaultRefmapName.set("terra.common.refmap.json")
+        // 26.1 is non-obfuscated: the legacy sponge-mixin AP has no obf map and fatally errors
+        // on named @Inject targets. Disable it (and the manual AP dependency) so loom builds the
+        // refmap at remap time instead. Trade-off: mixin targets are validated at runtime, not compile.
+        useLegacyMixinAp.set(false)
     }
 }
 
@@ -15,15 +21,6 @@ dependencies {
     shadedApi(project(":common:implementation:base"))
 
     compileOnly("net.fabricmc:sponge-mixin:${Versions.Mod.mixin}")
-    annotationProcessor("net.fabricmc:sponge-mixin:${Versions.Mod.mixin}")
-    annotationProcessor("dev.architectury:architectury-loom:${Versions.Mod.architecuryLoom}")
 
     minecraft("com.mojang:minecraft:${Versions.Mod.minecraft}")
-    mappings("net.fabricmc:yarn:${Versions.Mod.yarn}:v2")
 }
-
-architectury {
-    common("fabric")
-    minecraft = Versions.Mod.minecraft
-}
-

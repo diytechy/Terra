@@ -1,6 +1,5 @@
 package com.dfsek.terra.addons.image.config;
 
-import com.dfsek.tectonic.api.depth.DepthTracker;
 import com.dfsek.tectonic.api.exception.LoadException;
 import com.dfsek.tectonic.api.loader.ConfigLoader;
 import com.dfsek.tectonic.api.loader.type.TypeLoader;
@@ -15,8 +14,7 @@ import com.dfsek.terra.addons.image.util.ColorUtil;
 public class ColorLoader implements TypeLoader<ColorString> {
 
     @Override
-    public ColorString load(@NotNull AnnotatedType annotatedType, @NotNull Object o, @NotNull ConfigLoader configLoader,
-                            DepthTracker depthTracker) throws LoadException {
+    public ColorString load(@NotNull AnnotatedType annotatedType, @NotNull Object o, @NotNull ConfigLoader configLoader) throws LoadException {
         return new ColorString((String) o);
     }
 

@@ -7,7 +7,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
 import com.dfsek.terra.api.block.entity.BlockEntity;
@@ -29,7 +28,6 @@ import com.dfsek.terra.bukkit.world.entity.BukkitEntityType;
 
 public class BukkitProtoWorld implements ProtoWorld {
     private static final Logger LOGGER = LoggerFactory.getLogger(BukkitProtoWorld.class);
-    private static final AtomicBoolean warn = new AtomicBoolean(true);
     private final LimitedRegion delegate;
     private final BlockState air;
 
@@ -126,25 +124,18 @@ public class BukkitProtoWorld implements ProtoWorld {
     private <T> Optional<T> access(int x, int y, int z, Supplier<T> action) {
         if(delegate.isInRegion(x, y, z)) {
             return Optional.of(action.get());
-        } else if(warn.getAndSet(false)) {
-            LOGGER.warn("Detected world access at coordinates out of bounds: ({}, {}, {}) accessed for region [{}, {}]", x, y, z,
-                delegate.getCenterChunkX(), delegate.getCenterChunkZ());
-        } else {
-            LOGGER.debug("Detected world access at coordinates out of bounds: ({}, {}, {}) accessed for region [{}, {}]", x, y, z,
-                delegate.getCenterChunkX(), delegate.getCenterChunkZ());
         }
+        LOGGER.debug("Detected world access at coordinates out of bounds: ({}, {}, {}) accessed for region [{}, {}]", x, y, z,
+            delegate.getCenterChunkX(), delegate.getCenterChunkZ());
         return Optional.empty();
     }
 
     private void access(int x, int y, int z, Runnable action) {
         if(delegate.isInRegion(x, y, z)) {
             action.run();
-        } else if(warn.getAndSet(false)) {
-            LOGGER.warn("Detected world access at coordinates out of bounds: ({}, {}, {}) accessed for region [{}, {}]", x, y, z,
-                delegate.getCenterChunkX(), delegate.getCenterChunkZ());
-        } else {
-            LOGGER.debug("Detected world access at coordinates out of bounds: ({}, {}, {}) accessed for region [{}, {}]", x, y, z,
-                delegate.getCenterChunkX(), delegate.getCenterChunkZ());
+            return;
         }
+        LOGGER.debug("Detected world access at coordinates out of bounds: ({}, {}, {}) accessed for region [{}, {}]", x, y, z,
+            delegate.getCenterChunkX(), delegate.getCenterChunkZ());
     }
 }

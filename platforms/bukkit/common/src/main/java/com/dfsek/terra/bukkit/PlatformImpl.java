@@ -20,6 +20,7 @@ package com.dfsek.terra.bukkit;
 import com.dfsek.tectonic.api.TypeRegistry;
 import com.dfsek.tectonic.api.depth.DepthTracker;
 import com.dfsek.tectonic.api.exception.LoadException;
+import com.dfsek.tectonic.api.loader.ConfigLoader;
 import io.papermc.paper.registry.RegistryAccess;
 import io.papermc.paper.registry.RegistryKey;
 import org.bukkit.Bukkit;
@@ -116,9 +117,9 @@ public class PlatformImpl extends AbstractPlatform {
     @Override
     public void register(TypeRegistry registry) {
         super.register(registry);
-        registry.registerLoader(BlockState.class, (type, o, loader, depthTracker) -> handle.createBlockState((String) o))
-            .registerLoader(PlatformBiome.class, (type, o, loader, depthTracker) -> parseBiome((String) o, depthTracker))
-            .registerLoader(EntityType.class, (type, o, loader, depthTracker) -> EntityType.valueOf((String) o));
+        registry.registerLoader(BlockState.class, (type, o, loader) -> handle.createBlockState((String) o))
+            .registerLoader(PlatformBiome.class, (type, o, loader) -> parseBiome((String) o, ConfigLoader.CURRENT_DEPTH.get()))
+            .registerLoader(EntityType.class, (type, o, loader) -> EntityType.valueOf((String) o));
 
     }
 

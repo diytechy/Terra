@@ -1,7 +1,7 @@
 package com.dfsek.terra.lifecycle.mixin;
 
-import net.minecraft.registry.SimpleRegistry;
-import net.minecraft.registry.entry.RegistryEntry.Reference;
+import net.minecraft.core.MappedRegistry;
+import net.minecraft.core.Holder.Reference;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -11,7 +11,7 @@ import java.util.Map;
 import com.dfsek.terra.lifecycle.util.RegistryHack;
 
 
-@Mixin(SimpleRegistry.class)
+@Mixin(MappedRegistry.class)
 public class SimpleRegistryMixin<T> implements RegistryHack {
     @Shadow
     @Final

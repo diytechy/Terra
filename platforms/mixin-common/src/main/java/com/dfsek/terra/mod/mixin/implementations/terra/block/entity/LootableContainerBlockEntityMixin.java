@@ -17,7 +17,7 @@
 
 package com.dfsek.terra.mod.mixin.implementations.terra.block.entity;
 
-import net.minecraft.block.entity.LootableContainerBlockEntity;
+import net.minecraft.world.level.block.entity.RandomizableContainerBlockEntity;
 import org.spongepowered.asm.mixin.Implements;
 import org.spongepowered.asm.mixin.Interface;
 import org.spongepowered.asm.mixin.Mixin;
@@ -26,7 +26,7 @@ import com.dfsek.terra.api.block.entity.Container;
 import com.dfsek.terra.api.inventory.Inventory;
 
 
-@Mixin(LootableContainerBlockEntity.class)
+@Mixin(RandomizableContainerBlockEntity.class)
 @Implements(@Interface(iface = Container.class, prefix = "terra$"))
 public abstract class LootableContainerBlockEntityMixin extends BlockEntityMixin {
     public Inventory terra$getInventory() {

@@ -3,6 +3,7 @@ package com.dfsek.terra.allay;
 import com.dfsek.tectonic.api.TypeRegistry;
 import com.dfsek.tectonic.api.depth.DepthTracker;
 import com.dfsek.tectonic.api.exception.LoadException;
+import com.dfsek.tectonic.api.loader.ConfigLoader;
 import org.allaymc.api.registry.Registries;
 import org.allaymc.api.server.Server;
 import org.jetbrains.annotations.NotNull;
@@ -83,8 +84,8 @@ public class AllayPlatform extends AbstractPlatform {
     @Override
     public void register(TypeRegistry registry) {
         super.register(registry);
-        registry.registerLoader(BlockState.class, (type, o, loader, depthTracker) -> ALLAY_WORLD_HANDLE.createBlockState((String) o))
-            .registerLoader(PlatformBiome.class, (type, o, loader, depthTracker) -> parseBiome((String) o, depthTracker));
+        registry.registerLoader(BlockState.class, (type, o, loader) -> ALLAY_WORLD_HANDLE.createBlockState((String) o))
+            .registerLoader(PlatformBiome.class, (type, o, loader) -> parseBiome((String) o, ConfigLoader.CURRENT_DEPTH.get()));
     }
 
     protected AllayBiome parseBiome(String id, DepthTracker depthTracker) throws LoadException {

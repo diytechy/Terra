@@ -17,14 +17,20 @@
 
 package com.dfsek.terra.mod.generation;
 
+import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.MapCodec;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.world.biome.Biome;
-import net.minecraft.world.biome.source.BiomeSource;
-import net.minecraft.world.biome.source.util.MultiNoiseUtil.MultiNoiseSampler;
+import net.minecraft.core.Holder;
+import net.minecraft.core.BlockPos;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.biome.BiomeSource;
+import net.minecraft.world.level.biome.Climate.Sampler;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Optional;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -40,19 +46,26 @@ public class TerraBiomeSource extends BiomeSource {
     private static final Logger LOGGER = LoggerFactory.getLogger(TerraBiomeSource.class);
     private ConfigPack pack;
 
+    // Set to true on the calling thread while inside findBiomeHorizontally so that
+    // getBiome can take the fast path for structure placement searches.
+    // findBiomeHorizontally is the sole caller of getBiome for stronghold ring
+    // position searches, and is not called during normal chunk generation.
+    private static final ThreadLocal<Boolean> IN_STRUCTURE_SEARCH =
+        ThreadLocal.withInitial(() -> false);
+
     public TerraBiomeSource(ConfigPack pack) {
         this.pack = pack;
 
-        LOGGER.debug("Biomes: " + getBiomes());
+        LOGGER.debug("Biomes: " + possibleBiomes());
     }
 
     @Override
-    protected MapCodec<? extends BiomeSource> getCodec() {
+    protected MapCodec<? extends BiomeSource> codec() {
         return Codecs.TERRA_BIOME_SOURCE;
     }
 
     @Override
-    protected Stream<RegistryEntry<Biome>> biomeStream() {
+    protected Stream<Holder<Biome>> collectPossibleBiomes() {
         return StreamSupport
             .stream(pack.getBiomeProvider()
                 .getBiomes()
@@ -60,11 +73,37 @@ public class TerraBiomeSource extends BiomeSource {
             .map(b -> ((ProtoPlatformBiome) b.getPlatformBiome()).getDelegate());
     }
 
+    // NOTE: The Fabric/Yarn method name for the horizontal biome search used during
+    // structure placement may be `findBiomeHorizontally` or `findClosestBiome` depending
+    // on the Minecraft version and mapping set. Verify against the active Minecraft jar's
+    // BiomeSource class before enabling. The pattern is identical to NMSBiomeProvider.
     @Override
-    public RegistryEntry<Biome> getBiome(int biomeX, int biomeY, int biomeZ, MultiNoiseSampler Sampler) {
+    public @Nullable Pair<BlockPos, Holder<Biome>> findBiomeHorizontal(int x, int y, int z, int radius, int step,
+            Predicate<Holder<Biome>> predicate, RandomSource random,
+            boolean bl, Sampler noiseSampler) {
+        IN_STRUCTURE_SEARCH.set(true);
+        try {
+            return super.findBiomeHorizontal(x, y, z, radius, step, predicate, random, bl, noiseSampler);
+        } finally {
+            IN_STRUCTURE_SEARCH.set(false);
+        }
+    }
+
+    @Override
+    public Holder<Biome> getNoiseBiome(int biomeX, int biomeY, int biomeZ, Sampler noiseSampler) {
+        long seed = SeedHack.getSeed(noiseSampler);
+
+        if(IN_STRUCTURE_SEARCH.get()) {
+            Optional<com.dfsek.terra.api.world.biome.Biome> fast =
+                pack.getBiomeProvider().getStructurePlacementBiome(biomeX << 2, biomeZ << 2, seed);
+            if(fast.isPresent()) {
+                return ((ProtoPlatformBiome) fast.get().getPlatformBiome()).getDelegate();
+            }
+        }
+
         return ((ProtoPlatformBiome) pack
             .getBiomeProvider()
-            .getBiome(biomeX << 2, biomeY << 2, biomeZ << 2, SeedHack.getSeed(Sampler))
+            .getBiome(biomeX << 2, biomeY << 2, biomeZ << 2, seed)
             .getPlatformBiome()).getDelegate();
     }
 

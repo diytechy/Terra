@@ -1,26 +1,6 @@
+// Path A — fabric-loom directly, no architectury wrapper.
 plugins {
-    id("dev.architectury.loom") version Versions.Mod.architecuryLoom
-    id("architectury-plugin") version Versions.Mod.architecturyPlugin
-}
-
-dependencies {
-    shadedApi(project(":common:implementation:base"))
-
-    compileOnly("net.fabricmc:sponge-mixin:${Versions.Mod.mixin}")
-    compileOnly("io.github.llamalad7:mixinextras-common:${Versions.Mod.mixinExtras}")
-    annotationProcessor("net.fabricmc:sponge-mixin:${Versions.Mod.mixin}")
-    annotationProcessor("dev.architectury:architectury-loom:${Versions.Mod.architecuryLoom}")
-
-    implementation(project(path = ":platforms:mixin-common", configuration = "namedElements")) { isTransitive = false }
-
-    minecraft("com.mojang:minecraft:${Versions.Mod.minecraft}")
-    mappings("net.fabricmc:yarn:${Versions.Mod.yarn}:v2")
-
-    modImplementation("org.incendo", "cloud-fabric", Versions.Fabric.cloud) {
-        exclude("net.fabricmc")
-        exclude("net.fabricmc.fabric-api")
-        exclude("me.lucko", "fabric-permissions-api")
-    }
+    id("net.fabricmc.fabric-loom") version Versions.Mod.fabricLoom
 }
 
 loom {
@@ -28,16 +8,23 @@ loom {
 
     mixin {
         defaultRefmapName.set("terra.lifecycle.refmap.json")
+        // 26.1 is non-obfuscated: disable the legacy compile-time mixin AP (it has no obf map and
+        // fatally errors on named @Inject targets). Loom builds the refmap at remap time instead.
+        useLegacyMixinAp.set(false)
     }
 }
 
-tasks {
-    remapJar {
-        inputFile.set(shadowJar.get().archiveFile)
-    }
-}
+dependencies {
+    shadedApi(project(":common:implementation:base"))
 
-architectury {
-    common("fabric")
-    minecraft = Versions.Mod.minecraft
+    compileOnly("net.fabricmc:sponge-mixin:${Versions.Mod.mixin}")
+    compileOnly("io.github.llamalad7:mixinextras-common:${Versions.Mod.mixinExtras}")
+
+    implementation(project(":platforms:mixin-common"))
+
+    minecraft("com.mojang:minecraft:${Versions.Mod.minecraft}")
+
+    // Loader-neutral: this module holds only Minecraft-targeting mixins + the abstract
+    // LifecyclePlatform / lifecycle utilities, so it can be consumed by both Fabric and NeoForge.
+    // Loader-specific bits (fabric-loader, cloud command manager) live in the platform modules.
 }

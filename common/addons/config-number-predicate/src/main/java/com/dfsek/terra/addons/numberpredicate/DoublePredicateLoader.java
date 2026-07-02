@@ -5,7 +5,6 @@ import com.dfsek.paralithic.eval.parser.Parser;
 import com.dfsek.paralithic.eval.parser.Parser.ParseOptions;
 import com.dfsek.paralithic.eval.parser.Scope;
 import com.dfsek.paralithic.eval.tokenizer.ParseException;
-import com.dfsek.tectonic.api.depth.DepthTracker;
 import com.dfsek.tectonic.api.exception.LoadException;
 import com.dfsek.tectonic.api.loader.ConfigLoader;
 import com.dfsek.tectonic.api.loader.type.TypeLoader;
@@ -24,8 +23,8 @@ public class DoublePredicateLoader implements TypeLoader<DoublePredicate> {
     }
 
     @Override
-    public DoublePredicate load(@NotNull AnnotatedType annotatedType, @NotNull Object o, @NotNull ConfigLoader configLoader,
-                                DepthTracker depthTracker) throws LoadException {
+    public DoublePredicate load(@NotNull AnnotatedType annotatedType, @NotNull Object o,
+                                @NotNull ConfigLoader configLoader) throws LoadException {
         if(o instanceof String expressionString) {
             Scope scope = new Scope();
             scope.addInvocationVariable("value");
@@ -33,10 +32,10 @@ public class DoublePredicateLoader implements TypeLoader<DoublePredicate> {
                 Expression expression = new Parser(parseOptions).parse(expressionString, scope);
                 return d -> expression.evaluate(d) != 0; // Paralithic expressions treat '!= 0' as true
             } catch(ParseException e) {
-                throw new LoadException("Failed to parse double predicate expression", e, depthTracker);
+                throw new LoadException("Failed to parse double predicate expression", e, ConfigLoader.CURRENT_DEPTH.get());
             }
         } else {
-            throw new LoadException("Double predicates must be defined as a string. E.g. 'value > 3'", depthTracker);
+            throw new LoadException("Double predicates must be defined as a string. E.g. 'value > 3'", ConfigLoader.CURRENT_DEPTH.get());
         }
     }
 }

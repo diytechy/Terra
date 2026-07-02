@@ -9,15 +9,18 @@ import net.minecraft.world.level.biome.Climate.Sampler;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.stream.Stream;
+import java.util.concurrent.atomic.AtomicLong;
 
 import com.dfsek.terra.api.world.biome.generation.BiomeProvider;
 import com.dfsek.terra.bukkit.world.BukkitPlatformBiome;
+import com.dfsek.terra.api.Platform;
 
 
 public class NMSBiomeProvider extends BiomeSource {
     private final BiomeProvider delegate;
     private final long seed;
     private final Registry<Biome> biomeRegistry = RegistryFetcher.biomeRegistry();
+    private static final AtomicLong biomeQueryCount = new AtomicLong(0);
 
     public NMSBiomeProvider(BiomeProvider delegate, long seed) {
         super();
@@ -45,9 +48,24 @@ public class NMSBiomeProvider extends BiomeSource {
 
     @Override
     public @NotNull Holder<Biome> getNoiseBiome(int x, int y, int z, @NotNull Sampler sampler) {
+        biomeQueryCount.incrementAndGet();
         return biomeRegistry.getOrThrow(((BukkitPlatformBiome) delegate.getBiome(x << 2, y << 2, z << 2, seed)
             .getPlatformBiome()).getContext()
             .get(NMSBiomeInfo.class)
             .biomeKey());
+    }
+
+    /**
+     * Get the total number of biome queries since the profiler started.
+     */
+    public static long getBiomeQueryCount() {
+        return biomeQueryCount.get();
+    }
+
+    /**
+     * Reset the biome query counter.
+     */
+    public static void resetBiomeQueryCount() {
+        biomeQueryCount.set(0);
     }
 }

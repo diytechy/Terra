@@ -76,7 +76,7 @@ public class MetaMapPreprocessor extends MetaPreprocessor<Meta> {
                             }
 
                             depthTracker.addIntrinsicLevel(level -> {
-                                if(level instanceof EntryLevel entryLevel && ((Map<?, ?>) meta).containsKey(entryLevel.getName())) {
+                                if(level instanceof EntryLevel entryLevel && ((Map<?, ?>) meta).containsKey(entryLevel.name())) {
                                     return Optional.of("From configuration \"" + configName + "\"");
                                 }
                                 return Optional.empty();

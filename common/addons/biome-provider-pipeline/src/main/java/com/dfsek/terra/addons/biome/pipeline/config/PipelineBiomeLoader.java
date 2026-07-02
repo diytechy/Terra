@@ -1,6 +1,5 @@
 package com.dfsek.terra.addons.biome.pipeline.config;
 
-import com.dfsek.tectonic.api.depth.DepthTracker;
 import com.dfsek.tectonic.api.exception.LoadException;
 import com.dfsek.tectonic.api.loader.ConfigLoader;
 import com.dfsek.tectonic.api.loader.type.TypeLoader;
@@ -21,8 +20,7 @@ public class PipelineBiomeLoader implements TypeLoader<PipelineBiome> {
     }
 
     @Override
-    public PipelineBiome load(@NotNull AnnotatedType t, @NotNull Object c, @NotNull ConfigLoader loader, DepthTracker depthTracker)
-    throws LoadException {
+    public PipelineBiome load(@NotNull AnnotatedType t, @NotNull Object c, @NotNull ConfigLoader loader) throws LoadException {
         if(c.equals("SELF")) return PipelineBiome.self();
         return biomeRegistry
             .getByID((String) c)

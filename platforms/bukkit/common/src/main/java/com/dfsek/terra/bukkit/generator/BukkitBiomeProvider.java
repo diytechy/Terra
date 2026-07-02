@@ -5,6 +5,7 @@ import org.bukkit.generator.WorldInfo;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -28,6 +29,11 @@ public class BukkitBiomeProvider extends BiomeProvider implements Handle {
         return StreamSupport.stream(delegate.getBiomes().spliterator(), false)
             .map(terraBiome -> (org.bukkit.block.Biome) terraBiome.getPlatformBiome().getHandle())
             .collect(Collectors.toList());
+    }
+
+    public @NotNull Optional<org.bukkit.block.Biome> getStructurePlacementBiome(@NotNull WorldInfo worldInfo, int x, int z) {
+        return delegate.getStructurePlacementBiome(x, z, worldInfo.getSeed())
+            .map(terraBiome -> (org.bukkit.block.Biome) terraBiome.getPlatformBiome().getHandle());
     }
 
     @Override
