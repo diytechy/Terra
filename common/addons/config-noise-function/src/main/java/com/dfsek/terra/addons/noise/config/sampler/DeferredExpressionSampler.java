@@ -1,0 +1,118 @@
+package com.dfsek.terra.addons.noise.config.sampler;
+
+import com.dfsek.paralithic.eval.parser.Parser.ParseOptions;
+import com.dfsek.paralithic.eval.tokenizer.ParseException;
+import com.dfsek.paralithic.sampler.noise.ExpressionNoiseFunction;
+import com.dfsek.paralithic.sampler.normalizer.ExpressionNormalizer;
+import com.dfsek.seismic.type.sampler.Sampler;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import com.dfsek.terra.addons.noise.config.DimensionApplicableSampler;
+import com.dfsek.terra.addons.noise.config.templates.FunctionTemplate;
+
+import static com.dfsek.terra.addons.noise.paralithic.FunctionUtil.convertFunctionsAndSamplers;
+
+
+/**
+ * A sampler that defers expression compilation until all pack samplers are registered.
+ * <p>
+ * During pack loading, EXPRESSION samplers may reference other pack-level samplers that
+ * have not been compiled yet, including samplers defined later in a different config file
+ * (a cross-file forward reference). Eager parsing hard-fails with "Unknown function" in that
+ * case. This wrapper captures the expression configuration and compiles it once the full set
+ * of pack samplers is available; {@link com.dfsek.terra.addons.noise.NoiseAddon} runs a
+ * validation pass ({@link #validate()}) after all pack samplers are registered so parse errors
+ * still surface at pack load rather than at first chunk generation.
+ * <p>
+ * Local samplers (defined inline in the expression config) always take priority over global
+ * pack samplers with the same name.
+ * <p>
+ * Supports both plain expressions and expression normalizers (which wrap an input sampler).
+ */
+public class DeferredExpressionSampler implements Sampler {
+
+    private final Map<String, DimensionApplicableSampler> globalSamplers;
+    private final Map<String, FunctionTemplate> globalFunctions;
+    private final Map<String, DimensionApplicableSampler> localSamplers;
+    private final Map<String, FunctionTemplate> localFunctions;
+    private final String expression;
+    private final Map<String, Double> vars;
+    private final ParseOptions parseOptions;
+    private final Sampler normalizerInput;
+
+    private volatile Sampler compiled;
+
+    public DeferredExpressionSampler(Map<String, DimensionApplicableSampler> globalSamplers,
+                                     Map<String, FunctionTemplate> globalFunctions,
+                                     Map<String, DimensionApplicableSampler> localSamplers,
+                                     Map<String, FunctionTemplate> localFunctions,
+                                     String expression,
+                                     Map<String, Double> vars,
+                                     ParseOptions parseOptions) {
+        this(globalSamplers, globalFunctions, localSamplers, localFunctions, expression, vars, parseOptions, null);
+    }
+
+    public DeferredExpressionSampler(Map<String, DimensionApplicableSampler> globalSamplers,
+                                     Map<String, FunctionTemplate> globalFunctions,
+                                     Map<String, DimensionApplicableSampler> localSamplers,
+                                     Map<String, FunctionTemplate> localFunctions,
+                                     String expression,
+                                     Map<String, Double> vars,
+                                     ParseOptions parseOptions,
+                                     Sampler normalizerInput) {
+        this.globalSamplers = globalSamplers;
+        this.globalFunctions = globalFunctions;
+        this.localSamplers = localSamplers;
+        this.localFunctions = localFunctions;
+        this.expression = expression;
+        this.vars = vars;
+        this.parseOptions = parseOptions;
+        this.normalizerInput = normalizerInput;
+    }
+
+    @Override
+    public double getSample(long seed, double x, double y) {
+        return compile().getSample(seed, x, y);
+    }
+
+    @Override
+    public double getSample(long seed, double x, double y, double z) {
+        return compile().getSample(seed, x, y, z);
+    }
+
+    /**
+     * Eagerly compile the expression, surfacing any parse errors at pack load time
+     * rather than deferring them to first evaluation.
+     */
+    public void validate() {
+        compile();
+    }
+
+    private Sampler compile() {
+        Sampler s = compiled;
+        if(s != null) return s;
+        synchronized(this) {
+            s = compiled;
+            if(s != null) return s;
+            var mergedFunctions = new HashMap<>(globalFunctions);
+            mergedFunctions.putAll(localFunctions);
+            var mergedSamplers = new HashMap<>(globalSamplers);
+            mergedSamplers.putAll(localSamplers);
+            try {
+                var functionMap = convertFunctionsAndSamplers(mergedFunctions, mergedSamplers);
+                if(normalizerInput != null) {
+                    compiled = new ExpressionNormalizer(normalizerInput, functionMap, expression, vars, parseOptions);
+                } else {
+                    compiled = new ExpressionNoiseFunction(functionMap, expression, vars, parseOptions);
+                }
+                return compiled;
+            } catch(ParseException e) {
+                throw new RuntimeException(
+                    "Failed to parse expression: " + expression.strip().lines().findFirst().orElse("(empty)")
+                    + "\n  Error: " + e.getMessage(), e);
+            }
+        }
+    }
+}

@@ -30,13 +30,17 @@ import com.dfsek.seismic.type.sampler.DerivativeSampler;
 import com.dfsek.seismic.type.sampler.Sampler;
 import com.dfsek.tectonic.api.config.template.object.ObjectTemplate;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
 import com.dfsek.terra.addons.manifest.api.AddonInitializer;
 import com.dfsek.terra.addons.noise.config.CubicSplinePointTemplate;
 import com.dfsek.terra.addons.noise.config.DimensionApplicableSampler;
+import com.dfsek.terra.addons.noise.config.sampler.DeferredExpressionSampler;
 import com.dfsek.terra.addons.noise.config.templates.BinaryArithmeticTemplate;
 import com.dfsek.terra.addons.noise.config.templates.CacheSamplerTemplate;
 import com.dfsek.terra.addons.noise.config.templates.DerivativeSamplerTemplate;
@@ -156,15 +160,45 @@ public class NoiseAddon implements AddonInitializer {
 
                 Map<String, DimensionApplicableSampler> packSamplers = new LinkedHashMap<>();
                 Map<String, FunctionTemplate> packFunctions = new LinkedHashMap<>();
+                // While pack samplers are being registered, EXPRESSION samplers can reference other
+                // pack samplers that have not been parsed yet -- including samplers defined later in a
+                // different config file (a cross-file forward reference, e.g. CHIMERA's
+                // sulfurSpringPresent referencing BiomeShapeSmallCaveSpecialValue). Defer compilation
+                // until every pack sampler is registered, then validate them all.
+                AtomicBoolean deferCompilation = new AtomicBoolean(true);
                 noiseRegistry.register(addon.key("EXPRESSION"),
-                    () -> new ExpressionFunctionTemplate(packSamplers, packFunctions, expressionParseOptions));
+                    () -> new ExpressionFunctionTemplate(packSamplers, packFunctions, expressionParseOptions,
+                        deferCompilation));
                 noiseRegistry.register(addon.key("EXPRESSION_NORMALIZER"),
-                    () -> new ExpressionNormalizerTemplate(packSamplers, packFunctions, expressionParseOptions));
+                    () -> new ExpressionNormalizerTemplate(packSamplers, packFunctions, expressionParseOptions,
+                        deferCompilation));
 
                 NoiseConfigPackTemplate template = event.loadTemplate(new NoiseConfigPackTemplate());
                 packSamplers.putAll(template.getSamplers());
                 packFunctions.putAll(template.getFunctions());
                 event.getPack().getContext().put(template);
+
+                // Validate all deferred expression samplers now that all pack samplers are available.
+                // This eagerly compiles every deferred expression, surfacing parse errors at pack load
+                // instead of deferring them to first chunk generation.
+                List<String> validationErrors = new ArrayList<>();
+                packSamplers.forEach((name, das) -> {
+                    if(das.getSampler() instanceof DeferredExpressionSampler deferred) {
+                        try {
+                            deferred.validate();
+                        } catch(RuntimeException e) {
+                            validationErrors.add(name + ": " + (e.getCause() != null ? e.getCause().getMessage() : e.getMessage()));
+                        }
+                    }
+                });
+                if(!validationErrors.isEmpty()) {
+                    throw new RuntimeException("Failed to compile " + validationErrors.size() +
+                        " deferred expression sampler(s):\n  " + String.join("\n  ", validationErrors));
+                }
+
+                // All pack samplers validated. Disable deferral so subsequent expression parsing
+                // (biomes, features, etc.) compiles eagerly with immediate error reporting.
+                deferCompilation.set(false);
             })
             .priority(50)
             .failThrough();

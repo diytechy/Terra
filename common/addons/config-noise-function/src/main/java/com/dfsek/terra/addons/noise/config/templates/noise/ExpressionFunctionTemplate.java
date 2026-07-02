@@ -8,7 +8,7 @@
 package com.dfsek.terra.addons.noise.config.templates.noise;
 
 import com.dfsek.paralithic.eval.parser.Parser.ParseOptions;
-import com.dfsek.paralithic.eval.tokenizer.ParseException;
+
 import com.dfsek.paralithic.sampler.noise.ExpressionNoiseFunction;
 import com.dfsek.seismic.type.sampler.Sampler;
 import com.dfsek.tectonic.api.config.template.annotations.Default;
@@ -17,13 +17,14 @@ import com.dfsek.tectonic.api.config.template.annotations.Value;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.dfsek.terra.addons.noise.config.DimensionApplicableSampler;
+import com.dfsek.terra.addons.noise.config.sampler.DeferredExpressionSampler;
 import com.dfsek.terra.addons.noise.config.templates.FunctionTemplate;
 import com.dfsek.terra.addons.noise.config.templates.SamplerTemplate;
-import com.dfsek.terra.api.config.meta.Meta;
 
-import static com.dfsek.terra.addons.noise.paralithic.FunctionUtil.convertFunctionsAndSamplers;
+import com.dfsek.terra.api.config.meta.Meta;
 
 
 @SuppressWarnings({ "FieldMayBeFinal", "unused" })
@@ -31,6 +32,7 @@ public class ExpressionFunctionTemplate extends SamplerTemplate<ExpressionNoiseF
     private final Map<String, DimensionApplicableSampler> globalSamplers;
     private final Map<String, FunctionTemplate> globalFunctions;
     private final ParseOptions parseOptions;
+    private final AtomicBoolean deferCompilation;
     @Value("variables")
     @Default
     private @Meta Map<String, @Meta Double> vars = new HashMap<>();
@@ -45,23 +47,25 @@ public class ExpressionFunctionTemplate extends SamplerTemplate<ExpressionNoiseF
 
     public ExpressionFunctionTemplate(Map<String, DimensionApplicableSampler> globalSamplers,
                                       Map<String, FunctionTemplate> globalFunctions,
-                                      ParseOptions parseOptions) {
+                                      ParseOptions parseOptions,
+                                      AtomicBoolean deferCompilation) {
         this.globalSamplers = globalSamplers;
         this.globalFunctions = globalFunctions;
         this.parseOptions = parseOptions;
+        this.deferCompilation = deferCompilation;
     }
 
     @Override
     public Sampler get() {
-        var mergedFunctions = new HashMap<>(globalFunctions);
-        mergedFunctions.putAll(functions);
-        var mergedSamplers = new HashMap<>(globalSamplers);
-        mergedSamplers.putAll(samplers);
-        try {
-            return new ExpressionNoiseFunction(convertFunctionsAndSamplers(mergedFunctions, mergedSamplers), expression, vars,
-                parseOptions);
-        } catch(ParseException e) {
-            throw new RuntimeException("Failed to parse expression.", e);
+        DeferredExpressionSampler deferred = new DeferredExpressionSampler(globalSamplers, globalFunctions, samplers,
+            functions, expression, vars, parseOptions);
+        // While pack samplers are still registering, defer compilation so cross-file forward
+        // references resolve. Once NoiseAddon has registered every pack sampler it flips the flag
+        // and validates; from then on expressions (biomes, features) compile eagerly for immediate
+        // error reporting.
+        if(!deferCompilation.get()) {
+            deferred.validate();
         }
+        return deferred;
     }
 }
