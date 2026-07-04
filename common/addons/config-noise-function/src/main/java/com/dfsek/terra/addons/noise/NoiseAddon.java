@@ -41,6 +41,7 @@ import com.dfsek.terra.addons.manifest.api.AddonInitializer;
 import com.dfsek.terra.addons.noise.config.CubicSplinePointTemplate;
 import com.dfsek.terra.addons.noise.config.DimensionApplicableSampler;
 import com.dfsek.terra.addons.noise.config.sampler.DeferredExpressionSampler;
+import com.dfsek.terra.addons.noise.config.sampler.LastValueSampler;
 import com.dfsek.terra.addons.noise.config.templates.BinaryArithmeticTemplate;
 import com.dfsek.terra.addons.noise.config.templates.CacheSamplerTemplate;
 import com.dfsek.terra.addons.noise.config.templates.DerivativeSamplerTemplate;
@@ -174,7 +175,18 @@ public class NoiseAddon implements AddonInitializer {
                         deferCompilation));
 
                 NoiseConfigPackTemplate template = event.loadTemplate(new NoiseConfigPackTemplate());
-                packSamplers.putAll(template.getSamplers());
+                // Wrap 2D pack samplers in a single-entry memoization cache. A pack sampler is
+                // typically shared across many downstream consumers that query it at the same
+                // column (expression references, biome-shape lookups, elevation/interpolation
+                // grid), so caching the last 2D value avoids re-evaluating the whole noise graph
+                // per reference. Output is unchanged; 3D samplers are stored as-is.
+                template.getSamplers().forEach((name, das) -> {
+                    if(das.getDimensions() == 2) {
+                        packSamplers.put(name, new DimensionApplicableSampler(2, new LastValueSampler(das.getSampler())));
+                    } else {
+                        packSamplers.put(name, das);
+                    }
+                });
                 packFunctions.putAll(template.getFunctions());
                 event.getPack().getContext().put(template);
 
@@ -183,7 +195,11 @@ public class NoiseAddon implements AddonInitializer {
                 // instead of deferring them to first chunk generation.
                 List<String> validationErrors = new ArrayList<>();
                 packSamplers.forEach((name, das) -> {
-                    if(das.getSampler() instanceof DeferredExpressionSampler deferred) {
+                    Sampler sampler = das.getSampler();
+                    if(sampler instanceof LastValueSampler lvs) {
+                        sampler = lvs.getDelegate();
+                    }
+                    if(sampler instanceof DeferredExpressionSampler deferred) {
                         try {
                             deferred.validate();
                         } catch(RuntimeException e) {

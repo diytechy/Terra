@@ -21,6 +21,14 @@ public class DimensionApplicableSampler implements ObjectTemplate<DimensionAppli
     @Value(".")
     private @Meta Sampler sampler;
 
+    public DimensionApplicableSampler() {
+    }
+
+    public DimensionApplicableSampler(int dimensions, Sampler sampler) {
+        this.dimensions = dimensions;
+        this.sampler = sampler;
+    }
+
     @Override
     public DimensionApplicableSampler get() {
         return this;
