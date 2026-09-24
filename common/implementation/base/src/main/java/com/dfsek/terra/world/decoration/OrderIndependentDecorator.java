@@ -153,6 +153,17 @@ public final class OrderIndependentDecorator {
         return new Capture(target, cx, cz);
     }
 
+    /**
+     * If this chunk's undecorated terrain is already cached (computed for a neighbour's decoration),
+     * copy it into {@code target} and return true, so the platform doesn't generate it a second time.
+     */
+    public boolean fillFromCache(ProtoChunk target, int cx, int cz) {
+        PristineChunk c = pristine.peek(key(cx, cz));
+        if(c == null) return false;
+        c.copyTo(target);
+        return true;
+    }
+
     public final class Capture implements ProtoChunk {
         private final ProtoChunk target;
         private final PristineChunk copy = new PristineChunk(minY, maxY, air);
@@ -341,6 +352,11 @@ public final class OrderIndependentDecorator {
 
         LruFutures(int max) {
             this.max = Math.max(16, max);
+        }
+
+        V peek(long k) {
+            CompletableFuture<V> f = map.get(k);
+            return f != null && f.isDone() && !f.isCompletedExceptionally() ? f.join() : null;
         }
 
         void put(long k, V v) {

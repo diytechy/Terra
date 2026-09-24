@@ -85,6 +85,21 @@ final class PristineChunk implements ProtoChunk {
         return s.palette.get(s.bytes[i] & 0xFF);
     }
 
+    /** Write every non-air block into {@code target} (same local coordinates). */
+    void copyTo(ProtoChunk target) {
+        for(int si = 0; si < sections.length; si++) {
+            Section s = sections[si];
+            if(s == null) continue;
+            int y0 = minY + (si << 4);
+            for(int i = 0; i < 4096; i++) {
+                int idx = s.shorts != null ? s.shorts[i] : s.bytes != null ? s.bytes[i] & 0xFF : 0;
+                BlockState b = s.palette.get(idx);
+                if(b == air) continue;
+                target.setBlock(i & 15, y0 + (i >> 8), (i >> 4) & 15, b);
+            }
+        }
+    }
+
     @Override
     public int getMaxHeight() {
         return maxY;
