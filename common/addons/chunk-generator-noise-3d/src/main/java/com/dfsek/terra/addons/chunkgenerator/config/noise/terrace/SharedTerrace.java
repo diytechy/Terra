@@ -72,4 +72,31 @@ public final class SharedTerrace {
         }
         return anchor + fade * i;
     }
+
+    /**
+     * Self-check used at pack load: does {@code spec}, alone, reproduce the surface of {@code base}
+     * (the biome's own terrain.sampler)? Tectonic inherits keys one by one, so a biome can pick up
+     * terrain.terrace from one parent and terrain.sampler from another; such a spec is dropped.
+     * Checked at 12 fixed columns, seed 0, Y range -64..319; tolerance 1 block at >= 10 columns.
+     */
+    public static boolean reproduces(TerraceSpec spec, com.dfsek.seismic.type.sampler.Sampler base) {
+        TerraceSpec[] one = { spec };
+        double[] w = { 1 };
+        int good = 0;
+        for(int k = 0; k < 12; k++) {
+            double x = (k * 7919 % 9000) - 4500 + 0.0, z = (k * 5237 % 9000) - 4500 + 0.0;
+            double t = surface(one, w, 1, 0, x, z);
+            int top = Integer.MIN_VALUE;
+            for(int y = 319; y >= -64; y--) {
+                if(base.getSample(0, x, y, z) > 0) {
+                    top = y;
+                    break;
+                }
+            }
+            // The column's top solid block is floor(t - tiny) for the terraced surface -y + t > 0.
+            int tTop = (int) Math.ceil(t) - 1;
+            if(top != Integer.MIN_VALUE && Math.abs(top - tTop) <= 1) good++;
+        }
+        return good >= 10;
+    }
 }

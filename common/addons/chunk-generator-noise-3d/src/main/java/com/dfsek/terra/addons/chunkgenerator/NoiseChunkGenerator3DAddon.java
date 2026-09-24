@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory;
 import com.dfsek.terra.addons.chunkgenerator.config.NoiseChunkGeneratorPackConfigTemplate;
 import com.dfsek.terra.addons.chunkgenerator.config.noise.BiomeNoiseConfigTemplate;
 import com.dfsek.terra.addons.chunkgenerator.config.noise.BiomeNoiseSamplers;
+import com.dfsek.terra.addons.chunkgenerator.config.noise.terrace.SharedTerrace;
 import com.dfsek.terra.addons.chunkgenerator.config.noise.terrace.TerracePassTemplate;
 import com.dfsek.terra.addons.chunkgenerator.config.noise.terrace.TerraceSpec;
 import com.dfsek.terra.addons.chunkgenerator.config.noise.terrace.TerraceSpecTemplate;
@@ -142,6 +143,28 @@ public class NoiseChunkGenerator3DAddon implements AddonInitializer {
             .register(addon, ConfigPackPostLoadEvent.class)
             .then(event -> {
                 Collection<Biome> biomes = event.getPack().getRegistry(Biome.class).entries();
+                // Shared terrace: keep a biome's terrain.terrace only if it reproduces that biome's own
+                // terrain.sampler (it may have been inherited from a different parent than the sampler).
+                int kept = 0, dropped = 0;
+                for(Biome biome : biomes) {
+                    BiomeNoiseSamplers s = biome.getContext().get(noisePropertiesPropertyKey).samplers();
+                    if(s.terrace() == null) continue;
+                    if(SharedTerrace.reproduces(s.terrace(), s.base())) {
+                        kept++;
+                        continue;
+                    }
+                    dropped++;
+                    logger.info("[chunk-generator-noise-3d] {}: terrain.terrace does not reproduce its terrain.sampler "
+                        + "(inherited from another parent?); using the biome's own sampler.", biome.getID());
+                    biome.getContext().put(noisePropertiesPropertyKey, new BiomeNoiseProperties(
+                        new BiomeNoiseSamplers(s.base(), s.elevation(), s.carving(), s.blendDistance(), s.blendStep(),
+                            s.blendWeight(), s.elevationWeight(), s.minDensity(), s.minDensitySmooth(),
+                            s.minDensitySmoothK(), s.densityFloor(), null)));
+                }
+                if(kept + dropped > 0) {
+                    logger.info("[chunk-generator-noise-3d] Shared terrace: {} biomes use terrain.terrace, {} dropped.",
+                        kept, dropped);
+                }
                 // Intern PaletteHolder instances: biomes with identical palette stacks (same Palette
                 // objects in same order, same offset) share a single canonical PaletteHolder array,
                 // eliminating duplicate Palette[] allocations that arise when many biomes inherit the
