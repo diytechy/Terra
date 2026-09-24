@@ -100,11 +100,18 @@ public class PipelineImpl implements Pipeline {
 
         // Initialize caching context and analyze pack samplers
         this.chunkContextLocal = new ThreadLocal<>();
-        if (packSamplers != null && !packSamplers.isEmpty() && complexityEstimator != null) {
+        // -Dterra.pipeline.chunkScopedCache=false disables the chunk-scoped sampler cache (diagnostics).
+        boolean chunkCacheEnabled = !"false".equalsIgnoreCase(System.getProperty("terra.pipeline.chunkScopedCache"));
+        if (chunkCacheEnabled && packSamplers != null && !packSamplers.isEmpty() && complexityEstimator != null) {
             PipelineSamplerAnalysis.AnalysisResult analysisResult =
                 PipelineSamplerAnalysis.analyze(source, stages, packSamplers, bestArraySize, complexityEstimator, debugProfiler);
 
             // Install chunk-scope cache wrappers on selected samplers
+            if (Boolean.getBoolean("terra.pipeline.logCachedSamplers")) {
+                for (PipelineSamplerAnalysis.SelectedSampler sel : analysisResult.selected) {
+                    logger.info("[pipeline-cache] chunk-scoped cache on pack sampler '{}' (slot {})", sel.name, sel.slot);
+                }
+            }
             for (PipelineSamplerAnalysis.SelectedSampler selected : analysisResult.selected) {
                 Sampler selectedSampler = selected.sampler;
 
@@ -168,7 +175,7 @@ public class PipelineImpl implements Pipeline {
         // Set up context for this chunk
         int blockOriginX = (worldCoordinates.x - chunkOriginArrayIndex) * resolution;
         int blockOriginZ = (worldCoordinates.z - chunkOriginArrayIndex) * resolution;
-        ctx.reset(blockOriginX, blockOriginZ, resolution);
+        ctx.reset(blockOriginX, blockOriginZ, resolution, worldCoordinates.seed);
 
         try {
             return new BiomeChunkImpl(worldCoordinates, this);

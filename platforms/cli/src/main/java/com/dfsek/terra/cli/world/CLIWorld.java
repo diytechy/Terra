@@ -70,14 +70,33 @@ public class CLIWorld implements ServerWorld {
      * @param features run the pack's population stages (features, structures) as well as the terrain.
      */
     public void generate(int originX, int originZ, int width, int depth, boolean features) {
+        generate(originX, originZ, width, depth, features, "rows");
+    }
+
+    /**
+     * @param order chunk submission order: {@code rows} (x-major), {@code spiral} (from the centre
+     *              outward, like a server loading chunks around a player) or {@code random} (seeded).
+     */
+    public void generate(int originX, int originZ, int width, int depth, boolean features, String order) {
         ExecutorService executor = Executors.newFixedThreadPool(threads);
         List<Future<?>> futures = new ArrayList<>();
         AtomicInteger done = new AtomicInteger();
         long start = System.nanoTime();
         int total = width * depth;
+        List<int[]> coords = new ArrayList<>();
         for(int x = originX; x < originX + width; x++) {
-            for(int z = originZ; z < originZ + depth; z++) {
-                int cx = x, cz = z;
+            for(int z = originZ; z < originZ + depth; z++) coords.add(new int[]{ x, z });
+        }
+        if("spiral".equals(order)) {
+            double mx = originX + width / 2.0, mz = originZ + depth / 2.0;
+            coords.sort(java.util.Comparator.comparingDouble((int[] c) -> Math.max(Math.abs(c[0] + 0.5 - mx), Math.abs(c[1] + 0.5 - mz)))
+                .thenComparingDouble(c -> Math.atan2(c[1] + 0.5 - mz, c[0] + 0.5 - mx)));
+        } else if("random".equals(order)) {
+            java.util.Collections.shuffle(coords, new java.util.Random(1234));
+        }
+        for(int[] c : coords) {
+            {
+                int cx = c[0], cz = c[1];
                 futures.add(executor.submit(() -> {
                     CLIChunk chunk = noSave ? new CLIChunk(cx, cz, this) : getChunkAt(cx, cz);
                     chunkGenerator.generateChunkData(chunk, this, biomeProvider, cx, cz);

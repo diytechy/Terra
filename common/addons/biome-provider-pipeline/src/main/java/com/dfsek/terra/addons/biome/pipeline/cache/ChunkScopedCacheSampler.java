@@ -40,22 +40,17 @@ public final class ChunkScopedCacheSampler implements Sampler {
             return delegate.getSample(seed, x, y);
         }
 
-        // Convert doubles to integer coordinates (worldX is already int-valued from viewPoint.worldX())
-        int worldX = (int) x;
-        int worldZ = (int) y;
-
-        // Out of bounds — delegate directly
-        if (!ctx.inBounds(worldX, worldZ)) {
+        // Only exact pipeline-grid points with the context's seed have a cache cell
+        int idx = ctx.exactIndex(x, y, seed);
+        if (idx < 0) {
             return delegate.getSample(seed, x, y);
         }
-
-        // In bounds — check cache
-        int idx = ctx.toIndex(worldX, worldZ);
         double[] cache = ctx.getCache(slot);
         double cached = cache[idx];
 
         // Cache hit
         if (!Double.isNaN(cached)) {
+            if (AUDIT) audit(seed, x, y, cached);
             return cached;
         }
 
@@ -63,6 +58,25 @@ public final class ChunkScopedCacheSampler implements Sampler {
         double value = delegate.getSample(seed, x, y);
         cache[idx] = value;
         return value;
+    }
+
+    // -Dterra.pipeline.cacheAudit=true: on every cache hit, recompute and log values that differ
+    // from the wrapped sampler at the exact requested point (diagnostics only; slow).
+    private static final boolean AUDIT = Boolean.getBoolean("terra.pipeline.cacheAudit");
+    public static final java.util.concurrent.atomic.AtomicLong AUDIT_HITS = new java.util.concurrent.atomic.AtomicLong();
+    public static final java.util.concurrent.atomic.AtomicLong AUDIT_WRONG = new java.util.concurrent.atomic.AtomicLong();
+
+    private void audit(long seed, double x, double y, double cached) {
+        long hits = AUDIT_HITS.incrementAndGet();
+        double truth = delegate.getSample(seed, x, y);
+        if (Double.compare(truth, cached) != 0) {
+            long wrong = AUDIT_WRONG.incrementAndGet();
+            if (wrong <= 20 || Long.bitCount(wrong) == 1) {
+                org.slf4j.LoggerFactory.getLogger(ChunkScopedCacheSampler.class).info(
+                    "[pipeline-cache-audit] slot {} at ({}, {}): cached {} but sampler gives {} (wrong {} of {} hits)",
+                    slot, x, y, cached, truth, wrong, hits);
+            }
+        }
     }
 
     @Override

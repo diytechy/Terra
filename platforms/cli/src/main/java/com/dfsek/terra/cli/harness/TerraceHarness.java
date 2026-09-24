@@ -50,7 +50,8 @@ import com.dfsek.terra.cli.world.CLIWorld;
  * Run from a directory containing {@code packs/} and {@code addons/}.
  */
 @Command(name = "TerraceHarness", mixinStandardHelpOptions = true,
-         subcommands = { TerraceHarness.Survey.class, TerraceHarness.Generate.class, TerraceHarness.Probe.class })
+         subcommands = { TerraceHarness.Survey.class, TerraceHarness.Generate.class, TerraceHarness.Probe.class,
+                        OrderCheck.class })
 public final class TerraceHarness implements Callable<Integer> {
     private static final Logger LOGGER = LoggerFactory.getLogger(TerraceHarness.class);
 
@@ -64,7 +65,7 @@ public final class TerraceHarness implements Callable<Integer> {
         return 0;
     }
 
-    abstract static class Common {
+    abstract static class Common {  // shared options (also used by OrderCheck)
         @Option(names = { "-p", "--pack" }, description = "Config pack ID.")
         String pack = "CHIMERA";
 
@@ -188,6 +189,7 @@ public final class TerraceHarness implements Callable<Integer> {
         @Option(names = "--features", description = "Also run population stages (default: terrain only).")
         boolean features = false;
         @Option(names = "--skip-existing") boolean skipExisting = false;
+        @Option(names = "--order", description = "Chunk order: rows (default), spiral, random.") String order = "rows";
 
         @Override
         public Integer call() throws IOException {
@@ -206,7 +208,9 @@ public final class TerraceHarness implements Callable<Integer> {
                     continue;
                 }
                 LOGGER.info("Window {}: chunks ({}, {}) size {}x{}", name, ox, oz, w, d);
-                world.generate(ox, oz, w, d, features);
+                long t0 = System.nanoTime();
+                world.generate(ox, oz, w, d, features, order);
+                LOGGER.info("TIMING window {} chunks {} seconds {}", name, w * d, String.format("%.3f", (System.nanoTime() - t0) / 1e9));
                 world.save(new File(dir, "region"));
                 world.clear();
                 List<String> ids = new ArrayList<>();
