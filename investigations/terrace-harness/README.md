@@ -48,3 +48,31 @@ Python deps are in `.venv` (numpy, scipy, scikit-image, matplotlib, pillow, pyya
 borders, transects in red where ravine ≥ 4, six worst profiles), `reports/<label>/diagnosis*/`
 (`diagnosis.md`, `diagnosis.png`, raw probe JSONL). Labels: `baseline` (ORIGEN2 main 8511c3c9),
 `nocell` (P1), `shared` (P1 + shared terrace for MTL/TM).
+
+## Determinism checks (added 2026-09-24)
+
+| Tool | What |
+|---|---|
+| `TerraceHarness order-check --seed S --points P [--prime Q]` | One JVM, provider caches cleared per trial: reference, repeat, primed, shuffled, reversed and parallel evaluation orders of the same columns. Prints `ORDER-CHECK PASS/FAIL`, exit 1 on any difference. `--dump` writes the reference results. |
+| `TerraceHarness seed-dump --seeds A,B [--concurrent]` | Several seeds in one JVM; one dump per seed (biome, exact height, named samplers). Diff against a run with one seed. |
+| `TerraceHarness generate --order rows\|spiral\|random --threads N` | Chunk order / thread count for generation-level order tests; logs `TIMING` per window. |
+| `tools/gen_only.sh`, `tools/compare_gens.py` | Generate the standard windows under given flags/order/threads; compare two outputs column by column (heights + biomes). |
+| `tools/perf_run.sh`, `tools/perf_summary.py` | Rotated-order performance runs (generation chunks/s + pipeline-only survey). |
+| `tools/refresh_jars.sh` | Copy the current fork build into existing run dirs. |
+
+JVM flags (diagnostics, Terra fork `bedrock/terrace-harness`): `-Dterra.pipeline.chunkScopedCache=false`
+(cache off), `-Dterra.pipeline.legacyCacheIndex=true` (old, order-dependent lookup),
+`-Dterra.pipeline.cacheAudit=true` (log cache hits whose value differs from the sampler),
+`-Dterra.pipeline.cacheStats=true`, `-Dterra.pipeline.logCachedSamplers=true`.
+Fork build against a local DendryTerra: `./gradlew -PdendryJar=<jar> ...`.
+
+```bash
+# reproduce the order dependence (P1 pack) and show the fix / the cache-off control
+cd run_nocell
+java -Dterra.pipeline.legacyCacheIndex=true -cp terra-cli.jar com.dfsek.terra.cli.harness.TerraceHarness \
+  order-check --seed 2403 --points ../data/order/s3a03_grid8.txt --prime ../data/order/prime12.txt   # FAIL
+java -cp terra-cli.jar com.dfsek.terra.cli.harness.TerraceHarness \
+  order-check --seed 2403 --points ../data/order/s3a03_grid8.txt --prime ../data/order/prime12.txt   # PASS
+# unit tests (fork worktree): all pass; with -Dterra.pipeline.legacyCacheIndex=true four fail
+./gradlew --no-daemon :common:addons:biome-provider-pipeline:test --rerun
+```

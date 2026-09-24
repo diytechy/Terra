@@ -34,7 +34,7 @@ from aggregate import load  # noqa: E402
 TOL = 4
 SAMPLERS = ["biomeInfluence", "normDistIntoBiome", "elevationDetailedBlockHeight", "continentalRiverDist",
             "BiomeShapeLandmassDist2Center", "mesaFootDist", "dist2Coast", "spotDistance", "spotRadius",
-            "spotCenterNotNearRiver"]
+            "spotCenterNotNearRiver", "biomeReliefInfluence"]
 BASE_Y = 65  # customization.yml terrain-base-y-level
 JAVA = r"C:\JAVA\jdk-25.0.1\bin\java.exe"
 
@@ -71,13 +71,21 @@ def main():
     ap.add_argument("--per-window", type=int, default=3)
     ap.add_argument("--run", default=os.path.join(LAB, "run"))
     ap.add_argument("--reuse", action="store_true", help="reuse existing probe output")
+    ap.add_argument("--keys", default=None, help="file of 'area window x z' lines: diagnose exactly these transects")
+    ap.add_argument("--out-name", default="diagnosis")
     a = ap.parse_args()
 
     res = load(a.label)
+    keys = None
+    if a.keys:
+        keys = {tuple(l.split()[:2]) + tuple(int(v) for v in l.split()[2:4]) for l in open(a.keys) if l.strip()}
     cands = []
     for r in res:
         for i, t in enumerate(r["transects"]):
-            if not t["wetCentre"] and t["ravine"] >= TOL:
+            if keys is not None:
+                if (r["area"], r["window"], t["x"], t["z"]) in keys:
+                    cands.append((t["ravine"], r["area"], r["window"], r["seed"], i, t))
+            elif not t["wetCentre"] and t["ravine"] >= TOL:
                 cands.append((t["ravine"], r["area"], r["window"], r["seed"], i, t))
     cands.sort(key=lambda c: -c[0])
     chosen, per = [], Counter()
@@ -89,7 +97,7 @@ def main():
         if len(chosen) >= a.worst:
             break
 
-    out = os.path.join(LAB, "reports", a.label, "diagnosis")
+    out = os.path.join(LAB, "reports", a.label, a.out_name)
     os.makedirs(out, exist_ok=True)
     ts = [t for t in range(-64, 65) if abs(t) <= 20 or t % 4 == 0]
     by_seed = {}
@@ -150,6 +158,7 @@ def main():
             "ownAside": float(own_a_side), "ownBside": float(own_b_side), "refA": t["refA"], "refB": t["refB"],
             "contributors": contrib, "allHeightMap": all(c[3] for c in contrib),
             "biomeInfluence": s["biomeInfluence"], "normDist": s["normDistIntoBiome"],
+            "biomeReliefInfluence": s.get("biomeReliefInfluence"),
             "normTerms": terms, "limitingTerm": limiting, "fadeFloor": floor, "cause": cause,
             "profileOwnA": [[tt, P[tt]["own"][t["A"]]] for tt in sorted(P)],
             "profileOwnB": [[tt, P[tt]["own"][t["B"]]] for tt in sorted(P)],
