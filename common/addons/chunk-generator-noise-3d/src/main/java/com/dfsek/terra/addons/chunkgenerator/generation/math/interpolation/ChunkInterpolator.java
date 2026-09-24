@@ -13,6 +13,8 @@ import com.dfsek.terra.addons.chunkgenerator.SamplerFloorFeature;
 import com.dfsek.terra.addons.chunkgenerator.TerrainDebug;
 import com.dfsek.terra.addons.chunkgenerator.config.noise.BiomeNoiseProperties;
 import com.dfsek.terra.addons.chunkgenerator.config.noise.BiomeNoiseSamplers;
+import com.dfsek.terra.addons.chunkgenerator.config.noise.terrace.SharedTerrace;
+import com.dfsek.terra.addons.chunkgenerator.config.noise.terrace.TerraceSpec;
 import com.dfsek.terra.api.properties.PropertyKey;
 import com.dfsek.terra.api.util.Column;
 import com.dfsek.terra.api.world.biome.Biome;
@@ -175,6 +177,32 @@ public class ChunkInterpolator {
                     }
                 }
 
+                // Shared terrace blend: when terraced biomes contribute, their parameters are blended
+                // once per column and a single terrace function gives one surface for all of them.
+                // NaN when no contributor has terrain.terrace (then every biome uses its own sampler).
+                double terraceTop = Double.NaN;
+                double centerOnlyTerraceTop = Double.NaN;
+                if(!blendExtrudedNeighbors) {
+                    BiomeNoiseSamplers surfaceSamplers = biomeColumn.getSurface().getContext().get(noisePropertiesKey).samplers();
+                    TerraceSpec[] specs = TERRACE_SPECS.get();
+                    double[] tw = TERRACE_WEIGHTS.get();
+                    int n = 0;
+                    boolean any = surfaceSamplers.terrace() != null;
+                    specs[n] = surfaceSamplers.terrace();
+                    tw[n++] = surfaceSamplers.blendWeight();
+                    for(int b = 0; b < blendMap.size; b++) {
+                        specs[n] = blendMap.samplers[b].terrace();
+                        tw[n++] = blendMap.weights[b];
+                        any |= specs[n - 1] != null;
+                    }
+                    if(any) {
+                        terraceTop = SharedTerrace.surface(specs, tw, n, seed, absoluteX, absoluteZ);
+                        if(surfaceSamplers.terrace() != null) {
+                            centerOnlyTerraceTop = SharedTerrace.surface(specs, tw, 1, seed, absoluteX, absoluteZ);
+                        }
+                    }
+                }
+
                 for(int y = 0; y < size; y++) {
                     int scaledY = (y << 2) + min;
 
@@ -231,7 +259,9 @@ public class ChunkInterpolator {
                         // Blend disabled: either the extruded center biome has blendDistance=0,
                         // or this Y level is outside the pack-configured blend range. Use center's
                         // extruded sampler directly.
-                        noise = centerSamplers.base().getSample(seed, absoluteX, scaledY, absoluteZ);
+                        noise = (centerSamplers.terrace() != null && !Double.isNaN(centerOnlyTerraceTop))
+                            ? centerOnlyTerraceTop - scaledY
+                            : centerSamplers.base().getSample(seed, absoluteX, scaledY, absoluteZ);
                         if(SamplerFloorFeature.ENABLED) {
                             Sampler floor = centerSamplers.densityFloor();
                             floorValue = (floor != null)
@@ -248,7 +278,7 @@ public class ChunkInterpolator {
                         if(blendMap.size == 1 && blendMap.samplers[0] == centerSamplers) {
                             // All positions share one BiomeNoiseSamplers singleton — the weighted
                             // average of identical values equals a direct sample.
-                            noise = centerSamplers.base().getSample(seed, absoluteX, scaledY, absoluteZ);
+                            noise = contributorNoise(centerSamplers, terraceTop, seed, absoluteX, scaledY, absoluteZ);
                             if(SamplerFloorFeature.ENABLED) {
                                 Sampler floor = centerSamplers.densityFloor();
                                 floorValue = (floor != null)
@@ -262,7 +292,7 @@ public class ChunkInterpolator {
                                 && blendMap.allHaveFloor
                                 && centerSamplers.densityFloor() != null;
 
-                            double centerNoise = centerSamplers.base().getSample(seed, absoluteX, scaledY, absoluteZ);
+                            double centerNoise = contributorNoise(centerSamplers, terraceTop, seed, absoluteX, scaledY, absoluteZ);
                             double runningNoise   = centerNoise * centerWeight;
                             double floorNumerator = 0;
 
@@ -282,7 +312,7 @@ public class ChunkInterpolator {
                             for(int b = 0; b < blendMap.size; b++) {
                                 BiomeNoiseSamplers s = blendMap.samplers[b];
                                 double w = blendMap.weights[b];
-                                double bNoise = s.base().getSample(seed, absoluteX, scaledY, absoluteZ);
+                                double bNoise = contributorNoise(s, terraceTop, seed, absoluteX, scaledY, absoluteZ);
                                 runningNoise += bNoise * w;
                                 if(debugChunk && TerrainDebug.isTargetY(scaledY)) {
                                     TerrainDebug.LOG.info(
@@ -402,6 +432,15 @@ public class ChunkInterpolator {
         if(debugChunk && SamplerFloorFeature.ENABLED) {
             TerrainDebug.LOG.info("[CI] chunk ({},{}) hasFloor={}", chunkX, chunkZ, this.floorGrid != null);
         }
+    }
+
+    private static final ThreadLocal<TerraceSpec[]> TERRACE_SPECS = ThreadLocal.withInitial(() -> new TerraceSpec[BiomeWeightMap.CAPACITY + 1]);
+    private static final ThreadLocal<double[]> TERRACE_WEIGHTS = ThreadLocal.withInitial(() -> new double[BiomeWeightMap.CAPACITY + 1]);
+
+    /** A contributor's density: the shared terraced surface for terraced biomes, else its own sampler. */
+    private static double contributorNoise(BiomeNoiseSamplers s, double terraceTop, long seed, int x, int y, int z) {
+        if(s.terrace() != null && !Double.isNaN(terraceTop)) return terraceTop - y;
+        return s.base().getSample(seed, x, y, z);
     }
 
     private static int reRange(int value, int high) {

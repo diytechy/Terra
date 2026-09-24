@@ -21,5 +21,7 @@ public record BiomeNoiseSamplers(
     @Nullable Sampler minDensity,
     boolean minDensitySmooth,
     double minDensitySmoothK,
-    @Nullable Sampler densityFloor
+    @Nullable Sampler densityFloor,
+    // Optional terrace parameters for the shared terrace blend (null = ordinary per-biome sampler).
+    @Nullable com.dfsek.terra.addons.chunkgenerator.config.noise.terrace.TerraceSpec terrace
 ) {}

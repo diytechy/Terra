@@ -20,6 +20,9 @@ import org.slf4j.LoggerFactory;
 import com.dfsek.terra.addons.chunkgenerator.config.NoiseChunkGeneratorPackConfigTemplate;
 import com.dfsek.terra.addons.chunkgenerator.config.noise.BiomeNoiseConfigTemplate;
 import com.dfsek.terra.addons.chunkgenerator.config.noise.BiomeNoiseSamplers;
+import com.dfsek.terra.addons.chunkgenerator.config.noise.terrace.TerracePassTemplate;
+import com.dfsek.terra.addons.chunkgenerator.config.noise.terrace.TerraceSpec;
+import com.dfsek.terra.addons.chunkgenerator.config.noise.terrace.TerraceSpecTemplate;
 import com.dfsek.terra.addons.chunkgenerator.config.noise.BiomeNoiseProperties;
 import com.dfsek.terra.addons.chunkgenerator.config.palette.BiomePaletteTemplate;
 import com.dfsek.terra.addons.chunkgenerator.config.palette.slant.SlantLayerTemplate;
@@ -89,7 +92,9 @@ public class NoiseChunkGenerator3DAddon implements AddonInitializer {
                             config.getMinDensitySmoothK(), config.getMinDensitySkipTags(),
                             config.isBlendExtrudedNeighbors()));
                 event.getPack()
-                    .applyLoader(SlantHolder.Layer.class, SlantLayerTemplate::new);
+                    .applyLoader(SlantHolder.Layer.class, SlantLayerTemplate::new)
+                    .applyLoader(TerraceSpec.class, TerraceSpecTemplate::new)
+                    .applyLoader(TerraceSpec.Pass.class, TerracePassTemplate::new);
             })
             .failThrough();
 
@@ -123,7 +128,7 @@ public class NoiseChunkGenerator3DAddon implements AddonInitializer {
                             new BiomeNoiseSamplers(s.base(), s.elevation(), s.carving(),
                                 0, s.blendStep(), s.blendWeight(), s.elevationWeight(),
                                 s.minDensity(), s.minDensitySmooth(), s.minDensitySmoothK(),
-                                s.densityFloor())
+                                s.densityFloor(), s.terrace())
                         );
                     }
 

@@ -5,6 +5,7 @@ import com.dfsek.tectonic.api.config.template.annotations.Default;
 import com.dfsek.tectonic.api.config.template.annotations.Value;
 import com.dfsek.tectonic.api.config.template.object.ObjectTemplate;
 
+import com.dfsek.terra.addons.chunkgenerator.config.noise.terrace.TerraceSpec;
 import com.dfsek.terra.api.config.meta.Meta;
 
 
@@ -51,6 +52,10 @@ public class BiomeNoiseConfigTemplate implements ObjectTemplate<BiomeNoiseProper
     @Default
     private @Meta double minDensitySmoothK = 1.0;
 
+    @Value("terrain.terrace")
+    @Default
+    private @Meta TerraceSpec terrace = null;
+
     @Value("terrain.sampler-floor")
     @Default
     private @Meta Sampler densityFloor = NO_FLOOR_SAMPLER;
@@ -75,6 +80,6 @@ public class BiomeNoiseConfigTemplate implements ObjectTemplate<BiomeNoiseProper
         return new BiomeNoiseProperties(
             new BiomeNoiseSamplers(baseSampler, elevationSampler, carvingSampler, blendDistance, blendStep, blendWeight, elevationWeight,
                 minDensitySampler == NO_MIN_DENSITY_SAMPLER ? null : minDensitySampler, minDensitySmooth, minDensitySmoothK,
-                densityFloor == NO_FLOOR_SAMPLER ? null : densityFloor));
+                densityFloor == NO_FLOOR_SAMPLER ? null : densityFloor, terrace));
     }
 }

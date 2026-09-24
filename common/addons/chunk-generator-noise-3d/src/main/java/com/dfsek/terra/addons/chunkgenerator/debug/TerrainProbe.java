@@ -16,6 +16,8 @@ import java.util.Locale;
 import com.dfsek.terra.addons.chunkgenerator.config.NoiseChunkGeneratorPackConfigTemplate;
 import com.dfsek.terra.addons.chunkgenerator.config.noise.BiomeNoiseProperties;
 import com.dfsek.terra.addons.chunkgenerator.config.noise.BiomeNoiseSamplers;
+import com.dfsek.terra.addons.chunkgenerator.config.noise.terrace.SharedTerrace;
+import com.dfsek.terra.addons.chunkgenerator.config.noise.terrace.TerraceSpec;
 import com.dfsek.terra.api.config.ConfigPack;
 import com.dfsek.terra.api.properties.Context;
 import com.dfsek.terra.api.properties.PropertyKey;
@@ -44,6 +46,14 @@ public final class TerrainProbe {
     private TerrainProbe() {}
 
     public static String probe(ConfigPack pack, long seed, int x, int z, int minY, int maxY) {
+        return probe(pack, seed, x, z, minY, maxY, new String[0]);
+    }
+
+    /**
+     * @param ownBiomes biome IDs whose own terrain height is reported at this column whether or not
+     *                  they are in the blend stencil ("own" object in the output).
+     */
+    public static String probe(ConfigPack pack, long seed, int x, int z, int minY, int maxY, String[] ownBiomes) {
         PropertyKey<BiomeNoiseProperties> key = Context.create(BiomeNoiseProperties.class);
         NoiseChunkGeneratorPackConfigTemplate config = pack.getContext().get(NoiseChunkGeneratorPackConfigTemplate.class);
         int blendMinY = config.getBlendMinY();
@@ -98,6 +108,20 @@ public final class TerrainProbe {
         }
         sb.append(']');
 
+        // Shared terrace blend (see ChunkInterpolator): one surface for all terraced contributors.
+        TerraceSpec[] specs = new TerraceSpec[nSamplers.size() + 1];
+        double[] tw = new double[nSamplers.size() + 1];
+        specs[0] = surfaceSamplers.terrace();
+        tw[0] = surfaceSamplers.blendWeight();
+        boolean anyTerrace = specs[0] != null;
+        for(int i = 0; i < nSamplers.size(); i++) {
+            specs[i + 1] = nSamplers.get(i).terrace();
+            tw[i + 1] = nWeights.get(i);
+            anyTerrace |= specs[i + 1] != null;
+        }
+        double terraceTop = anyTerrace ? SharedTerrace.surface(specs, tw, specs.length, seed, x, z) : Double.NaN;
+        double centerOnlyTop = specs[0] != null ? SharedTerrace.surface(specs, tw, 1, seed, x, z) : Double.NaN;
+
         // Blended surface (exact per-block Y, no sparse interpolation). Outside the blend Y range,
         // or when the centre has blend distance 0, ChunkInterpolator uses the centre sampler alone.
         int blendedTop = minY - 1;
@@ -105,15 +129,16 @@ public final class TerrainProbe {
             BiomeNoiseSamplers centre = column.get(y).getContext().get(key).samplers();
             double d;
             if(centre.blendDistance() == 0 || y < blendMinY || y > blendMaxY) {
-                d = centre.base().getSample(seed, x, y, z);
+                d = (centre.terrace() != null && !Double.isNaN(centerOnlyTop)) ? centerOnlyTop - y
+                    : centre.base().getSample(seed, x, y, z);
             } else {
                 // Centre contributes its per-Y (extruded) sampler with its own weight; neighbours
                 // contribute their surface samplers, as in ChunkInterpolator (extruded-neighbors: false).
                 double cw = centre.blendWeight();
-                double sum = centre.base().getSample(seed, x, y, z) * cw;
+                double sum = density(centre, terraceTop, seed, x, y, z) * cw;
                 double wsum = cw;
                 for(int i = 0; i < nSamplers.size(); i++) {
-                    sum += nSamplers.get(i).base().getSample(seed, x, y, z) * nWeights.get(i);
+                    sum += density(nSamplers.get(i), terraceTop, seed, x, y, z) * nWeights.get(i);
                     wsum += nWeights.get(i);
                 }
                 d = sum / wsum;
@@ -124,10 +149,26 @@ public final class TerrainProbe {
             }
         }
         sb.append(",\"blendedTop\":").append(blendedTop);
+        sb.append(",\"sharedTerraceTop\":").append(fmt(terraceTop));
+        sb.append(",\"own\":{");
+        boolean first = true;
+        for(String id : ownBiomes) {
+            Biome b = pack.getRegistry(Biome.class).getByID(id).orElse(null);
+            if(b == null) continue;
+            if(!first) sb.append(',');
+            first = false;
+            sb.append('"').append(id).append("\":").append(topOf(b.getContext().get(key).samplers().base(), seed, x, z, minY, maxY));
+        }
+        sb.append('}');
         double carve = surfaceSamplers.carving().getSample(seed, x, blendedTop, z);
         sb.append(",\"carvingAtTop\":").append(fmt(carve));
         sb.append('}');
         return sb.toString();
+    }
+
+    private static double density(BiomeNoiseSamplers s, double terraceTop, long seed, int x, int y, int z) {
+        if(s.terrace() != null && !Double.isNaN(terraceTop)) return terraceTop - y;
+        return s.base().getSample(seed, x, y, z);
     }
 
     private static void add(List<BiomeNoiseSamplers> samplers, List<Double> weights, List<List<String>> ids,
