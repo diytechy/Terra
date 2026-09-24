@@ -81,6 +81,7 @@ public class BukkitChunkGeneratorWrapper extends org.bukkit.generator.ChunkGener
         BukkitWorldProperties properties = new BukkitWorldProperties(worldInfo);
         if(com.dfsek.terra.world.decoration.OrderIndependentDecorator.enabled()) {
             var dec = decorator(worldInfo);
+            if(Boolean.parseBoolean(System.getProperty("terra.decoration.prefetch", "true"))) dec.prefetchAround(x, z);
             if(dec.fillFromCache(new BukkitProtoChunk(chunkData), x, z)) return; // terrain already computed for decoration
             var capture = dec.capture(new BukkitProtoChunk(chunkData), x, z);
             delegate.generateChunkData(capture, properties, pack.getBiomeProvider(), x, z);

@@ -157,6 +157,29 @@ public final class OrderIndependentDecorator {
      * If this chunk's undecorated terrain is already cached (computed for a neighbour's decoration),
      * copy it into {@code target} and return true, so the platform doesn't generate it a second time.
      */
+    private static final java.util.concurrent.ExecutorService PREFETCH = java.util.concurrent.Executors.newFixedThreadPool(
+        Math.max(1, Integer.getInteger("terra.decoration.prefetchThreads", Math.max(1, Runtime.getRuntime().availableProcessors() / 2))),
+        r -> {
+            Thread t = new Thread(r, "Terra-decoration-prefetch");
+            t.setDaemon(true);
+            return t;
+        });
+
+    /**
+     * Start computing, in the background, the undecorated terrain of chunks within 2 of (cx, cz) that
+     * isn't cached yet: decorating a chunk needs terrain two chunks out, which the server usually hasn't
+     * generated at that point. The server's own terrain step then reuses it ({@link #fillFromCache}).
+     */
+    public void prefetchAround(int cx, int cz) {
+        for(int dx = -2; dx <= 2; dx++) {
+            for(int dz = -2; dz <= 2; dz++) {
+                int x = cx + dx, z = cz + dz;
+                if(pristine.contains(key(x, z))) continue;
+                PREFETCH.execute(() -> pristine(x, z));
+            }
+        }
+    }
+
     public boolean fillFromCache(ProtoChunk target, int cx, int cz) {
         PristineChunk c = pristine.peek(key(cx, cz));
         if(c == null) return false;
@@ -356,6 +379,10 @@ public final class OrderIndependentDecorator {
 
         LruFutures(int max) {
             this.max = Math.max(16, max);
+        }
+
+        boolean contains(long k) {
+            return map.containsKey(k);
         }
 
         V peek(long k) {
