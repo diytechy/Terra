@@ -220,7 +220,8 @@ public final class TerraceHarness implements Callable<Integer> {
 
     @Command(name = "probe", description = "Per-column blend diagnostics and pack sampler values.")
     static final class Probe extends Common implements Callable<Integer> {
-        @Option(names = "--points", required = true, description = "Text file: 'x z [tag]' per line.")
+        @Option(names = "--points", required = true,
+                description = "Text file: 'x z [tag [BIOME_A,BIOME_B...]]' per line; listed biomes get their own height reported.")
         File points;
         @Option(names = "--out", required = true) File out;
         @Option(names = "--samplers", split = ",",
@@ -234,7 +235,8 @@ public final class TerraceHarness implements Callable<Integer> {
             Object generator = p.getGeneratorProvider().newInstance(p);
             Class<?> probeClass = generator.getClass().getClassLoader()
                 .loadClass("com.dfsek.terra.addons.chunkgenerator.debug.TerrainProbe");
-            Method probe = probeClass.getMethod("probe", ConfigPack.class, long.class, int.class, int.class, int.class, int.class);
+            Method probe = probeClass.getMethod("probe", ConfigPack.class, long.class, int.class, int.class, int.class, int.class,
+                String[].class);
 
             Map<String, Sampler> named = packSamplers(p, samplerNames);
 
@@ -253,7 +255,8 @@ public final class TerraceHarness implements Callable<Integer> {
                 fs.add(ex.submit(() -> {
                     String[] t = pts.get(ii);
                     int x = Integer.parseInt(t[0]), z = Integer.parseInt(t[1]);
-                    String json = (String) probe.invoke(null, p, seed, x, z, minHeight, maxHeight);
+                    String[] own = t.length > 3 ? t[3].split(",") : new String[0];
+                    String json = (String) probe.invoke(null, p, seed, x, z, minHeight, maxHeight, (Object) own);
                     StringBuilder sb = new StringBuilder(json.substring(0, json.length() - 1));
                     if(t.length > 2) sb.append(",\"tag\":\"").append(t[2]).append('"');
                     sb.append(",\"samplers\":{");
