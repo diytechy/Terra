@@ -25,10 +25,28 @@ public class BukkitBlockPopulator extends BlockPopulator {
         this.pack = pack;
     }
 
+    // Diagnostics: -Dterra.stages.skip=a,b (or "all") / -Dterra.stages.only=a,b select which pack
+    // generation stages run on this platform. Default: all stages.
+    private static final java.util.Set<String> SKIP = parse(System.getProperty("terra.stages.skip"));
+    private static final java.util.Set<String> ONLY = parse(System.getProperty("terra.stages.only"));
+
+    private static java.util.Set<String> parse(String s) {
+        if(s == null || s.isBlank()) return null;
+        return java.util.Set.of(s.split(","));
+    }
+
+    static boolean runs(Object stage) {
+        String id = stage instanceof com.dfsek.terra.api.registry.key.StringIdentifiable si ? si.getID() : stage.toString();
+        if(SKIP != null && (SKIP.contains("all") || SKIP.contains(id))) return false;
+        return ONLY == null || ONLY.contains(id);
+    }
+
     @Override
     public void populate(@NotNull WorldInfo worldInfo, @NotNull Random random, int chunkX, int chunkZ,
                          @NotNull LimitedRegion limitedRegion) {
-        pack.getStages().forEach(
-            generationStage -> generationStage.populate(new BukkitProtoWorld(limitedRegion, air, pack.getBiomeProvider())));
+        pack.getStages().forEach(generationStage -> {
+            if(runs(generationStage))
+                generationStage.populate(new BukkitProtoWorld(limitedRegion, air, pack.getBiomeProvider()));
+        });
     }
 }

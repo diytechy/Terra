@@ -82,7 +82,8 @@ public class BukkitChunkGeneratorWrapper extends org.bukkit.generator.ChunkGener
 
     @Override
     public boolean shouldGenerateDecorations() {
-        return true;
+        // Diagnostics: -Dterra.bukkit.vanillaDecorations=false turns off the server's own (vanilla) biome decoration.
+        return !"false".equalsIgnoreCase(System.getProperty("terra.bukkit.vanillaDecorations"));
     }
 
     @Override
