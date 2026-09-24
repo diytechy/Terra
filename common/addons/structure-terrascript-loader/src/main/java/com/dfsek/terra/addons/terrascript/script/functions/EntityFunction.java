@@ -22,6 +22,8 @@ import com.dfsek.terra.api.Platform;
 import com.dfsek.terra.api.entity.Entity;
 import com.dfsek.terra.api.entity.EntityType;
 import com.dfsek.terra.api.event.events.world.generation.EntitySpawnEvent;
+import com.dfsek.terra.api.world.WritableWorld;
+import com.dfsek.terra.api.world.chunk.generation.DeferringWorld;
 
 
 public class EntityFunction implements Function<Void> {
@@ -48,13 +50,19 @@ public class EntityFunction implements Function<Void> {
         Vector2 xz = Vector2.Mutable.of(x.apply(implementationArguments, scope).doubleValue(),
             z.apply(implementationArguments, scope).doubleValue()).rotate(arguments.getRotation());
 
-        Entity entity = arguments.getWorld().spawnEntity(Vector3.of(xz.getX(), y.apply(implementationArguments, scope).doubleValue(),
+        Vector3 at = Vector3.of(xz.getX(), y.apply(implementationArguments, scope).doubleValue(),
                 xz.getZ())
             .mutable()
             .add(arguments.getOrigin().toFloat())
             .add(0.5, 0, 0.5)
-            .immutable(), data);
-        platform.getEventManager().callEvent(new EntitySpawnEvent(entity.world().getPack(), entity));
+            .immutable();
+        WritableWorld world = arguments.getWorld();
+        if(world instanceof DeferringWorld deferring) {
+            // Order-independent decoration: spawn once the chunk containing the entity is written.
+            deferring.defer(at.getFloorX(), at.getFloorY(), at.getFloorZ(), live -> spawn(live, at));
+        } else {
+            spawn(world, at);
+        }
         return null;
     }
 
@@ -66,5 +74,10 @@ public class EntityFunction implements Function<Void> {
     @Override
     public ReturnType returnType() {
         return ReturnType.VOID;
+    }
+
+    private void spawn(WritableWorld world, Vector3 at) {
+        Entity entity = world.spawnEntity(at, data);
+        if(entity != null) platform.getEventManager().callEvent(new EntitySpawnEvent(entity.world().getPack(), entity));
     }
 }

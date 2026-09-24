@@ -45,7 +45,8 @@ public class CLIBlockState implements BlockState {
 
     @Override
     public boolean matches(BlockState other) {
-        return false;
+        // Same semantics as the Bukkit platform: same block type (material), properties ignored.
+        return other != null && type.equals(other.getBlockType());
     }
 
     @Override

@@ -51,7 +51,7 @@ import com.dfsek.terra.cli.world.CLIWorld;
  */
 @Command(name = "TerraceHarness", mixinStandardHelpOptions = true,
          subcommands = { TerraceHarness.Survey.class, TerraceHarness.Generate.class, TerraceHarness.Probe.class,
-                        OrderCheck.class, SeedDump.class })
+                        OrderCheck.class, SeedDump.class, FeatureOrder.class })
 public final class TerraceHarness implements Callable<Integer> {
     private static final Logger LOGGER = LoggerFactory.getLogger(TerraceHarness.class);
 

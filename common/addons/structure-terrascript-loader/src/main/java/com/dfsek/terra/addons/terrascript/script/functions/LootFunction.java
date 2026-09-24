@@ -30,6 +30,8 @@ import com.dfsek.terra.api.event.events.world.generation.LootPopulateEvent;
 import com.dfsek.terra.api.registry.Registry;
 import com.dfsek.terra.api.registry.key.RegistryKey;
 import com.dfsek.terra.api.structure.LootTable;
+import com.dfsek.terra.api.world.WritableWorld;
+import com.dfsek.terra.api.world.chunk.generation.DeferringWorld;
 
 
 public class LootFunction implements Function<Void> {
@@ -70,26 +72,12 @@ public class LootFunction implements Function<Void> {
                             .intValue(),
                         FloatingPointFunctions.round(xz.getZ())).mutable().add(arguments.getOrigin().toFloat()).immutable();
 
-                    try {
-                        BlockEntity data = arguments.getWorld().getBlockEntity(apply);
-                        if(!(data instanceof Container container)) {
-                            LOGGER.error("Failed to place loot at {}; block {} is not a container",
-                                apply, data);
-                            return;
-                        }
-
-                        LootPopulateEvent event = new LootPopulateEvent(container, table,
-                            arguments.getWorld().getPack(), script);
-                        platform.getEventManager().callEvent(event);
-                        if(event.isCancelled()) return;
-
-                        event.getTable().fillInventory(container.getInventory(),
-                            RandomGeneratorFactory.<RandomGenerator.SplittableGenerator>of(
-                                "Xoroshiro128PlusPlus").create(apply.hashCode()));
-                        data.update(false);
-                    } catch(Exception e) {
-                        LOGGER.error("Could not apply loot at {}", apply, e);
-                        e.printStackTrace();
+                    WritableWorld world = arguments.getWorld();
+                    if(world instanceof DeferringWorld deferring) {
+                        // Order-independent decoration: fill the container once the owning chunk is written.
+                        deferring.defer(apply.getFloorX(), apply.getFloorY(), apply.getFloorZ(), live -> fill(live, apply, table));
+                    } else {
+                        fill(world, apply, table);
                     }
                 },
                 () -> LOGGER.error("No such loot table {}", id));
@@ -104,5 +92,29 @@ public class LootFunction implements Function<Void> {
     @Override
     public ReturnType returnType() {
         return ReturnType.VOID;
+    }
+
+    private void fill(WritableWorld world, Vector3 apply, LootTable table) {
+        try {
+            BlockEntity data = world.getBlockEntity(apply);
+            if(!(data instanceof Container container)) {
+                LOGGER.error("Failed to place loot at {}; block {} is not a container",
+                    apply, data);
+                return;
+            }
+
+            LootPopulateEvent event = new LootPopulateEvent(container, table,
+                world.getPack(), script);
+            platform.getEventManager().callEvent(event);
+            if(event.isCancelled()) return;
+
+            event.getTable().fillInventory(container.getInventory(),
+                RandomGeneratorFactory.<RandomGenerator.SplittableGenerator>of(
+                    "Xoroshiro128PlusPlus").create(apply.hashCode()));
+            data.update(false);
+        } catch(Exception e) {
+            LOGGER.error("Could not apply loot at {}", apply, e);
+            e.printStackTrace();
+        }
     }
 }

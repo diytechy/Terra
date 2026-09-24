@@ -20,6 +20,8 @@ import com.dfsek.terra.addons.terrascript.parser.lang.functions.Function;
 import com.dfsek.terra.addons.terrascript.script.TerraImplementationArguments;
 import com.dfsek.terra.addons.terrascript.tokenizer.Position;
 import com.dfsek.terra.api.block.entity.BlockEntity;
+import com.dfsek.terra.api.world.WritableWorld;
+import com.dfsek.terra.api.world.chunk.generation.DeferringWorld;
 
 
 public class StateFunction implements Function<Void> {
@@ -46,13 +48,13 @@ public class StateFunction implements Function<Void> {
 
         Vector3 origin = Vector3.of(FloatingPointFunctions.round(xz.getX()), y.apply(implementationArguments, scope).intValue(),
             FloatingPointFunctions.round(xz.getZ())).mutable().add(arguments.getOrigin().toFloat()).immutable();
-        try {
-            BlockEntity state = arguments.getWorld().getBlockEntity(origin);
-            state.applyState(data.apply(implementationArguments, scope));
-            state.update(false);
-        } catch(Exception e) {
-            LOGGER.warn("Could not apply BlockState at {}", origin, e);
-            e.printStackTrace();
+        String stateData = data.apply(implementationArguments, scope);
+        WritableWorld world = arguments.getWorld();
+        if(world instanceof DeferringWorld deferring) {
+            // Order-independent decoration: apply once the owning chunk is written.
+            deferring.defer(origin.getFloorX(), origin.getFloorY(), origin.getFloorZ(), live -> applyState(live, origin, stateData));
+        } else {
+            applyState(world, origin, stateData);
         }
         return null;
     }
@@ -65,5 +67,16 @@ public class StateFunction implements Function<Void> {
     @Override
     public ReturnType returnType() {
         return ReturnType.VOID;
+    }
+
+    private static void applyState(WritableWorld world, Vector3 origin, String stateData) {
+        try {
+            BlockEntity state = world.getBlockEntity(origin);
+            state.applyState(stateData);
+            state.update(false);
+        } catch(Exception e) {
+            LOGGER.warn("Could not apply BlockState at {}", origin, e);
+            e.printStackTrace();
+        }
     }
 }
