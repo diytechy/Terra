@@ -238,7 +238,11 @@ public final class OrderIndependentDecorator {
     }
 
     private static boolean same(BlockState a, BlockState b) {
-        return a == b || a.getAsString(true).equals(b.getAsString(true));
+        // Platform handles compare exact states cheaply (Bukkit BlockData.equals, CLI state string).
+        if(a == b) return true;
+        Object ha = a.getHandle(), hb = b.getHandle();
+        if(ha != null && hb != null && ha != a && hb != b) return ha.equals(hb);
+        return a.getAsString(true).equals(b.getAsString(true));
     }
 
     /** Private view for computing W(X): pristine terrain of X+-1 plus X's own writes. */
