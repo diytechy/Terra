@@ -127,7 +127,9 @@ final class FeatureOrder extends TerraceHarness.Common implements Callable<Integ
             else for(GenerationStage s : st) s.populate(region);
         };
         if(!order.startsWith("par-")) {
+            long t0 = System.nanoTime();
             coords.forEach(decorateOne);
+            System.out.printf("FEATURE-ORDER TIMING %s decoration of %d chunks: %.2f s%n", order, coords.size(), (System.nanoTime() - t0) / 1e9);
             return w;
         }
         // Parallel: take chunks in list order; a chunk may start when no running chunk is within
