@@ -42,6 +42,7 @@ public final class ChunkScopedCacheSampler implements Sampler {
 
         // Only exact pipeline-grid points with the context's seed have a cache cell
         int idx = ctx.exactIndex(x, y, seed);
+        if (STATS) stats(ctx, x, y, seed, idx);
         if (idx < 0) {
             return delegate.getSample(seed, x, y);
         }
@@ -65,6 +66,33 @@ public final class ChunkScopedCacheSampler implements Sampler {
     private static final boolean AUDIT = Boolean.getBoolean("terra.pipeline.cacheAudit");
     public static final java.util.concurrent.atomic.AtomicLong AUDIT_HITS = new java.util.concurrent.atomic.AtomicLong();
     public static final java.util.concurrent.atomic.AtomicLong AUDIT_WRONG = new java.util.concurrent.atomic.AtomicLong();
+
+    // -Dterra.pipeline.cacheStats=true: classify every call made while a context is active.
+    private static final boolean STATS = Boolean.getBoolean("terra.pipeline.cacheStats");
+    public static final java.util.concurrent.atomic.AtomicLongArray STAT = new java.util.concurrent.atomic.AtomicLongArray(4);
+    private static final java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicLong> OFFGRID =
+        new java.util.concurrent.ConcurrentHashMap<>();
+    static {
+        if (STATS) Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            System.out.println("[pipeline-cache-stats] exactGrid=" + STAT.get(0) + " offGridInArea=" + STAT.get(1)
+                + " outsideArea=" + STAT.get(2) + " inactive=" + STAT.get(3));
+            OFFGRID.entrySet().stream().sorted((a, b) -> Long.compare(b.getValue().get(), a.getValue().get())).limit(12)
+                .forEach(e -> System.out.println("[pipeline-cache-stats] offGrid " + e.getKey() + " " + e.getValue()));
+        }));
+    }
+
+    private void stats(ChunkGenerationContext ctx, double x, double y, long seed, int idx) {
+        int cat;
+        if (idx >= 0) cat = 0;
+        else if (!ctx.isActive()) cat = 3;
+        else if (ctx.inArea(x, y)) cat = 1;
+        else cat = 2;
+        STAT.incrementAndGet(cat);
+        if (cat == 1) {
+            String k = "slot" + slot + (x == Math.rint(x) && y == Math.rint(y) ? " integral-offgrid" : " fractional");
+            OFFGRID.computeIfAbsent(k, q -> new java.util.concurrent.atomic.AtomicLong()).incrementAndGet();
+        }
+    }
 
     private void audit(long seed, double x, double y, double cached) {
         long hits = AUDIT_HITS.incrementAndGet();

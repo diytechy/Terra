@@ -110,6 +110,16 @@ public final class ChunkGenerationContext {
         return lx * arraySize + lz;
     }
 
+    public boolean isActive() {
+        return active;
+    }
+
+    /** True if (x, z) falls inside this chunk's cache area (on or off the grid). Diagnostics only. */
+    public boolean inArea(double x, double z) {
+        double lx = (x - blockOriginX) / resolution, lz = (z - blockOriginZ) / resolution;
+        return lx >= 0 && lx < arraySize && lz >= 0 && lz < arraySize;
+    }
+
     public double[] getCache(int slot) {
         return caches[slot];
     }
