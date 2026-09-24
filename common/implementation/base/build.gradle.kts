@@ -13,3 +13,7 @@ dependencies {
 
     implementation("com.dfsek", "paralithic", Versions.Libraries.paralithic)
 }
+
+tasks.withType<Test>().configureEach {
+    testLogging { events("passed", "failed") }
+}

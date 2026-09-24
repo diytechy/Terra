@@ -7,6 +7,7 @@
 
 package com.dfsek.terra.world.decoration;
 
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,7 +34,9 @@ import com.dfsek.terra.api.world.biome.generation.BiomeProvider;
 import com.dfsek.terra.api.world.chunk.generation.ChunkGenerator;
 import com.dfsek.terra.api.world.chunk.generation.DeferringWorld;
 import com.dfsek.terra.api.world.chunk.generation.ProtoWorld;
+import com.dfsek.terra.api.world.chunk.generation.ProtoChunk;
 import com.dfsek.terra.api.world.chunk.generation.stage.GenerationStage;
+import com.dfsek.terra.api.world.info.WorldProperties;
 
 
 /**
@@ -90,20 +93,31 @@ public final class OrderIndependentDecorator {
     private final long seed;
     private final int minY, maxY;
     private final ServerWorld serverWorld;
+    private final WorldProperties properties;
     private final LruFutures<PristineChunk> pristine;
     private final LruFutures<WriteSet> writeSets;
 
     public OrderIndependentDecorator(ConfigPack pack, List<GenerationStage> stages, ChunkGenerator generator, BlockState air,
                                      ProtoWorld sample) {
+        this(pack, stages, generator, air, sample, sample.getWorld());
+    }
+
+    /**
+     * @param properties  seed and height range of the world
+     * @param serverWorld returned by {@code getWorld()} of the private views (may be null)
+     */
+    public OrderIndependentDecorator(ConfigPack pack, List<GenerationStage> stages, ChunkGenerator generator, BlockState air,
+                                     WorldProperties properties, ServerWorld serverWorld) {
         this.pack = pack;
         this.stages = List.copyOf(stages);
         this.generator = generator;
         this.biomes = pack.getBiomeProvider();
         this.air = air;
-        this.seed = sample.getSeed();
-        this.minY = sample.getMinHeight();
-        this.maxY = sample.getMaxHeight();
-        this.serverWorld = sample.getWorld();
+        this.seed = properties.getSeed();
+        this.minY = properties.getMinHeight();
+        this.maxY = properties.getMaxHeight();
+        this.properties = properties;
+        this.serverWorld = serverWorld;
         this.pristine = new LruFutures<>(Integer.getInteger("terra.decoration.pristineCache", 1024));
         this.writeSets = new LruFutures<>(Integer.getInteger("terra.decoration.writeSetCache", 512));
     }
@@ -125,9 +139,55 @@ public final class OrderIndependentDecorator {
     PristineChunk pristine(int cx, int cz) {
         return pristine.get(key(cx, cz), k -> {
             PristineChunk c = new PristineChunk(minY, maxY, air);
-            generator.generateChunkData(c, serverWorld, biomes, cx, cz);
+            generator.generateChunkData(c, properties, biomes, cx, cz);
             return c;
         });
+    }
+
+    /**
+     * Wrap the chunk the platform is about to generate terrain into, so the undecorated terrain is
+     * captured as it is written (no regeneration later). Call {@link Capture#commit()} after the
+     * generator has finished with the chunk.
+     */
+    public Capture capture(ProtoChunk target, int cx, int cz) {
+        return new Capture(target, cx, cz);
+    }
+
+    public final class Capture implements ProtoChunk {
+        private final ProtoChunk target;
+        private final PristineChunk copy = new PristineChunk(minY, maxY, air);
+        private final int cx, cz;
+
+        private Capture(ProtoChunk target, int cx, int cz) {
+            this.target = target;
+            this.cx = cx;
+            this.cz = cz;
+        }
+
+        @Override
+        public void setBlock(int x, int y, int z, @NotNull BlockState state) {
+            target.setBlock(x, y, z, state);
+            copy.setBlock(x, y, z, state);
+        }
+
+        @Override
+        public @NotNull BlockState getBlock(int x, int y, int z) {
+            return target.getBlock(x, y, z);
+        }
+
+        @Override
+        public int getMaxHeight() {
+            return target.getMaxHeight();
+        }
+
+        @Override
+        public Object getHandle() {
+            return target.getHandle();
+        }
+
+        public void commit() {
+            pristine.put(key(cx, cz), copy);
+        }
     }
 
     WriteSet writeSet(int cx, int cz) {
@@ -281,6 +341,15 @@ public final class OrderIndependentDecorator {
 
         LruFutures(int max) {
             this.max = Math.max(16, max);
+        }
+
+        void put(long k, V v) {
+            if(map.putIfAbsent(k, CompletableFuture.completedFuture(v)) == null) {
+                synchronized(order) {
+                    order.addLast(k);
+                    while(order.size() > max) map.remove(order.pollFirst());
+                }
+            }
         }
 
         V get(long k, Function<Long, V> compute) {

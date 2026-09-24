@@ -50,11 +50,24 @@ public class BukkitChunkGeneratorWrapper extends org.bukkit.generator.ChunkGener
         this.delegate = delegate;
         this.pack = pack;
         this.air = air;
-        this.blockPopulator = new BukkitBlockPopulator(pack, air);
+        this.blockPopulator = new BukkitBlockPopulator(pack, air, this::decorator);
+    }
+
+    // Order-independent decoration (-Dterra.decoration.orderIndependent=true): one decorator per world,
+    // shared by terrain generation (captures undecorated terrain) and the block populator.
+    private final java.util.Map<java.util.UUID, com.dfsek.terra.world.decoration.OrderIndependentDecorator> decorators =
+        new java.util.concurrent.ConcurrentHashMap<>();
+
+    com.dfsek.terra.world.decoration.OrderIndependentDecorator decorator(WorldInfo worldInfo) {
+        ConfigPack p = pack;
+        ChunkGenerator d = delegate;
+        return decorators.computeIfAbsent(worldInfo.getUID(), k -> new com.dfsek.terra.world.decoration.OrderIndependentDecorator(
+            p, p.getStages().stream().filter(BukkitBlockPopulator::runs).toList(), d, air, new BukkitWorldProperties(worldInfo), null));
     }
 
     public void setDelegate(ChunkGenerator delegate) {
         this.delegate = delegate;
+        decorators.clear();
     }
 
     @Override
@@ -66,6 +79,12 @@ public class BukkitChunkGeneratorWrapper extends org.bukkit.generator.ChunkGener
     public void generateNoise(@NotNull WorldInfo worldInfo, @NotNull Random random, int x, int z, @NotNull ChunkData chunkData) {
         ChunkQueryLogger.log(worldInfo.getName(), pack.getRegistryKey().toString(), x, z);
         BukkitWorldProperties properties = new BukkitWorldProperties(worldInfo);
+        if(com.dfsek.terra.world.decoration.OrderIndependentDecorator.enabled()) {
+            var capture = decorator(worldInfo).capture(new BukkitProtoChunk(chunkData), x, z);
+            delegate.generateChunkData(capture, properties, pack.getBiomeProvider(), x, z);
+            capture.commit();
+            return;
+        }
         delegate.generateChunkData(new BukkitProtoChunk(chunkData), properties, pack.getBiomeProvider(), x, z);
     }
 

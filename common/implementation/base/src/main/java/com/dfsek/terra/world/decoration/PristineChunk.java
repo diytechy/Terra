@@ -34,7 +34,8 @@ final class PristineChunk implements ProtoChunk {
 
     private static final class Section {
         final List<BlockState> palette = new ArrayList<>(4);
-        short[] data; // index into palette; allocated on the second distinct state
+        byte[] bytes;  // palette index (unsigned) while the palette has <= 256 entries
+        short[] shorts; // palette index once it grows past 256
 
         int index(BlockState s) {
             for(int i = 0; i < palette.size(); i++) if(palette.get(i) == s) return i;
@@ -54,19 +55,34 @@ final class PristineChunk implements ProtoChunk {
             s.palette.add(air);
         }
         int idx = s.index(state);
-        if(s.data == null) {
-            if(idx == 0) return;
-            s.data = new short[4096];
+        int i = (((y - minY) & 15) << 8) | (z << 4) | x;
+        if(s.shorts != null) {
+            s.shorts[i] = (short) idx;
+            return;
         }
-        s.data[(((y - minY) & 15) << 8) | (z << 4) | x] = (short) idx;
+        if(s.bytes == null) {
+            if(idx == 0) return;
+            s.bytes = new byte[4096];
+        }
+        if(idx > 255) {
+            s.shorts = new short[4096];
+            for(int j = 0; j < 4096; j++) s.shorts[j] = (short) (s.bytes[j] & 0xFF);
+            s.bytes = null;
+            s.shorts[i] = (short) idx;
+            return;
+        }
+        s.bytes[i] = (byte) idx;
     }
 
     @Override
     public @NotNull BlockState getBlock(int x, int y, int z) {
         if(y < minY || y >= maxY) return air;
         Section s = sections[(y - minY) >> 4];
-        if(s == null || s.data == null) return s == null ? air : s.palette.get(0);
-        return s.palette.get(s.data[(((y - minY) & 15) << 8) | (z << 4) | x]);
+        if(s == null) return air;
+        int i = (((y - minY) & 15) << 8) | (z << 4) | x;
+        if(s.shorts != null) return s.palette.get(s.shorts[i]);
+        if(s.bytes == null) return s.palette.get(0);
+        return s.palette.get(s.bytes[i] & 0xFF);
     }
 
     @Override
