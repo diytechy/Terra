@@ -77,18 +77,37 @@ public final class SharedTerrace {
      * Self-check used at pack load: does {@code spec}, alone, reproduce the surface of {@code base}
      * (the biome's own terrain.sampler)? Tectonic inherits keys one by one, so a biome can pick up
      * terrain.terrace from one parent and terrain.sampler from another; such a spec is dropped.
-     * Checked at 12 fixed columns, seed 0, Y range -64..319; tolerance 1 block at >= 10 columns.
+     * Checked at 12 fixed columns, Y range -64..319; tolerance 1 block at >= 10 columns.
      */
-    public static boolean reproduces(TerraceSpec spec, com.dfsek.seismic.type.sampler.Sampler base) {
+    private static final java.util.Map<Object, Boolean> VALID = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * The spec to use for a contributor, or null. Validated once per (spec, sampler) pair on first
+     * use, with the world's seed: validating at pack load with a made-up seed is unsafe because some
+     * samplers (DendryTerra's pixel cache) cache seed-dependent data without keying it on the seed.
+     */
+    public static TerraceSpec usable(TerraceSpec spec, com.dfsek.seismic.type.sampler.Sampler base, long seed) {
+        if(spec == null) return null;
+        Boolean ok = VALID.computeIfAbsent(java.util.List.of(spec, base), k -> {
+            boolean r = reproduces(spec, base, seed);
+            if(!r) org.slf4j.LoggerFactory.getLogger(SharedTerrace.class).info(
+                "[chunk-generator-noise-3d] a terrain.terrace does not reproduce its biome's terrain.sampler "
+                + "(inherited from another parent?); that biome uses its own sampler.");
+            return r;
+        });
+        return ok ? spec : null;
+    }
+
+    public static boolean reproduces(TerraceSpec spec, com.dfsek.seismic.type.sampler.Sampler base, long seed) {
         TerraceSpec[] one = { spec };
         double[] w = { 1 };
         int good = 0;
         for(int k = 0; k < 12; k++) {
             double x = (k * 7919 % 9000) - 4500 + 0.0, z = (k * 5237 % 9000) - 4500 + 0.0;
-            double t = surface(one, w, 1, 0, x, z);
+            double t = surface(one, w, 1, seed, x, z);
             int top = Integer.MIN_VALUE;
             for(int y = 319; y >= -64; y--) {
-                if(base.getSample(0, x, y, z) > 0) {
+                if(base.getSample(seed, x, y, z) > 0) {
                     top = y;
                     break;
                 }

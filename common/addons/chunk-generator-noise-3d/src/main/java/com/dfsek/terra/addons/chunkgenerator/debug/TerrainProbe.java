@@ -111,11 +111,12 @@ public final class TerrainProbe {
         // Shared terrace blend (see ChunkInterpolator): one surface for all terraced contributors.
         TerraceSpec[] specs = new TerraceSpec[nSamplers.size() + 1];
         double[] tw = new double[nSamplers.size() + 1];
-        specs[0] = surfaceSamplers.terrace();
+        specs[0] = surfaceSamplers.terrace() == null ? null : SharedTerrace.usable(surfaceSamplers.terrace(), surfaceSamplers.base(), seed);
         tw[0] = surfaceSamplers.blendWeight();
         boolean anyTerrace = specs[0] != null;
         for(int i = 0; i < nSamplers.size(); i++) {
-            specs[i + 1] = nSamplers.get(i).terrace();
+            BiomeNoiseSamplers ns = nSamplers.get(i);
+            specs[i + 1] = ns.terrace() == null ? null : SharedTerrace.usable(ns.terrace(), ns.base(), seed);
             tw[i + 1] = nWeights.get(i);
             anyTerrace |= specs[i + 1] != null;
         }
@@ -129,7 +130,8 @@ public final class TerrainProbe {
             BiomeNoiseSamplers centre = column.get(y).getContext().get(key).samplers();
             double d;
             if(centre.blendDistance() == 0 || y < blendMinY || y > blendMaxY) {
-                d = (centre.terrace() != null && !Double.isNaN(centerOnlyTop)) ? centerOnlyTop - y
+                d = (centre.terrace() != null && SharedTerrace.usable(centre.terrace(), centre.base(), seed) != null
+                     && !Double.isNaN(centerOnlyTop)) ? centerOnlyTop - y
                     : centre.base().getSample(seed, x, y, z);
             } else {
                 // Centre contributes its per-Y (extruded) sampler with its own weight; neighbours
@@ -167,7 +169,8 @@ public final class TerrainProbe {
     }
 
     private static double density(BiomeNoiseSamplers s, double terraceTop, long seed, int x, int y, int z) {
-        if(s.terrace() != null && !Double.isNaN(terraceTop)) return terraceTop - y;
+        if(s.terrace() != null && !Double.isNaN(terraceTop) && SharedTerrace.usable(s.terrace(), s.base(), seed) != null)
+            return terraceTop - y;
         return s.base().getSample(seed, x, y, z);
     }
 

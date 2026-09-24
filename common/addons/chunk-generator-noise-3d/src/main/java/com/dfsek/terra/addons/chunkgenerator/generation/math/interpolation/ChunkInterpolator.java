@@ -187,17 +187,17 @@ public class ChunkInterpolator {
                     TerraceSpec[] specs = TERRACE_SPECS.get();
                     double[] tw = TERRACE_WEIGHTS.get();
                     int n = 0;
-                    boolean any = surfaceSamplers.terrace() != null;
-                    specs[n] = surfaceSamplers.terrace();
+                    specs[n] = usable(surfaceSamplers, seed);
+                    boolean any = specs[n] != null;
                     tw[n++] = surfaceSamplers.blendWeight();
                     for(int b = 0; b < blendMap.size; b++) {
-                        specs[n] = blendMap.samplers[b].terrace();
+                        specs[n] = usable(blendMap.samplers[b], seed);
                         tw[n++] = blendMap.weights[b];
                         any |= specs[n - 1] != null;
                     }
                     if(any) {
                         terraceTop = SharedTerrace.surface(specs, tw, n, seed, absoluteX, absoluteZ);
-                        if(surfaceSamplers.terrace() != null) {
+                        if(specs[0] != null) {
                             centerOnlyTerraceTop = SharedTerrace.surface(specs, tw, 1, seed, absoluteX, absoluteZ);
                         }
                     }
@@ -259,7 +259,7 @@ public class ChunkInterpolator {
                         // Blend disabled: either the extruded center biome has blendDistance=0,
                         // or this Y level is outside the pack-configured blend range. Use center's
                         // extruded sampler directly.
-                        noise = (centerSamplers.terrace() != null && !Double.isNaN(centerOnlyTerraceTop))
+                        noise = (usable(centerSamplers, seed) != null && !Double.isNaN(centerOnlyTerraceTop))
                             ? centerOnlyTerraceTop - scaledY
                             : centerSamplers.base().getSample(seed, absoluteX, scaledY, absoluteZ);
                         if(SamplerFloorFeature.ENABLED) {
@@ -438,8 +438,12 @@ public class ChunkInterpolator {
     private static final ThreadLocal<double[]> TERRACE_WEIGHTS = ThreadLocal.withInitial(() -> new double[BiomeWeightMap.CAPACITY + 1]);
 
     /** A contributor's density: the shared terraced surface for terraced biomes, else its own sampler. */
+    private static TerraceSpec usable(BiomeNoiseSamplers s, long seed) {
+        return s.terrace() == null ? null : SharedTerrace.usable(s.terrace(), s.base(), seed);
+    }
+
     private static double contributorNoise(BiomeNoiseSamplers s, double terraceTop, long seed, int x, int y, int z) {
-        if(s.terrace() != null && !Double.isNaN(terraceTop)) return terraceTop - y;
+        if(!Double.isNaN(terraceTop) && usable(s, seed) != null) return terraceTop - y;
         return s.base().getSample(seed, x, y, z);
     }
 
