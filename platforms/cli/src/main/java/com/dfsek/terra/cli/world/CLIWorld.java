@@ -1,42 +1,45 @@
 package com.dfsek.terra.cli.world;
 
-import com.dfsek.seismic.type.vector.Vector2Int;
 import com.dfsek.seismic.type.vector.Vector3;
-import com.google.common.collect.Streams;
-import net.querz.mca.MCAFile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Stream;
 
 import com.dfsek.terra.api.block.entity.BlockEntity;
 import com.dfsek.terra.api.block.state.BlockState;
 import com.dfsek.terra.api.config.ConfigPack;
 import com.dfsek.terra.api.entity.Entity;
 import com.dfsek.terra.api.entity.EntityType;
-import com.dfsek.terra.api.util.generic.pair.Pair;
 import com.dfsek.terra.api.world.ServerWorld;
 import com.dfsek.terra.api.world.biome.generation.BiomeProvider;
 import com.dfsek.terra.api.world.chunk.generation.ChunkGenerator;
 import com.dfsek.terra.api.world.chunk.generation.ProtoWorld;
-import com.dfsek.terra.cli.NBTSerializable;
 import com.dfsek.terra.cli.world.chunk.CLIChunk;
 
 
-public class CLIWorld implements ServerWorld, NBTSerializable<Stream<Pair<Vector2Int, MCAFile>>> {
+/**
+ * A CLI world that generates an arbitrary rectangle of chunks, anywhere in the world
+ * (negative coordinates included), and writes it as modern (1.18+) Anvil region files.
+ * <p>
+ * Chunks are stored by absolute chunk coordinate. The previous implementation indexed
+ * regions with two different strides and only covered the positive quadrant from the origin.
+ */
+public class CLIWorld implements ServerWorld {
     private static final Logger LOGGER = LoggerFactory.getLogger(CLIWorld.class);
-    private final Region[] regions;
-    private final Region[] negativeRegions;
-    private final int size;
+
+    private final Map<Long, CLIChunk> chunks = new ConcurrentHashMap<>();
     private final long seed;
     private final int maxHeight;
     private final int minHeight;
@@ -44,16 +47,9 @@ public class CLIWorld implements ServerWorld, NBTSerializable<Stream<Pair<Vector
     private final BiomeProvider biomeProvider;
     private final ConfigPack pack;
     private final boolean noSave;
-    private final AtomicInteger amount = new AtomicInteger(0);
+    private final int threads;
 
-    private final ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() - 1);
-
-    public CLIWorld(int size,
-                    long seed,
-                    int maxHeight,
-                    int minHeight,
-                    ConfigPack pack, boolean noSave) {
-        this.size = size;
+    public CLIWorld(long seed, int maxHeight, int minHeight, ConfigPack pack, boolean noSave, int threads) {
         this.maxHeight = maxHeight;
         this.minHeight = minHeight;
         this.seed = seed;
@@ -61,66 +57,81 @@ public class CLIWorld implements ServerWorld, NBTSerializable<Stream<Pair<Vector
         this.biomeProvider = pack.getBiomeProvider();
         this.pack = pack;
         this.noSave = noSave;
-
-
-        size += 1;
-        this.regions = new Region[size * size];
-        this.negativeRegions = new Region[size * size];
-        for(int x = 0; x < size; x++) {
-            for(int z = 0; z < size; z++) {
-                regions[x + z * size] = new Region(this, x, z);
-                negativeRegions[x + z * size] = new Region(this, x, z);
-            }
-        }
+        this.threads = Math.max(1, threads);
     }
 
-    public void generate() {
-        ArrayList<Double> CPSHistory = new ArrayList<>();
-        int sizeChunks = size * 32;
-        List<Future<?>> futures = new ArrayList<>();
-        final AtomicLong start = new AtomicLong(System.nanoTime());
-        for(int x = 0; x < sizeChunks; x++) {
-            for(int z = 0; z < sizeChunks; z++) {
-                int finalX = x;
-                int finalZ = z;
-                futures.add(executor.submit(() -> {
-                    try {
-                        int num = amount.getAndIncrement();
-                        CLIChunk chunk;
-                        if(!noSave) {
-                            chunk = getChunkAt(finalX, finalZ);
-                        } else {
-                            chunk = new CLIChunk(Math.floorMod(finalX, 32), Math.floorMod(finalZ, 32), this);
-                        }
+    private static long key(int x, int z) {
+        return (((long) x) << 32) ^ (z & 0xFFFFFFFFL);
+    }
 
-                        BiomeProvider cachingBiomeProvider = pack.getBiomeProvider();
-                        chunkGenerator.generateChunkData(chunk, this, cachingBiomeProvider, finalX, finalZ);
-                        CLIProtoWorld protoWorld = new CLIProtoWorld(this, cachingBiomeProvider, finalX, finalZ);
+    /**
+     * Generate every chunk in [originX, originX + width) x [originZ, originZ + depth), in chunk coordinates.
+     *
+     * @param features run the pack's population stages (features, structures) as well as the terrain.
+     */
+    public void generate(int originX, int originZ, int width, int depth, boolean features) {
+        ExecutorService executor = Executors.newFixedThreadPool(threads);
+        List<Future<?>> futures = new ArrayList<>();
+        AtomicInteger done = new AtomicInteger();
+        long start = System.nanoTime();
+        int total = width * depth;
+        for(int x = originX; x < originX + width; x++) {
+            for(int z = originZ; z < originZ + depth; z++) {
+                int cx = x, cz = z;
+                futures.add(executor.submit(() -> {
+                    CLIChunk chunk = noSave ? new CLIChunk(cx, cz, this) : getChunkAt(cx, cz);
+                    chunkGenerator.generateChunkData(chunk, this, biomeProvider, cx, cz);
+                    if(features) {
+                        CLIProtoWorld protoWorld = new CLIProtoWorld(this, biomeProvider, cx, cz);
                         pack.getStages().forEach(stage -> stage.populate(protoWorld));
-                        if(num % 240 == 239) {
-                            long time = System.nanoTime();
-                            double cps = num / ((double) (time - start.get()) / 1000000000);
-                            CPSHistory.add(cps);
-                            LOGGER.info("Generating chunk at ({}, {}), generated {} chunks at {}cps", finalX, finalZ, num, cps);
-                            amount.set(0);
-                            start.set(System.nanoTime());
-                        }
-                    } catch(Exception e) {
-                        e.printStackTrace();
                     }
+                    int n = done.incrementAndGet();
+                    if(n % 256 == 0) {
+                        double secs = (System.nanoTime() - start) / 1e9;
+                        LOGGER.info("Generated {}/{} chunks ({} cps)", n, total, String.format("%.1f", n / secs));
+                    }
+                    return null;
                 }));
             }
         }
-
-        for(Future<?> future : futures) {
-            try {
+        try {
+            for(Future<?> future : futures) {
                 future.get();
-            } catch(InterruptedException | ExecutionException e) {
-                e.printStackTrace();
             }
+        } catch(InterruptedException | ExecutionException e) {
+            throw new RuntimeException("Chunk generation failed", e);
+        } finally {
+            executor.shutdown();
         }
+        double secs = (System.nanoTime() - start) / 1e9;
+        LOGGER.info("Generated {} chunks in {}s ({} cps)", total, String.format("%.1f", secs),
+            String.format("%.1f", total / secs));
+    }
 
-        LOGGER.info("Average CPS: {}", CPSHistory.stream().mapToDouble(d -> d).average().orElse(0));
+    /** Write every stored chunk to {@code regionDir/r.X.Z.mca}. */
+    public void save(File regionDir) throws IOException {
+        if(!regionDir.exists() && !regionDir.mkdirs()) throw new IOException("Cannot create " + regionDir);
+        Map<Long, Map<Integer, CLIChunk>> byRegion = new HashMap<>();
+        for(CLIChunk chunk : chunks.values()) {
+            int rx = Math.floorDiv(chunk.getX(), 32), rz = Math.floorDiv(chunk.getZ(), 32);
+            int index = Math.floorMod(chunk.getX(), 32) + 32 * Math.floorMod(chunk.getZ(), 32);
+            byRegion.computeIfAbsent(key(rx, rz), k -> new HashMap<>()).put(index, chunk);
+        }
+        for(Map.Entry<Long, Map<Integer, CLIChunk>> e : byRegion.entrySet()) {
+            int rx = (int) (e.getKey() >> 32), rz = (int) (long) e.getKey();
+            File file = new File(regionDir, "r." + rx + "." + rz + ".mca");
+            AnvilWriter.writeRegion(file, e.getValue(), minHeight, maxHeight);
+            LOGGER.info("Wrote {} chunks to {}", e.getValue().size(), file);
+        }
+    }
+
+    /** Drop all stored chunks (to generate the next area with bounded memory). */
+    public void clear() {
+        chunks.clear();
+    }
+
+    public CLIChunk peekChunk(int x, int z) {
+        return chunks.get(key(x, z));
     }
 
     @Override
@@ -176,14 +187,7 @@ public class CLIWorld implements ServerWorld, NBTSerializable<Stream<Pair<Vector
 
     @Override
     public CLIChunk getChunkAt(int x, int z) {
-        return getRegion(Math.floorDiv(x, 32), Math.floorDiv(z, 32))
-            .get(Math.floorMod(x, 32), Math.floorMod(z, 32));
-    }
-
-    public Region getRegion(int x, int z) {
-        int key = x + z * size;
-        if(key >= 0) return regions[key];
-        else return negativeRegions[-key];
+        return chunks.computeIfAbsent(key(x, z), k -> new CLIChunk(x, z, this));
     }
 
     @Override
@@ -225,13 +229,6 @@ public class CLIWorld implements ServerWorld, NBTSerializable<Stream<Pair<Vector
     @Override
     public Entity spawnEntity(double x, double y, double z, EntityType entityType) {
         return null;
-    }
-
-    @Override
-    public Stream<Pair<Vector2Int, MCAFile>> serialize() {
-        return Streams
-            .concat(Arrays.stream(regions), Arrays.stream(negativeRegions))
-            .map(region -> Pair.of(Vector2Int.of(region.getX(), region.getZ()), region.serialize()));
     }
 
     private static final class CLIProtoWorld implements ProtoWorld {

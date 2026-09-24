@@ -1,13 +1,12 @@
 package com.dfsek.terra.cli;
 
-import com.dfsek.seismic.type.vector.Vector2Int;
-import net.querz.mca.MCAUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.concurrent.Callable;
 
@@ -20,8 +19,17 @@ import com.dfsek.terra.cli.world.CLIWorld;
 @Command(name = "TerraCLI", mixinStandardHelpOptions = true, version = "6.6.0",
          description = "Generates a Terra World and saves it in minecraft region format.")
 public final class TerraCLI implements Callable<Integer> {
-    @Option(names = { "-s", "--size" }, description = "Number of regions to generate.")
+    @Option(names = { "-s", "--size" }, description = "Number of regions (32x32 chunks) to generate along each axis.")
     private int size = 2;
+
+    @Option(names = "--chunks", description = "Width of the generated square in chunks. Overrides --size.")
+    private int chunks = -1;
+
+    @Option(names = "--origin-x", description = "Chunk X coordinate of the area's minimum corner (may be negative).")
+    private int originX = 0;
+
+    @Option(names = "--origin-z", description = "Chunk Z coordinate of the area's minimum corner (may be negative).")
+    private int originZ = 0;
 
     @Option(names = { "-p", "--pack" }, description = "Config pack to use.")
     private String pack = "OVERWORLD";
@@ -38,13 +46,22 @@ public final class TerraCLI implements Callable<Integer> {
     @Option(names = { "--no-save" }, description = "Don't save the world to disk.")
     private boolean noSave = false;
 
+    @Option(names = "--no-features", description = "Generate terrain only; skip the pack's population stages.")
+    private boolean noFeatures = false;
+
+    @Option(names = "--out", description = "Output directory; region files go to <out>/region.")
+    private File out = new File(".");
+
+    @Option(names = "--threads", description = "Generation threads (default: cores - 1).")
+    private int threads = Runtime.getRuntime().availableProcessors() - 1;
+
     public static void main(String... args) {
         int exitCode = new CommandLine(new TerraCLI()).execute(args);
         System.exit(exitCode);
     }
 
     @Override
-    public Integer call() {
+    public Integer call() throws IOException {
         Logger LOGGER = LoggerFactory.getLogger(TerraCLI.class);
         LOGGER.info("Starting Terra CLI...");
 
@@ -53,23 +70,13 @@ public final class TerraCLI implements Callable<Integer> {
 
         ConfigPack generate = platform.getConfigRegistry().getByID(pack).orElseThrow();
 
-        CLIWorld world = new CLIWorld(size, seed, maxHeight, minHeight, generate, noSave);
-
-        world.generate();
+        CLIWorld world = new CLIWorld(seed, maxHeight, minHeight, generate, noSave, threads);
+        int width = chunks > 0 ? chunks : size * 32;
+        LOGGER.info("Generating {}x{} chunks from chunk ({}, {})", width, width, originX, originZ);
+        world.generate(originX, originZ, width, width, !noFeatures);
 
         if(!noSave) {
-            world.serialize().parallel().forEach(mcaFile -> {
-                Vector2Int pos = mcaFile.getLeft();
-                String name = MCAUtil.createNameFromRegionLocation(pos.getX(), pos.getZ());
-                LOGGER.info("Writing region ({}, {}) to {}", pos.getX(), pos.getZ(), name);
-
-                try {
-                    MCAUtil.write(mcaFile.getRight(), name);
-                } catch(IOException e) {
-                    e.printStackTrace();
-                }
-                LOGGER.info("Wrote region to file.");
-            });
+            world.save(new File(out, "region"));
         }
         LOGGER.info("Done.");
         return 0;

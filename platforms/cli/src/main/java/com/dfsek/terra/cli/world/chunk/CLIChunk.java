@@ -6,14 +6,13 @@ import com.dfsek.terra.api.block.state.BlockState;
 import com.dfsek.terra.api.world.ServerWorld;
 import com.dfsek.terra.api.world.chunk.Chunk;
 import com.dfsek.terra.api.world.chunk.generation.ProtoChunk;
-import com.dfsek.terra.cli.NBTSerializable;
 import com.dfsek.terra.cli.block.CLIBlockState;
 import com.dfsek.terra.cli.world.CLIWorld;
 
 import static com.dfsek.terra.cli.handle.CLIWorldHandle.getAIR;
 
 
-public class CLIChunk implements Chunk, ProtoChunk, NBTSerializable<net.querz.mca.Chunk> {
+public class CLIChunk implements Chunk, ProtoChunk {
     private final int x;
     private final int z;
     private final CLIBlockState[][][] blocks;
@@ -21,6 +20,10 @@ public class CLIChunk implements Chunk, ProtoChunk, NBTSerializable<net.querz.mc
     private final int maxHeight;
     private final CLIWorld world;
 
+    /**
+     * @param x absolute chunk X coordinate
+     * @param z absolute chunk Z coordinate
+     */
     public CLIChunk(int x, int z, CLIWorld world) {
         this.x = x;
         this.z = z;
@@ -60,25 +63,6 @@ public class CLIChunk implements Chunk, ProtoChunk, NBTSerializable<net.querz.mc
     @Override
     public ServerWorld getWorld() {
         return world;
-    }
-
-    @Override
-    public net.querz.mca.Chunk serialize() {
-        net.querz.mca.Chunk chunk = net.querz.mca.Chunk.newChunk(2230);
-        for(int x = 0; x < blocks.length; x++) {
-            for(int z = 0; z < blocks[x].length; z++) {
-                for(int y = 0; y < blocks[z][z].length; y++) {
-                    int yi = y + minHeight;
-                    if(yi < 0 || yi >= 256) continue;
-                    CLIBlockState blockState = blocks[x][z][y];
-                    if(blockState != null) {
-                        chunk.setBlockStateAt(x, yi, z, blockState.getNbt(), false);
-                    }
-                }
-            }
-        }
-        chunk.setStatus("features");
-        return chunk;
     }
 
     @Override
