@@ -23,6 +23,7 @@ public class BukkitBlockPopulator extends BlockPopulator {
 
     public void setPack(ConfigPack pack) {
         this.pack = pack;
+        decorators.clear();
     }
 
     // Diagnostics: -Dterra.stages.skip=a,b (or "all") / -Dterra.stages.only=a,b select which pack
@@ -41,12 +42,23 @@ public class BukkitBlockPopulator extends BlockPopulator {
         return ONLY == null || ONLY.contains(id);
     }
 
+    // One order-independent decorator per world and pack (it caches terrain and write sets).
+    private final java.util.Map<java.util.UUID, com.dfsek.terra.world.decoration.OrderIndependentDecorator> decorators =
+        new java.util.concurrent.ConcurrentHashMap<>();
+
     @Override
     public void populate(@NotNull WorldInfo worldInfo, @NotNull Random random, int chunkX, int chunkZ,
                          @NotNull LimitedRegion limitedRegion) {
+        BukkitProtoWorld world = new BukkitProtoWorld(limitedRegion, air, pack.getBiomeProvider());
+        if(com.dfsek.terra.world.decoration.OrderIndependentDecorator.enabled()) {
+            ConfigPack current = pack;
+            decorators.computeIfAbsent(worldInfo.getUID(), k -> new com.dfsek.terra.world.decoration.OrderIndependentDecorator(
+                current, current.getStages().stream().filter(BukkitBlockPopulator::runs).toList(), world.getGenerator(), air, world))
+                .decorate(world);
+            return;
+        }
         pack.getStages().forEach(generationStage -> {
-            if(runs(generationStage))
-                generationStage.populate(new BukkitProtoWorld(limitedRegion, air, pack.getBiomeProvider()));
+            if(runs(generationStage)) generationStage.populate(world);
         });
     }
 }
