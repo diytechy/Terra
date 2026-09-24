@@ -1,0 +1,15 @@
+wait 900 Done \(
+send chunky world WORLD
+send chunky shape square
+send chunky pattern loop
+send chunky center -9000 5000
+send chunky radius 96
+send chunky start
+wait 3600 Task finished for
+send chunky center 3000 3000
+send chunky radius 128
+send chunky pattern loop
+send chunky start
+wait 3600 Task finished for
+send save-all flush
+wait 300 Saved the game
