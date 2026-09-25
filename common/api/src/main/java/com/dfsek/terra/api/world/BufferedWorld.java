@@ -20,7 +20,7 @@ import com.dfsek.terra.api.world.util.WriteInterceptor;
  * A {@link WritableWorld} implementation which delegates read/write operations to
  * another {@link WritableWorld}, at an offset.
  */
-public class BufferedWorld implements WritableWorld {
+public class BufferedWorld implements WritableWorld, com.dfsek.terra.api.world.chunk.generation.DeferringWorld {
     private final WritableWorld delegate;
     private final int offsetX, offsetY, offsetZ;
 
@@ -95,6 +95,21 @@ public class BufferedWorld implements WritableWorld {
     @Override
     public Entity spawnEntity(double x, double y, double z, EntityType entityType) {
         return delegate.spawnEntity(x + offsetX, y + offsetY, z + offsetZ, entityType);
+    }
+
+    /**
+     * Deferred operations keep working through nested (offset) worlds: forwarded to the delegate with
+     * this world's offset applied, and run later against a view of the live world with the same
+     * offset and interceptors. If the delegate doesn't defer, the operation runs now on this world.
+     */
+    @Override
+    public void defer(int x, int y, int z, java.util.function.Consumer<WritableWorld> operation) {
+        if(delegate instanceof com.dfsek.terra.api.world.chunk.generation.DeferringWorld deferring) {
+            deferring.defer(x + offsetX, y + offsetY, z + offsetZ,
+                live -> operation.accept(new BufferedWorld(live, offsetX, offsetY, offsetZ, readInterceptor, writeInterceptor)));
+        } else {
+            operation.accept(this);
+        }
     }
 
     /**

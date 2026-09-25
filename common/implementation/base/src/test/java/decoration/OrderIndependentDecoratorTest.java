@@ -52,7 +52,8 @@ public class OrderIndependentDecoratorTest {
         @Override public Object getHandle() { return this; }
     }
 
-    static final S AIR = new S("air"), STONE = new S("stone"), LEAF = new S("leaf"), LOG = new S("log");
+    static final S AIR = new S("air"), STONE = new S("stone"), LEAF = new S("leaf"), LOG = new S("log"), CHEST = new S("chest"),
+        VANILLA = new S("vanilla");
 
     /** Flat terrain: stone up to y=63. */
     static final ChunkGenerator FLAT = new ChunkGenerator() {
@@ -189,5 +190,77 @@ public class OrderIndependentDecoratorTest {
         String s = decorate("rows", true);
         assertNotEquals(-1, s.indexOf('f')); // leaves present
         assertNotEquals(-1, s.indexOf('g')); // logs present
+    }
+
+    // ---- Deferred operations (loot / block-entity state / entities) follow their block write ----
+
+    /** Target of the overlapping chest writes: chunk (0,0), next to chunk (1,0). */
+    static final int PX = 15, PY = 64, PZ = 5;
+
+    /**
+     * Chunks (0,0) and (1,0) each place a chest at the same position (inside chunk (0,0)) and defer an
+     * operation that records their name; chunk (1,0) also defers an entity-like operation into the air
+     * at (PX, PY + 1, PZ), where chunk (0,0) places a block.
+     */
+    static GenerationStage chestStage(List<String> ran) {
+        return world -> {
+            int cx = world.centerChunkX(), cz = world.centerChunkZ();
+            if(cz != 0 || (cx != 0 && cx != 1)) return;
+            String who = cx == 0 ? "A" : "B";
+            world.setBlockState(PX, PY, PZ, CHEST);
+            ((com.dfsek.terra.api.world.chunk.generation.DeferringWorld) world).defer(PX, PY, PZ, live -> ran.add("loot " + who));
+            if(cx == 1) {
+                ((com.dfsek.terra.api.world.chunk.generation.DeferringWorld) world).defer(PX, PY + 1, PZ, live -> ran.add("entity B"));
+            } else {
+                world.setBlockState(PX, PY + 1, PZ, LEAF);
+            }
+        };
+    }
+
+    static List<String> decorateChests(String order, boolean vanillaAtTarget) {
+        List<String> ran = new ArrayList<>();
+        TestWorld w = new TestWorld();
+        if(vanillaAtTarget) w.blocks.put(TestWorld.key(PX, PY, PZ), VANILLA);
+        OrderIndependentDecorator dec = null;
+        for(int[] c : order(order)) {
+            ProtoWorld region = w.region(c[0], c[1]);
+            if(dec == null) dec = new OrderIndependentDecorator(region.getPack(), List.of(chestStage(ran)), FLAT, AIR, region);
+            dec.decorate(region);
+        }
+        return ran;
+    }
+
+    @Test
+    public void onlyTheWinningWritesDeferredOperationRuns() {
+        // Chunk (0,0) owns the target, so its write wins; B's loot and B's entity (displaced by A's leaf) don't run.
+        assertEquals(List.of("loot A"), decorateChests("rows", false));
+        assertEquals(List.of("loot A"), decorateChests("reverse", false));
+    }
+
+    @Test
+    public void noDeferredOperationRunsWhenTheServerChangedTheTarget() {
+        assertEquals(List.of(), decorateChests("rows", true));
+    }
+
+    @Test
+    public void deferralsThroughAnOffsetWorldTargetTheAbsolutePosition() {
+        // Nested TerraScript structures run in an offset (BufferedWorld) view; their deferred work must be
+        // tied to the absolute block and see the live world through the same offset.
+        List<String> ran = new ArrayList<>();
+        GenerationStage nested = world -> {
+            if(world.centerChunkX() != 0 || world.centerChunkZ() != 0) return;
+            com.dfsek.terra.api.world.WritableWorld inner = world.buffer(10, 0, 0);
+            inner.setBlockState(PX - 10, PY, PZ, CHEST);
+            ((com.dfsek.terra.api.world.chunk.generation.DeferringWorld) inner).defer(PX - 10, PY, PZ,
+                live -> ran.add("inner sees " + live.getBlockState(PX - 10, PY, PZ).getAsString(true)));
+        };
+        TestWorld w = new TestWorld();
+        OrderIndependentDecorator dec = null;
+        for(int[] c : order("rows")) {
+            ProtoWorld region = w.region(c[0], c[1]);
+            if(dec == null) dec = new OrderIndependentDecorator(region.getPack(), List.of(nested), FLAT, AIR, region);
+            dec.decorate(region);
+        }
+        assertEquals(List.of("inner sees chest"), ran);
     }
 }

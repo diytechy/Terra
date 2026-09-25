@@ -243,6 +243,7 @@ public final class OrderIndependentDecorator {
         }
         PristineChunk own = pristine(cx, cz);
         int x0 = cx << 4, z0 = cz << 4;
+        Set<WriteSet.Write> applied = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
         for(Map.Entry<Long, WriteSet.Write> e : merged.entrySet()) {
             long p = e.getKey();
             int x = posX(p), y = posY(p), z = posZ(p);
@@ -250,14 +251,31 @@ public final class OrderIndependentDecorator {
             BlockState current = live.getBlockState(x, y, z);
             if(!same(current, before)) continue; // changed by the server itself (vanilla structure etc.)
             live.setBlockState(x, y, z, e.getValue().state(), e.getValue().physics());
+            applied.add(e.getValue());
         }
         for(WriteSet.Deferred d : deferred) {
+            if(!shouldRun(d, merged.get(pos(d.x(), d.y(), d.z())), applied, live)) continue;
             try {
                 d.op().accept(live);
             } catch(RuntimeException ex) {
                 LOGGER.debug("Deferred decoration operation at ({}, {}, {}) failed", d.x(), d.y(), d.z(), ex);
             }
         }
+    }
+
+    /**
+     * A deferred operation (loot, block-entity state, entity) belongs to the block its feature left at
+     * that position. It runs only if that block is what the chunk ended up with:
+     * <ul>
+     *   <li>tied to a write: that exact write won the arbitration, was applied, and is still there;</li>
+     *   <li>no write at the position (e.g. an entity in air): no feature of any chunk wrote there and the
+     *       live block is still what the feature saw.</li>
+     * </ul>
+     */
+    static boolean shouldRun(WriteSet.Deferred d, WriteSet.Write winner, Set<WriteSet.Write> applied, ProtoWorld live) {
+        BlockState now = live.getBlockState(d.x(), d.y(), d.z());
+        if(d.write() != null) return winner == d.write() && applied.contains(d.write()) && same(now, d.write().state());
+        return winner == null && same(now, d.expected());
     }
 
     private static boolean same(BlockState a, BlockState b) {
@@ -311,7 +329,8 @@ public final class OrderIndependentDecorator {
 
         @Override
         public void defer(int x, int y, int z, Consumer<WritableWorld> operation) {
-            if(inRegion(x, y, z)) deferred.add(new WriteSet.Deferred(x, y, z, operation));
+            // Remember the block the feature sees at the target now; the operation is tied to it.
+            if(inRegion(x, y, z)) deferred.add(new WriteSet.Deferred(x, y, z, operation, null, getBlockState(x, y, z)));
         }
 
         @Override
@@ -343,22 +362,45 @@ public final class OrderIndependentDecorator {
 
     /** A chunk's decoration result, bucketed by the chunk each write lands in. */
     static final class WriteSet {
-        record Write(BlockState state, boolean physics) {}
+        /** One final block write. Compared by identity: two chunks writing the same state are different writes. */
+        static final class Write {
+            private final BlockState state;
+            private final boolean physics;
 
-        record Deferred(int x, int y, int z, Consumer<WritableWorld> op) {}
+            Write(BlockState state, boolean physics) {
+                this.state = state;
+                this.physics = physics;
+            }
+
+            BlockState state() { return state; }
+
+            boolean physics() { return physics; }
+        }
+
+        /**
+         * @param write    this chunk's final write at the target, or null if it wrote nothing there
+         * @param expected the block the feature saw at the target when it deferred the operation
+         */
+        record Deferred(int x, int y, int z, Consumer<WritableWorld> op, Write write, BlockState expected) {}
 
         private final Map<Long, Map<Long, Write>> byChunk = new HashMap<>();
         private final Map<Long, List<Deferred>> deferredByChunk = new HashMap<>();
 
         static WriteSet of(Map<Long, BlockState> overlay, Set<Long> physics, List<Deferred> deferred) {
             WriteSet ws = new WriteSet();
+            Map<Long, Write> all = new HashMap<>();
             for(Map.Entry<Long, BlockState> e : overlay.entrySet()) {
                 long p = e.getKey();
-                ws.byChunk.computeIfAbsent(key(posX(p) >> 4, posZ(p) >> 4), k -> new HashMap<>())
-                    .put(p, new Write(e.getValue(), physics.contains(p)));
+                Write w = new Write(e.getValue(), physics.contains(p));
+                all.put(p, w);
+                ws.byChunk.computeIfAbsent(key(posX(p) >> 4, posZ(p) >> 4), k -> new HashMap<>()).put(p, w);
             }
             for(Deferred d : deferred) {
-                ws.deferredByChunk.computeIfAbsent(key(d.x() >> 4, d.z() >> 4), k -> new ArrayList<>()).add(d);
+                Write w = all.get(pos(d.x(), d.y(), d.z()));
+                // The feature overwrote its own target after deferring: the operation is stale.
+                if(w != null && !same(w.state(), d.expected())) continue;
+                ws.deferredByChunk.computeIfAbsent(key(d.x() >> 4, d.z() >> 4), k -> new ArrayList<>())
+                    .add(new Deferred(d.x(), d.y(), d.z(), d.op(), w, d.expected()));
             }
             return ws;
         }
