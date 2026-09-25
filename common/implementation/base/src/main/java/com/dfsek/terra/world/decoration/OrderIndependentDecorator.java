@@ -72,7 +72,8 @@ import com.dfsek.terra.api.world.info.WorldProperties;
  * recently used first: undecorated terrain {@code terra.decoration.pristineCacheMB} (default 96) and
  * write sets {@code terra.decoration.writeSetCacheMB} (default 32), plus at most
  * {@code prefetchThreads + prefetchQueue} terrain chunks being prefetched. So about 130 MB per world
- * with the defaults. Evicted entries are recomputed identically when needed (slower, same result).
+ * with the defaults; the ceilings are hard (an entry larger than its whole budget is not cached).
+ * Evicted or uncached entries are recomputed identically when needed (slower, same result).
  * Platforms must {@link #close()} a world's decorator when the world unloads.
  */
 public final class OrderIndependentDecorator {
@@ -606,14 +607,25 @@ public final class OrderIndependentDecorator {
             }
         }
 
+        /**
+         * Account a completed value, evicting least recently used entries until the total is within
+         * {@code maxBytes}. A value larger than the whole budget is not kept at all (its future stays
+         * valid for callers already holding it; later callers recompute it), so the ceiling is hard.
+         */
         private void admitted(long k, CompletableFuture<V> f, V v) {
             long w = Math.max(1, weigher.applyAsLong(v));
             synchronized(lru) {
                 if(closed || map.get(k) != f) return; // evicted or replaced meanwhile
+                if(w > maxBytes) {
+                    map.remove(k, f);
+                    Long old = lru.remove(k);
+                    if(old != null) total -= old;
+                    return;
+                }
                 Long old = lru.put(k, w);
                 total += w - (old == null ? 0 : old);
                 var it = lru.entrySet().iterator();
-                while(total > maxBytes && lru.size() > 1 && it.hasNext()) {
+                while(total > maxBytes && it.hasNext()) { // k itself fits, so eviction stops before reaching it
                     var e = it.next();
                     if(e.getKey() == k) continue;
                     total -= e.getValue();

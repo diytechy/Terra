@@ -81,9 +81,13 @@ public class DecoratorCacheTest {
     };
 
     static OrderIndependentDecorator decorator(ChunkGenerator gen) {
+        return decorator(gen, PROPS);
+    }
+
+    static OrderIndependentDecorator decorator(ChunkGenerator gen, WorldProperties props) {
         ConfigPack pack = (ConfigPack) Proxy.newProxyInstance(DecoratorCacheTest.class.getClassLoader(), new Class<?>[]{ ConfigPack.class },
             (p, m, a) -> null);
-        return new OrderIndependentDecorator(pack, List.of(), gen, AIR, PROPS, null);
+        return new OrderIndependentDecorator(pack, List.of(), gen, AIR, props, null);
     }
 
     @AfterEach
@@ -112,6 +116,37 @@ public class DecoratorCacheTest {
         for(int y = 0; y < 32; y++) assertEquals(first.getBlock(3, y, 7), again.getBlock(3, y, 7));
         d.close();
         assertEquals(0, d.cacheBytes()[0]);
+    }
+
+    @Test
+    public void anEntryLargerThanTheWholeBudgetIsNotCached() {
+        // 320 sections with one stone block each: ~4.2 kB per section, ~1.3 MB per chunk, over a 1 MB budget.
+        System.setProperty("terra.decoration.pristineCacheMB", "1");
+        WorldProperties tall = new WorldProperties() {
+            @Override public long getSeed() { return 1; }
+            @Override public int getMaxHeight() { return 16 * 320; }
+            @Override public int getMinHeight() { return 0; }
+            @Override public Object getHandle() { return this; }
+        };
+        AtomicInteger calls = new AtomicInteger();
+        ChunkGenerator gen = new ChunkGenerator() {
+            @Override
+            public void generateChunkData(@NotNull ProtoChunk chunk, @NotNull WorldProperties world, @NotNull BiomeProvider b, int cx, int cz) {
+                calls.incrementAndGet();
+                for(int y = 0; y < 16 * 320; y += 16) chunk.setBlock(0, y, 0, STONE);
+            }
+
+            @Override public BlockState getBlock(WorldProperties w, int x, int y, int z, BiomeProvider b) { return AIR; }
+            @Override public Palette getPalette(int x, int y, int z, WorldProperties w, BiomeProvider b) { return null; }
+        };
+        OrderIndependentDecorator d = decorator(gen, tall);
+        PristineChunk first = d.pristine(0, 0);
+        assertTrue(first.estimatedBytes() > (1 << 20), "fixture too small: " + first.estimatedBytes());
+        assertEquals(0, d.cacheBytes()[0]); // the ceiling is hard: nothing over budget is held
+        PristineChunk again = d.pristine(0, 0);
+        assertEquals(2, calls.get());       // so it is recomputed on demand, identically
+        for(int y = 0; y < 16 * 320; y += 8) assertEquals(first.getBlock(0, y, 0), again.getBlock(0, y, 0));
+        d.close();
     }
 
     static void await(OrderIndependentDecorator d) throws InterruptedException {
