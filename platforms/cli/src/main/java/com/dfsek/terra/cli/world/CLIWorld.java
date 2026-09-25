@@ -127,8 +127,11 @@ public class CLIWorld implements ServerWorld {
             String.format("%.1f", total / secs));
     }
 
-    /** Write every stored chunk to {@code regionDir/r.X.Z.mca}. */
-    public void save(File regionDir) throws IOException {
+    /**
+     * Write every stored chunk to {@code regionDir/r.X.Z.mca}; chunks already in those files and not
+     * stored here are kept.
+     */
+    public void save(File regionDir, int dataVersion, String status) throws IOException {
         if(!regionDir.exists() && !regionDir.mkdirs()) throw new IOException("Cannot create " + regionDir);
         Map<Long, Map<Integer, CLIChunk>> byRegion = new HashMap<>();
         for(CLIChunk chunk : chunks.values()) {
@@ -139,7 +142,7 @@ public class CLIWorld implements ServerWorld {
         for(Map.Entry<Long, Map<Integer, CLIChunk>> e : byRegion.entrySet()) {
             int rx = (int) (e.getKey() >> 32), rz = (int) (long) e.getKey();
             File file = new File(regionDir, "r." + rx + "." + rz + ".mca");
-            AnvilWriter.writeRegion(file, e.getValue(), minHeight, maxHeight);
+            AnvilWriter.writeRegion(file, e.getValue(), minHeight, maxHeight, dataVersion, status);
             LOGGER.info("Wrote {} chunks to {}", e.getValue().size(), file);
         }
     }

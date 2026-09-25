@@ -50,6 +50,7 @@ final class FeatureOrder extends TerraceHarness.Common implements Callable<Integ
     @Option(names = "--radius", description = "Proto-world radius in chunks around the decorated chunk.") int radius = 1;
     @Option(names = "--order-independent", description = "Decorate with OrderIndependentDecorator.") boolean oi = false;
     @Option(names = "--save", description = "Write the first order's decorated world to <dir>/region.") java.io.File save;
+    @Option(names = "--data-version", description = "Data version for --save (required with it), e.g. 4903.") Integer dataVersion;
     @Option(names = "--parallel", description = "Decoration threads for the orders named par-<order> (chunks whose regions "
                                                   + "overlap never run at the same time).") int parallel = 7;
 
@@ -63,7 +64,10 @@ final class FeatureOrder extends TerraceHarness.Common implements Callable<Integ
         }
         System.out.println("FEATURE-ORDER stages: " + st.stream().map(s -> s instanceof StringIdentifiable si ? si.getID() : "?").toList());
         CLIWorld a = decorate(p, st, orders.get(0));
-        if(save != null) a.save(new java.io.File(save, "region"));
+        if(save != null) {
+            if(dataVersion == null) throw new IllegalArgumentException("--save needs --data-version");
+            a.save(new java.io.File(save, "region"), dataVersion, com.dfsek.terra.cli.world.AnvilWriter.STATUS_FEATURES);
+        }
         CLIWorld b = decorate(p, st, orders.get(1));
         Map<String, Integer> pairs = new TreeMap<>();
         int chunks = 0, blocks = 0;

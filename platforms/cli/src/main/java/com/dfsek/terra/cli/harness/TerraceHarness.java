@@ -190,6 +190,8 @@ public final class TerraceHarness implements Callable<Integer> {
         boolean features = false;
         @Option(names = "--skip-existing") boolean skipExisting = false;
         @Option(names = "--order", description = "Chunk order: rows (default), spiral, random.") String order = "rows";
+        @Option(names = "--data-version", required = true,
+                description = "Minecraft data version to write, e.g. 4903 (Paper 26.2).") int dataVersion;
 
         @Override
         public Integer call() throws IOException {
@@ -211,7 +213,8 @@ public final class TerraceHarness implements Callable<Integer> {
                 long t0 = System.nanoTime();
                 world.generate(ox, oz, w, d, features, order);
                 LOGGER.info("TIMING window {} chunks {} seconds {}", name, w * d, String.format("%.3f", (System.nanoTime() - t0) / 1e9));
-                world.save(new File(dir, "region"));
+                world.save(new File(dir, "region"), dataVersion,
+                    features ? com.dfsek.terra.cli.world.AnvilWriter.STATUS_FEATURES : com.dfsek.terra.cli.world.AnvilWriter.STATUS_TERRAIN);
                 world.clear();
                 List<String> ids = new ArrayList<>();
                 short[] data = biomeRaster(p.getBiomeProvider(), seed, ox * 16, oz * 16, 1, w * 16, d * 16,

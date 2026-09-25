@@ -12,6 +12,7 @@ import java.util.concurrent.Callable;
 
 import com.dfsek.terra.api.config.ConfigPack;
 import com.dfsek.terra.api.event.events.platform.PlatformInitializationEvent;
+import com.dfsek.terra.cli.world.AnvilWriter;
 import com.dfsek.terra.cli.world.CLIWorld;
 
 
@@ -52,6 +53,13 @@ public final class TerraCLI implements Callable<Integer> {
     @Option(names = "--out", description = "Output directory; region files go to <out>/region.")
     private File out = new File(".");
 
+    @Option(names = "--data-version", description = "Minecraft data version to write (required when saving; e.g. 4903 = Paper 26.2).")
+    private Integer dataVersion;
+
+    @Option(names = "--chunk-status", description = "Chunk status to write (default: minecraft:carvers without features, "
+                                                    + "minecraft:features with them; never full: light, heightmaps and biomes are not written).")
+    private String chunkStatus;
+
     @Option(names = "--threads", description = "Generation threads (default: cores - 1).")
     private int threads = Runtime.getRuntime().availableProcessors() - 1;
 
@@ -65,6 +73,10 @@ public final class TerraCLI implements Callable<Integer> {
         Logger LOGGER = LoggerFactory.getLogger(TerraCLI.class);
         LOGGER.info("Starting Terra CLI...");
 
+        if(!noSave && dataVersion == null) {
+            throw new picocli.CommandLine.ParameterException(new picocli.CommandLine(this),
+                "--data-version is required when saving (the target server's data version, e.g. 4903 for Paper 26.2)");
+        }
         CLIPlatform platform = new CLIPlatform();
         platform.getEventManager().callEvent(new PlatformInitializationEvent());
 
@@ -76,7 +88,8 @@ public final class TerraCLI implements Callable<Integer> {
         world.generate(originX, originZ, width, width, !noFeatures);
 
         if(!noSave) {
-            world.save(new File(out, "region"));
+            world.save(new File(out, "region"), dataVersion,
+                chunkStatus != null ? chunkStatus : noFeatures ? AnvilWriter.STATUS_TERRAIN : AnvilWriter.STATUS_FEATURES);
         }
         LOGGER.info("Done.");
         return 0;

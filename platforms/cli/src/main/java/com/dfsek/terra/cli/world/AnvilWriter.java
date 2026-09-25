@@ -35,15 +35,26 @@ import com.dfsek.terra.cli.world.chunk.CLIChunk;
  * own biome IDs in a separate per-column sidecar, because the region format stores only 4x4x4 cells.
  */
 public final class AnvilWriter {
-    /** Minecraft 1.21.1. Only used to label the data; readers in the harness ignore it. */
-    public static final int DATA_VERSION = 3955;
+    /**
+     * Status for chunks that have terrain only. They lack light, heightmaps and real biomes (biomes are
+     * a plains placeholder), so they must never be labelled {@code minecraft:full}.
+     */
+    public static final String STATUS_TERRAIN = "minecraft:carvers";
+    /** Status for chunks that also ran the pack's feature stages. */
+    public static final String STATUS_FEATURES = "minecraft:features";
 
     private AnvilWriter() {}
 
-    public static void writeRegion(File file, Map<Integer, CLIChunk> chunks, int minHeight, int maxHeight) throws IOException {
+    /**
+     * @param dataVersion Minecraft data version of the target server (e.g. 4903 for Paper 26.2); required,
+     *                    because a wrong value makes the server treat the chunks as old data to convert.
+     * @param status      chunk status to record (see {@link #STATUS_TERRAIN}, {@link #STATUS_FEATURES})
+     */
+    public static void writeRegion(File file, Map<Integer, CLIChunk> chunks, int minHeight, int maxHeight, int dataVersion,
+                                   String status) throws IOException {
         Map<Integer, byte[]> payloads = new java.util.HashMap<>();
         for(Map.Entry<Integer, CLIChunk> e : chunks.entrySet()) {
-            CompoundTag tag = chunkTag(e.getValue(), minHeight, maxHeight);
+            CompoundTag tag = chunkTag(e.getValue(), minHeight, maxHeight, dataVersion, status);
             payloads.put(e.getKey(), zlib(new NBTSerializer(false).toBytes(new NamedTag("", tag))));
         }
         writeRegionPayloads(file.toPath(), payloads, (int) (System.currentTimeMillis() / 1000));
@@ -134,15 +145,15 @@ public final class AnvilWriter {
         return bos.toByteArray();
     }
 
-    static CompoundTag chunkTag(CLIChunk chunk, int minHeight, int maxHeight) {
+    static CompoundTag chunkTag(CLIChunk chunk, int minHeight, int maxHeight, int dataVersion, String status) {
         CompoundTag root = new CompoundTag();
-        root.putInt("DataVersion", DATA_VERSION);
+        root.putInt("DataVersion", dataVersion);
         root.putInt("xPos", chunk.getX());
         root.putInt("zPos", chunk.getZ());
         int minSection = Math.floorDiv(minHeight, 16);
         int maxSection = Math.floorDiv(maxHeight - 1, 16);
         root.putInt("yPos", minSection);
-        root.putString("Status", "minecraft:full");
+        root.putString("Status", status);
         ListTag<CompoundTag> sections = new ListTag<>(CompoundTag.class);
         for(int sy = minSection; sy <= maxSection; sy++) {
             sections.add(sectionTag(chunk, sy, minHeight, maxHeight));
