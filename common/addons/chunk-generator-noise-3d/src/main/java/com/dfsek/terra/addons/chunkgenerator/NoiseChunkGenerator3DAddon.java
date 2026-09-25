@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory;
 import com.dfsek.terra.addons.chunkgenerator.config.NoiseChunkGeneratorPackConfigTemplate;
 import com.dfsek.terra.addons.chunkgenerator.config.noise.BiomeNoiseConfigTemplate;
 import com.dfsek.terra.addons.chunkgenerator.config.noise.BiomeNoiseSamplers;
+import com.dfsek.terra.addons.chunkgenerator.config.noise.terrace.SharedTerrace;
 import com.dfsek.terra.addons.chunkgenerator.config.noise.terrace.TerracePassTemplate;
 import com.dfsek.terra.addons.chunkgenerator.config.noise.terrace.TerraceSpec;
 import com.dfsek.terra.addons.chunkgenerator.config.noise.terrace.TerraceSpecTemplate;
@@ -142,6 +143,13 @@ public class NoiseChunkGenerator3DAddon implements AddonInitializer {
             .register(addon, ConfigPackPostLoadEvent.class)
             .then(event -> {
                 Collection<Biome> biomes = event.getPack().getRegistry(Biome.class).entries();
+                // terrain.terrace is only implemented for surface-biome neighbours; refuse the pack rather
+                // than silently ignore the terrace specs.
+                String terraceError = SharedTerrace.unsupportedCombination(
+                    event.getPack().getContext().get(NoiseChunkGeneratorPackConfigTemplate.class).isBlendExtrudedNeighbors(),
+                    biomes.stream().filter(b -> b.getContext().get(noisePropertiesPropertyKey).samplers().terrace() != null)
+                        .map(Biome::getID).sorted().toList());
+                if(terraceError != null) throw new IllegalStateException(terraceError);
                 // Intern PaletteHolder instances: biomes with identical palette stacks (same Palette
                 // objects in same order, same offset) share a single canonical PaletteHolder array,
                 // eliminating duplicate Palette[] allocations that arise when many biomes inherit the

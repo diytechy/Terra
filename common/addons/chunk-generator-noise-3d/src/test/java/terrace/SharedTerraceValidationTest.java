@@ -55,4 +55,13 @@ public class SharedTerraceValidationTest {
         }
         assertTrue(ref.get() == null, "validated spec is still strongly reachable");
     }
+
+    @Test
+    public void extrudedNeighboursWithTerraceSpecsAreRejected() {
+        assertNull(SharedTerrace.unsupportedCombination(false, java.util.List.of("A")));
+        assertNull(SharedTerrace.unsupportedCombination(true, java.util.List.of()));
+        String e = SharedTerrace.unsupportedCombination(true, java.util.List.of("MESA", "TERRACES"));
+        assertNotNull(e);
+        assertTrue(e.contains("extruded-neighbors") && e.contains("MESA") && e.contains("TERRACES"), e);
+    }
 }

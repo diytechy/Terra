@@ -80,6 +80,19 @@ public final class SharedTerrace {
      * Checked at 12 fixed columns, Y range -64..319; tolerance 1 block at >= 10 columns.
      */
     /**
+     * Pack-load check. The shared terrace blend is only implemented for surface-biome neighbours
+     * ({@code blend.terrain.extruded-neighbors: false}); with extruded neighbours the specs would be
+     * silently ignored. Returns an error message for an unsupported combination, else null.
+     */
+    public static String unsupportedCombination(boolean extrudedNeighbors, java.util.List<String> biomesWithTerrace) {
+        if(!extrudedNeighbors || biomesWithTerrace.isEmpty()) return null;
+        return "terrain.terrace is not supported with blend.terrain.extruded-neighbors: true (it would be ignored). "
+               + "Set extruded-neighbors to false or remove terrain.terrace from: "
+               + String.join(", ", biomesWithTerrace.subList(0, Math.min(10, biomesWithTerrace.size())))
+               + (biomesWithTerrace.size() > 10 ? " and " + (biomesWithTerrace.size() - 10) + " more" : "");
+    }
+
+    /**
      * The spec to use for a contributor, or null. Validated once per (spec, base sampler, world seed)
      * on first use, with that world's seed: some samplers (DendryTerra's pixel cache before the per-seed
      * fix) cache seed-dependent data, so a spec accepted for one seed isn't assumed valid for another.
