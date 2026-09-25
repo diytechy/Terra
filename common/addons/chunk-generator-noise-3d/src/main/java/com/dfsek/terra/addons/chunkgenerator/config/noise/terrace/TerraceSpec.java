@@ -32,7 +32,32 @@ import com.dfsek.seismic.type.sampler.Sampler;
  * <p>
  * Where only one biome contributes, the surface is exactly that biome's own terraced surface.
  */
-public record TerraceSpec(Sampler anchor, Sampler height, Sampler fade, Pass[] passes) {
+public record TerraceSpec(Sampler anchor, Sampler height, Sampler fade, Pass[] passes, Validation validation) {
+    public TerraceSpec(Sampler anchor, Sampler height, Sampler fade, Pass[] passes) {
+        this(anchor, height, fade, passes, new Validation());
+    }
+
+    /**
+     * Results of {@link SharedTerrace#reproduces} for this spec, per (biome base sampler, world seed).
+     * Held by the spec, so it belongs to the pack that loaded it and is released with it on reload.
+     */
+    public static final class Validation {
+        private record Key(Sampler base, long seed) {}
+
+        private final java.util.concurrent.ConcurrentHashMap<Key, Boolean> results = new java.util.concurrent.ConcurrentHashMap<>();
+
+        boolean get(Sampler base, long seed, java.util.function.BooleanSupplier compute) {
+            Key k = new Key(base, seed);
+            Boolean r = results.get(k);
+            if(r != null) return r;
+            return results.computeIfAbsent(k, kk -> compute.getAsBoolean());
+        }
+
+        public int size() {
+            return results.size();
+        }
+    }
+
     public static final int PROFILE_TERRACE = 0;
     public static final int PROFILE_STRATA = 1;
     public static final int PROFILE_PARABOLIC = 2;

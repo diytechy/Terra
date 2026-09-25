@@ -79,20 +79,19 @@ public final class SharedTerrace {
      * terrain.terrace from one parent and terrain.sampler from another; such a spec is dropped.
      * Checked at 12 fixed columns, Y range -64..319; tolerance 1 block at >= 10 columns.
      */
-    private static final java.util.Map<Object, Boolean> VALID = new java.util.concurrent.ConcurrentHashMap<>();
-
     /**
-     * The spec to use for a contributor, or null. Validated once per (spec, sampler) pair on first
-     * use, with the world's seed: validating at pack load with a made-up seed is unsafe because some
-     * samplers (DendryTerra's pixel cache) cache seed-dependent data without keying it on the seed.
+     * The spec to use for a contributor, or null. Validated once per (spec, base sampler, world seed)
+     * on first use, with that world's seed: some samplers (DendryTerra's pixel cache before the per-seed
+     * fix) cache seed-dependent data, so a spec accepted for one seed isn't assumed valid for another.
+     * Results live in the spec (see {@link TerraceSpec.Validation}), not in a static map.
      */
     public static TerraceSpec usable(TerraceSpec spec, com.dfsek.seismic.type.sampler.Sampler base, long seed) {
         if(spec == null) return null;
-        Boolean ok = VALID.computeIfAbsent(java.util.List.of(spec, base), k -> {
+        boolean ok = spec.validation().get(base, seed, () -> {
             boolean r = reproduces(spec, base, seed);
             if(!r) org.slf4j.LoggerFactory.getLogger(SharedTerrace.class).info(
-                "[chunk-generator-noise-3d] a terrain.terrace does not reproduce its biome's terrain.sampler "
-                + "(inherited from another parent?); that biome uses its own sampler.");
+                "[chunk-generator-noise-3d] a terrain.terrace does not reproduce its biome's terrain.sampler for seed {} "
+                + "(inherited from another parent?); that biome uses its own sampler.", seed);
             return r;
         });
         return ok ? spec : null;
