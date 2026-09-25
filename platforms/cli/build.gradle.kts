@@ -42,3 +42,7 @@ application {
 tasks.getByName("run").setProperty("workingDir", file("./run"))
 
 addonDir(project.file("./run/addons"), tasks.named("run").get())
+
+tasks.withType<Test>().configureEach {
+    testLogging { events("passed", "failed") }
+}

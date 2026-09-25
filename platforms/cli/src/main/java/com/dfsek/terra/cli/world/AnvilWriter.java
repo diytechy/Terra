@@ -10,7 +10,14 @@ import net.querz.nbt.tag.StringTag;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.RandomAccessFile;
+import java.io.BufferedOutputStream;
+import java.io.OutputStream;
+import java.nio.ByteBuffer;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.zip.Deflater;
@@ -34,45 +41,82 @@ public final class AnvilWriter {
     private AnvilWriter() {}
 
     public static void writeRegion(File file, Map<Integer, CLIChunk> chunks, int minHeight, int maxHeight) throws IOException {
-        byte[][] payloads = new byte[1024][];
+        Map<Integer, byte[]> payloads = new java.util.HashMap<>();
         for(Map.Entry<Integer, CLIChunk> e : chunks.entrySet()) {
             CompoundTag tag = chunkTag(e.getValue(), minHeight, maxHeight);
-            byte[] raw = new NBTSerializer(false).toBytes(new NamedTag("", tag));
-            payloads[e.getKey()] = zlib(raw);
+            payloads.put(e.getKey(), zlib(new NBTSerializer(false).toBytes(new NamedTag("", tag))));
         }
-        try(RandomAccessFile out = new RandomAccessFile(file, "rw")) {
-            out.setLength(0);
-            byte[] header = new byte[8192];
+        writeRegionPayloads(file.toPath(), payloads, (int) (System.currentTimeMillis() / 1000));
+    }
+
+    /**
+     * Writes zlib-compressed chunk payloads (index = localX + 32 * localZ) into a region file.
+     * <p>
+     * If the file exists, every chunk that is not being written is preserved verbatim (its stored
+     * record and timestamp are copied), so saving part of a region never deletes other chunks. The new
+     * file is written next to the old one and moved into place atomically where the file system allows,
+     * so a failure leaves the original intact. A malformed existing file is refused, not overwritten.
+     */
+    static void writeRegionPayloads(Path file, Map<Integer, byte[]> payloads, int timestamp) throws IOException {
+        byte[][] records = new byte[1024][];
+        int[] timestamps = new int[1024];
+        if(Files.exists(file)) {
+            byte[] old = Files.readAllBytes(file);
+            if(old.length > 0) {
+                if(old.length < 8192) throw new IOException("Refusing to modify " + file + ": shorter than a region header");
+                ByteBuffer h = ByteBuffer.wrap(old);
+                for(int i = 0; i < 1024; i++) {
+                    int loc = h.getInt(i * 4);
+                    int off = loc >>> 8, count = loc & 0xFF;
+                    if(off == 0 && count == 0) continue;
+                    long start = (long) off * 4096;
+                    if(off < 2 || start + 5 > old.length) {
+                        throw new IOException("Refusing to modify " + file + ": chunk " + i + " points outside the file");
+                    }
+                    int length = h.getInt((int) start);
+                    if(length < 1 || start + 4 + length > old.length) {
+                        throw new IOException("Refusing to modify " + file + ": chunk " + i + " has an invalid length");
+                    }
+                    records[i] = Arrays.copyOfRange(old, (int) start, (int) (start + 4 + length));
+                    timestamps[i] = h.getInt(4096 + i * 4);
+                }
+            }
+        }
+        for(Map.Entry<Integer, byte[]> e : payloads.entrySet()) {
+            byte[] p = e.getValue();
+            byte[] rec = new byte[5 + p.length];
+            ByteBuffer.wrap(rec).putInt(p.length + 1).put((byte) 2).put(p); // 2 = zlib
+            records[e.getKey()] = rec;
+            timestamps[e.getKey()] = timestamp;
+        }
+
+        Path tmp = file.resolveSibling(file.getFileName() + ".tmp");
+        try(OutputStream out = new BufferedOutputStream(Files.newOutputStream(tmp))) {
+            ByteBuffer header = ByteBuffer.allocate(8192);
             int sector = 2;
-            ByteArrayOutputStream body = new ByteArrayOutputStream();
-            int now = (int) (System.currentTimeMillis() / 1000);
             for(int i = 0; i < 1024; i++) {
-                byte[] p = payloads[i];
-                if(p == null) continue;
-                int length = p.length + 1;
-                int sectors = (length + 4 + 4095) / 4096;
-                if(sectors > 255) throw new IOException("Chunk too large for region format: " + length + " bytes");
-                int loc = (sector << 8) | sectors;
-                header[i * 4] = (byte) (loc >>> 24);
-                header[i * 4 + 1] = (byte) (loc >>> 16);
-                header[i * 4 + 2] = (byte) (loc >>> 8);
-                header[i * 4 + 3] = (byte) loc;
-                header[4096 + i * 4] = (byte) (now >>> 24);
-                header[4096 + i * 4 + 1] = (byte) (now >>> 16);
-                header[4096 + i * 4 + 2] = (byte) (now >>> 8);
-                header[4096 + i * 4 + 3] = (byte) now;
-                byte[] chunkBytes = new byte[sectors * 4096];
-                chunkBytes[0] = (byte) (length >>> 24);
-                chunkBytes[1] = (byte) (length >>> 16);
-                chunkBytes[2] = (byte) (length >>> 8);
-                chunkBytes[3] = (byte) length;
-                chunkBytes[4] = 2; // zlib
-                System.arraycopy(p, 0, chunkBytes, 5, p.length);
-                body.write(chunkBytes);
+                if(records[i] == null) continue;
+                int sectors = (records[i].length + 4095) / 4096;
+                if(sectors > 255) throw new IOException("Chunk " + i + " too large for region format: " + records[i].length + " bytes");
+                header.putInt(i * 4, (sector << 8) | sectors);
+                header.putInt(4096 + i * 4, timestamps[i]);
                 sector += sectors;
             }
-            out.write(header);
-            out.write(body.toByteArray());
+            out.write(header.array());
+            for(int i = 0; i < 1024; i++) {
+                if(records[i] == null) continue;
+                out.write(records[i]);
+                int pad = (4096 - records[i].length % 4096) % 4096;
+                out.write(new byte[pad]);
+            }
+        } catch(IOException e) {
+            Files.deleteIfExists(tmp);
+            throw e;
+        }
+        try {
+            Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        } catch(AtomicMoveNotSupportedException e) {
+            Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING);
         }
     }
 
