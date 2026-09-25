@@ -56,8 +56,9 @@ public final class TerraCLI implements Callable<Integer> {
     @Option(names = "--data-version", description = "Minecraft data version to write (required when saving; e.g. 4903 = Paper 26.2).")
     private Integer dataVersion;
 
-    @Option(names = "--chunk-status", description = "Chunk status to write (default: minecraft:carvers without features, "
-                                                    + "minecraft:features with them; never full: light, heightmaps and biomes are not written).")
+    @Option(names = "--chunk-status", description = "Chunk status to write: minecraft:carvers or minecraft:features (default: "
+                                                    + "carvers without features, features with them). Anything else is refused: "
+                                                    + "light, heightmaps and biomes are not written, so chunks are never full.")
     private String chunkStatus;
 
     @Option(names = "--threads", description = "Generation threads (default: cores - 1).")
@@ -76,6 +77,13 @@ public final class TerraCLI implements Callable<Integer> {
         if(!noSave && dataVersion == null) {
             throw new picocli.CommandLine.ParameterException(new picocli.CommandLine(this),
                 "--data-version is required when saving (the target server's data version, e.g. 4903 for Paper 26.2)");
+        }
+        if(!noSave && chunkStatus != null) {
+            try {
+                AnvilWriter.requireSupportedStatus(chunkStatus); // fail before generating, not after
+            } catch(IllegalArgumentException e) {
+                throw new picocli.CommandLine.ParameterException(new picocli.CommandLine(this), e.getMessage());
+            }
         }
         CLIPlatform platform = new CLIPlatform();
         platform.getEventManager().callEvent(new PlatformInitializationEvent());

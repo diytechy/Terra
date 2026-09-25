@@ -46,12 +46,28 @@ public final class AnvilWriter {
     private AnvilWriter() {}
 
     /**
+     * {@code status} if the CLI can honestly produce it ({@link #STATUS_TERRAIN} or {@link #STATUS_FEATURES}).
+     * Anything later, {@code minecraft:full} above all, would claim light, heightmaps and biomes the CLI
+     * doesn't write, and the server would serve the chunks as finished.
+     *
+     * @throws IllegalArgumentException for any other status
+     */
+    public static String requireSupportedStatus(String status) {
+        if(STATUS_TERRAIN.equals(status) || STATUS_FEATURES.equals(status)) return status;
+        throw new IllegalArgumentException("Unsupported chunk status '" + status + "': use " + STATUS_TERRAIN
+                                           + " (terrain only) or " + STATUS_FEATURES
+                                           + " (with features); the CLI never writes full chunks");
+    }
+
+    /**
      * @param dataVersion Minecraft data version of the target server (e.g. 4903 for Paper 26.2); required,
      *                    because a wrong value makes the server treat the chunks as old data to convert.
-     * @param status      chunk status to record (see {@link #STATUS_TERRAIN}, {@link #STATUS_FEATURES})
+     * @param status      chunk status to record: {@link #STATUS_TERRAIN} or {@link #STATUS_FEATURES}
+     * @throws IllegalArgumentException for any other status, before anything is written
      */
     public static void writeRegion(File file, Map<Integer, CLIChunk> chunks, int minHeight, int maxHeight, int dataVersion,
                                    String status) throws IOException {
+        requireSupportedStatus(status);
         Map<Integer, byte[]> payloads = new java.util.HashMap<>();
         for(Map.Entry<Integer, CLIChunk> e : chunks.entrySet()) {
             CompoundTag tag = chunkTag(e.getValue(), minHeight, maxHeight, dataVersion, status);

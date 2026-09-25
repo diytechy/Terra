@@ -65,4 +65,17 @@ public class AnvilWriterTest {
         assertThrows(IOException.class, () -> AnvilWriter.writeRegionPayloads(f, Map.of(3, bytes(10, 1)), 1));
         assertArrayEquals(junk, Files.readAllBytes(f));
     }
+
+    @Test
+    public void onlyTheStatusesTheCliCanProduceAreAccepted(@TempDir Path dir) {
+        assertEquals(AnvilWriter.STATUS_TERRAIN, AnvilWriter.requireSupportedStatus("minecraft:carvers"));
+        assertEquals(AnvilWriter.STATUS_FEATURES, AnvilWriter.requireSupportedStatus("minecraft:features"));
+        for(String bad : new String[]{ "minecraft:full", "full", "minecraft:light", "" }) {
+            assertThrows(IllegalArgumentException.class, () -> AnvilWriter.requireSupportedStatus(bad), bad);
+        }
+        Path region = dir.resolve("r.0.0.mca");
+        assertThrows(IllegalArgumentException.class,
+            () -> AnvilWriter.writeRegion(region.toFile(), Map.of(), -64, 320, 4903, "minecraft:full"));
+        assertFalse(Files.exists(region)); // refused before anything is written
+    }
 }
