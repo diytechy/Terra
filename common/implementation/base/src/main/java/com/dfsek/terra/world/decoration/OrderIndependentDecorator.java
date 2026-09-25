@@ -137,11 +137,13 @@ public final class OrderIndependentDecorator {
     private static int posY(long p) { return (int) (p & 0xFFFL) - 2048; }
 
     PristineChunk pristine(int cx, int cz) {
-        return pristine.get(key(cx, cz), k -> {
-            PristineChunk c = new PristineChunk(minY, maxY, air);
-            generator.generateChunkData(c, properties, biomes, cx, cz);
-            return c;
-        });
+        return pristine.get(key(cx, cz), k -> computePristine(cx, cz));
+    }
+
+    private PristineChunk computePristine(int cx, int cz) {
+        PristineChunk c = new PristineChunk(minY, maxY, air);
+        generator.generateChunkData(c, properties, biomes, cx, cz);
+        return c;
     }
 
     /**
@@ -154,32 +156,77 @@ public final class OrderIndependentDecorator {
     }
 
     /**
-     * If this chunk's undecorated terrain is already cached (computed for a neighbour's decoration),
-     * copy it into {@code target} and return true, so the platform doesn't generate it a second time.
+     * Background terrain prefetch. Bounded: a fixed number of threads
+     * ({@code terra.decoration.prefetchThreads}, default cores/2) and a bounded queue
+     * ({@code terra.decoration.prefetchQueue}, default 64). Prefetching is optional work, so when the
+     * queue is full the request is dropped (its reservation cancelled) and the terrain is computed on
+     * demand instead. Stopped by {@link #close()}.
      */
-    private static final java.util.concurrent.ExecutorService PREFETCH = java.util.concurrent.Executors.newFixedThreadPool(
-        Math.max(1, Integer.getInteger("terra.decoration.prefetchThreads", Math.max(1, Runtime.getRuntime().availableProcessors() / 2))),
-        r -> {
+    private final java.util.concurrent.ThreadPoolExecutor prefetch = newPrefetchExecutor();
+    private volatile boolean closed;
+
+    private static java.util.concurrent.ThreadPoolExecutor newPrefetchExecutor() {
+        int threads = Math.max(1, Integer.getInteger("terra.decoration.prefetchThreads",
+            Math.max(1, Runtime.getRuntime().availableProcessors() / 2)));
+        int queue = Math.max(1, Integer.getInteger("terra.decoration.prefetchQueue", 64));
+        java.util.concurrent.ThreadPoolExecutor ex = new java.util.concurrent.ThreadPoolExecutor(threads, threads, 30,
+            java.util.concurrent.TimeUnit.SECONDS, new java.util.concurrent.ArrayBlockingQueue<>(queue), r -> {
             Thread t = new Thread(r, "Terra-decoration-prefetch");
             t.setDaemon(true);
             return t;
-        });
+        }, new java.util.concurrent.ThreadPoolExecutor.AbortPolicy());
+        ex.allowCoreThreadTimeOut(true);
+        return ex;
+    }
 
     /**
      * Start computing, in the background, the undecorated terrain of chunks within 2 of (cx, cz) that
      * isn't cached yet: decorating a chunk needs terrain two chunks out, which the server usually hasn't
      * generated at that point. The server's own terrain step then reuses it ({@link #fillFromCache}).
+     * Each chunk is reserved in the cache atomically before its task is queued, so concurrent callers
+     * never queue the same chunk twice.
      */
     public void prefetchAround(int cx, int cz) {
+        if(closed) return;
         for(int dx = -2; dx <= 2; dx++) {
             for(int dz = -2; dz <= 2; dz++) {
                 int x = cx + dx, z = cz + dz;
-                if(pristine.contains(key(x, z))) continue;
-                PREFETCH.execute(() -> pristine(x, z));
+                long k = key(x, z);
+                CompletableFuture<PristineChunk> reserved = pristine.reserve(k);
+                if(reserved == null) continue; // cached, being computed, or already queued
+                try {
+                    prefetch.execute(() -> pristine.completeReserved(k, reserved, kk -> computePristine(x, z)));
+                } catch(java.util.concurrent.RejectedExecutionException full) {
+                    pristine.cancel(k, reserved); // dropped: computed on demand later
+                }
             }
         }
     }
 
+    /** Number of prefetch tasks queued or running (diagnostics and tests). */
+    public int prefetchBacklog() {
+        return prefetch.getQueue().size() + prefetch.getActiveCount();
+    }
+
+    /**
+     * Retire this decorator (world unloaded or pack reloaded): stop prefetching, cancel queued work and
+     * drop the caches. Later calls still work but compute without caching.
+     */
+    public void close() {
+        closed = true;
+        prefetch.shutdownNow();
+        pristine.close();
+        writeSets.close();
+    }
+
+    public boolean isClosed() {
+        return closed;
+    }
+
+    /**
+     * If this chunk's undecorated terrain is already cached (computed for a neighbour's decoration),
+     * copy it into {@code target} and return true, so the platform doesn't generate it a second time.
+     */
     public boolean fillFromCache(ProtoChunk target, int cx, int cz) {
         PristineChunk c = pristine.peek(key(cx, cz));
         if(c == null) return false;
@@ -413,11 +460,15 @@ public final class OrderIndependentDecorator {
         }
     }
 
-    /** Bounded map of computed-once values (concurrent callers share one computation). */
+    /**
+     * Bounded map of computed-once values (concurrent callers share one computation). Entries can be
+     * reserved for background computation; a cancelled reservation is retried by real callers.
+     */
     private static final class LruFutures<V> {
         private final int max;
         private final ConcurrentHashMap<Long, CompletableFuture<V>> map = new ConcurrentHashMap<>();
         private final ArrayDeque<Long> order = new ArrayDeque<>();
+        private volatile boolean closed;
 
         LruFutures(int max) {
             this.max = Math.max(16, max);
@@ -432,32 +483,76 @@ public final class OrderIndependentDecorator {
             return f != null && f.isDone() && !f.isCompletedExceptionally() ? f.join() : null;
         }
 
+        /** Install an empty future for {@code k}; returns it if this call reserved k, else null. */
+        CompletableFuture<V> reserve(long k) {
+            if(closed) return null;
+            CompletableFuture<V> mine = new CompletableFuture<>();
+            return map.putIfAbsent(k, mine) == null ? mine : null;
+        }
+
+        /** Background completion of a reservation (skipped if it was cancelled or completed meanwhile). */
+        void completeReserved(long k, CompletableFuture<V> f, Function<Long, V> compute) {
+            if(f.isDone() || closed) return;
+            try {
+                V v = compute.apply(k);
+                if(f.complete(v)) admitted(k);
+            } catch(Throwable t) {
+                map.remove(k, f);
+                f.completeExceptionally(t);
+            }
+        }
+
+        void cancel(long k, CompletableFuture<V> f) {
+            map.remove(k, f);
+            f.cancel(false);
+        }
+
+        /** Store a value computed elsewhere (also completes a pending reservation for k). */
         void put(long k, V v) {
-            if(map.putIfAbsent(k, CompletableFuture.completedFuture(v)) == null) {
-                synchronized(order) {
-                    order.addLast(k);
-                    while(order.size() > max) map.remove(order.pollFirst());
+            if(closed) return;
+            CompletableFuture<V> prev = map.putIfAbsent(k, CompletableFuture.completedFuture(v));
+            if(prev == null || prev.complete(v)) admitted(k);
+        }
+
+        V get(long k, Function<Long, V> compute) {
+            if(closed) return compute.apply(k);
+            while(true) {
+                CompletableFuture<V> mine = new CompletableFuture<>();
+                CompletableFuture<V> f = map.putIfAbsent(k, mine);
+                if(f == null) {
+                    try {
+                        V v = compute.apply(k);
+                        mine.complete(v);
+                        admitted(k);
+                        return v;
+                    } catch(RuntimeException | Error t) {
+                        map.remove(k, mine);
+                        mine.completeExceptionally(t);
+                        throw t;
+                    }
+                }
+                try {
+                    return f.join();
+                } catch(java.util.concurrent.CancellationException cancelled) {
+                    map.remove(k, f); // a dropped prefetch reservation: compute it here
                 }
             }
         }
 
-        V get(long k, Function<Long, V> compute) {
-            CompletableFuture<V> mine = new CompletableFuture<>();
-            CompletableFuture<V> f = map.putIfAbsent(k, mine);
-            if(f == null) {
-                f = mine;
-                try {
-                    mine.complete(compute.apply(k));
-                } catch(Throwable t) {
-                    map.remove(k, mine);
-                    mine.completeExceptionally(t);
-                }
-                synchronized(order) {
-                    order.addLast(k);
-                    while(order.size() > max) map.remove(order.pollFirst());
-                }
+        private void admitted(long k) {
+            synchronized(order) {
+                order.addLast(k);
+                while(order.size() > max) map.remove(order.pollFirst());
             }
-            return f.join();
+        }
+
+        void close() {
+            closed = true;
+            map.values().forEach(f -> f.cancel(false));
+            map.clear();
+            synchronized(order) {
+                order.clear();
+            }
         }
     }
 }
