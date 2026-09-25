@@ -57,6 +57,15 @@ public class SharedTerraceValidationTest {
     }
 
     @Test
+    public void validationResultsPerSpecAreBoundedAndEvictedResultsRecomputeTheSame() {
+        TerraceSpec s = spec();
+        for(long seed = 1; seed <= 1_000; seed++) SharedTerrace.usable(s, SEED_DEPENDENT_BASE, seed);
+        assertTrue(s.validation().size() <= TerraceSpec.Validation.MAX_ENTRIES, "held " + s.validation().size());
+        assertNotNull(SharedTerrace.usable(s, SEED_DEPENDENT_BASE, 1)); // seed 1 was evicted long ago
+        assertNull(SharedTerrace.usable(s, SEED_DEPENDENT_BASE, 2));
+    }
+
+    @Test
     public void extrudedNeighboursWithTerraceSpecsAreRejected() {
         assertNull(SharedTerrace.unsupportedCombination(false, java.util.List.of("A")));
         assertNull(SharedTerrace.unsupportedCombination(true, java.util.List.of()));

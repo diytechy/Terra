@@ -40,21 +40,41 @@ public record TerraceSpec(Sampler anchor, Sampler height, Sampler fade, Pass[] p
     /**
      * Results of {@link SharedTerrace#reproduces} for this spec, per (biome base sampler, world seed).
      * Held by the spec, so it belongs to the pack that loaded it and is released with it on reload.
+     * At most {@link #MAX_ENTRIES} results are kept, least recently used first: a pack normally sees a
+     * handful of (biome, seed) pairs, and an evicted result is simply recomputed (it is deterministic),
+     * which is cheaper than growing for every seed evaluated during the pack's lifetime.
      */
     public static final class Validation {
+        public static final int MAX_ENTRIES = 64;
+
         private record Key(Sampler base, long seed) {}
 
-        private final java.util.concurrent.ConcurrentHashMap<Key, Boolean> results = new java.util.concurrent.ConcurrentHashMap<>();
+        // Access order; guarded by itself. Computation runs outside the lock (it samples terrain), so two
+        // racing callers may both compute a key; they get the same answer.
+        private final java.util.LinkedHashMap<Key, Boolean> results = new java.util.LinkedHashMap<>(16, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(java.util.Map.Entry<Key, Boolean> eldest) {
+                return size() > MAX_ENTRIES;
+            }
+        };
 
         boolean get(Sampler base, long seed, java.util.function.BooleanSupplier compute) {
             Key k = new Key(base, seed);
-            Boolean r = results.get(k);
-            if(r != null) return r;
-            return results.computeIfAbsent(k, kk -> compute.getAsBoolean());
+            synchronized(results) {
+                Boolean r = results.get(k);
+                if(r != null) return r;
+            }
+            boolean r = compute.getAsBoolean();
+            synchronized(results) {
+                results.put(k, r);
+            }
+            return r;
         }
 
         public int size() {
-            return results.size();
+            synchronized(results) {
+                return results.size();
+            }
         }
     }
 
