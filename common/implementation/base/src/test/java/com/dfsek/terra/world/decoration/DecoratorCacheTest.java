@@ -90,6 +90,28 @@ public class DecoratorCacheTest {
     void clearProperties() {
         System.clearProperty("terra.decoration.prefetchQueue");
         System.clearProperty("terra.decoration.prefetchThreads");
+        System.clearProperty("terra.decoration.pristineCacheMB");
+    }
+
+    @Test
+    public void terrainCacheIsBoundedByBytesAndEvictedChunksAreRecomputedIdentically() {
+        System.setProperty("terra.decoration.pristineCacheMB", "1");
+        CountingGenerator gen = new CountingGenerator(0);
+        OrderIndependentDecorator d = decorator(gen);
+        PristineChunk first = d.pristine(0, 0);
+        long one = first.estimatedBytes();
+        long max = 0;
+        for(int i = 1; i < 400; i++) {
+            d.pristine(i, 0);
+            max = Math.max(max, d.cacheBytes()[0]);
+        }
+        assertTrue(max <= (1 << 20) + one, "cache held " + max + " bytes");
+        assertTrue(max > (1 << 20) - 2 * one, "cache far below its budget: " + max);
+        PristineChunk again = d.pristine(0, 0); // evicted long ago
+        assertEquals(2, gen.calls.get(0L).get());
+        for(int y = 0; y < 32; y++) assertEquals(first.getBlock(3, y, 7), again.getBlock(3, y, 7));
+        d.close();
+        assertEquals(0, d.cacheBytes()[0]);
     }
 
     static void await(OrderIndependentDecorator d) throws InterruptedException {

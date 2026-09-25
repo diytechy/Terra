@@ -85,6 +85,18 @@ final class PristineChunk implements ProtoChunk {
         return s.palette.get(s.bytes[i] & 0xFF);
     }
 
+    /** Conservative heap estimate: section objects, palettes and index arrays. */
+    long estimatedBytes() {
+        long b = 64 + 16L * sections.length;
+        for(Section s : sections) {
+            if(s == null) continue;
+            b += 64 + 32L * s.palette.size();
+            if(s.bytes != null) b += 16 + 4096;
+            if(s.shorts != null) b += 16 + 8192;
+        }
+        return b;
+    }
+
     /** Write every non-air block into {@code target} (same local coordinates). */
     void copyTo(ProtoChunk target) {
         for(int si = 0; si < sections.length; si++) {

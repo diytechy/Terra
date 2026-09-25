@@ -192,6 +192,11 @@ public class TerraBukkitPlugin extends JavaPlugin {
     @Override
     public void onDisable() {
         ChunkQueryLogger.close();
+        for(org.bukkit.World world : Bukkit.getWorlds()) {
+            if(world.getGenerator() instanceof com.dfsek.terra.bukkit.generator.BukkitChunkGeneratorWrapper wrapper) {
+                wrapper.retireAll();
+            }
+        }
     }
 
     @Override

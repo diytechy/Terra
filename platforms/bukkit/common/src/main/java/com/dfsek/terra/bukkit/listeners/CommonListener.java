@@ -69,6 +69,14 @@ public class CommonListener implements Listener {
         }
     }
 
+    /** Release a world's order-independent decoration caches and prefetch threads when it unloads. */
+    @EventHandler
+    public void onWorldUnload(org.bukkit.event.world.WorldUnloadEvent event) {
+        if(event.getWorld().getGenerator() instanceof BukkitChunkGeneratorWrapper wrapper) {
+            wrapper.retire(event.getWorld().getUID());
+        }
+    }
+
     private void applyWolfVariant(Wolf wolf) {
         // Doesn't apply if variant has already been applied
         if(wolf.getVariant() != Variant.PALE) {

@@ -67,7 +67,17 @@ public class BukkitChunkGeneratorWrapper extends org.bukkit.generator.ChunkGener
 
     public void setDelegate(ChunkGenerator delegate) {
         this.delegate = delegate;
-        decorators.clear();
+        retireAll();
+    }
+
+    /** Close and drop the order-independent decorator of an unloaded world (its caches and prefetch threads). */
+    public void retire(java.util.UUID world) {
+        var d = decorators.remove(world);
+        if(d != null) d.close();
+    }
+
+    public void retireAll() {
+        decorators.keySet().forEach(this::retire);
     }
 
     @Override

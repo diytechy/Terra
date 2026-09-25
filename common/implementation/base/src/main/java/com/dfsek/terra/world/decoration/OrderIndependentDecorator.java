@@ -66,9 +66,14 @@ import com.dfsek.terra.api.world.info.WorldProperties;
  * added to leaves that hang in from a neighbour); overlaps between two chunks' features resolve by
  * the fixed priority instead of by generation order.
  * <p>
- * Enable with {@code -Dterra.decoration.orderIndependent=true}. Cache sizes:
- * {@code terra.decoration.pristineCache} (chunks, default 1024) and
- * {@code terra.decoration.writeSetCache} (chunks, default 512).
+ * Enable with {@code -Dterra.decoration.orderIndependent=true}.
+ * <p>
+ * <b>Memory.</b> Per decorator (one per world), the caches are bounded by estimated bytes, least
+ * recently used first: undecorated terrain {@code terra.decoration.pristineCacheMB} (default 96) and
+ * write sets {@code terra.decoration.writeSetCacheMB} (default 32), plus at most
+ * {@code prefetchThreads + prefetchQueue} terrain chunks being prefetched. So about 130 MB per world
+ * with the defaults. Evicted entries are recomputed identically when needed (slower, same result).
+ * Platforms must {@link #close()} a world's decorator when the world unloads.
  */
 public final class OrderIndependentDecorator {
     private static final Logger LOGGER = LoggerFactory.getLogger(OrderIndependentDecorator.class);
@@ -118,8 +123,8 @@ public final class OrderIndependentDecorator {
         this.maxY = properties.getMaxHeight();
         this.properties = properties;
         this.serverWorld = serverWorld;
-        this.pristine = new LruFutures<>(Integer.getInteger("terra.decoration.pristineCache", 1024));
-        this.writeSets = new LruFutures<>(Integer.getInteger("terra.decoration.writeSetCache", 512));
+        this.pristine = new LruFutures<>(Long.getLong("terra.decoration.pristineCacheMB", 96) << 20, PristineChunk::estimatedBytes);
+        this.writeSets = new LruFutures<>(Long.getLong("terra.decoration.writeSetCacheMB", 32) << 20, WriteSet::estimatedBytes);
     }
 
     private static long key(int cx, int cz) {
@@ -223,6 +228,11 @@ public final class OrderIndependentDecorator {
         return closed;
     }
 
+    /** Estimated bytes held by the terrain and write-set caches (diagnostics and tests). */
+    public long[] cacheBytes() {
+        return new long[]{ pristine.weight(), writeSets.weight() };
+    }
+
     /**
      * If this chunk's undecorated terrain is already cached (computed for a neighbour's decoration),
      * copy it into {@code target} and return true, so the platform doesn't generate it a second time.
@@ -280,7 +290,14 @@ public final class OrderIndependentDecorator {
     }
 
     /** Decorate the centre chunk of {@code live}, writing only inside that chunk. */
+    private static final boolean STATS = Boolean.getBoolean("terra.decoration.stats");
+    private final java.util.concurrent.atomic.AtomicLong decorated = new java.util.concurrent.atomic.AtomicLong();
+
     public void decorate(ProtoWorld live) {
+        if(STATS && decorated.incrementAndGet() % 1024 == 0) {
+            LOGGER.info("[decoration-stats] decorated {} chunks; terrain cache {} MB, write-set cache {} MB, prefetch backlog {}",
+                decorated.get(), pristine.weight() >> 20, writeSets.weight() >> 20, prefetchBacklog());
+        }
         int cx = live.centerChunkX(), cz = live.centerChunkZ();
         Map<Long, WriteSet.Write> merged = new HashMap<>();
         List<WriteSet.Deferred> deferred = new ArrayList<>();
@@ -452,6 +469,14 @@ public final class OrderIndependentDecorator {
             return ws;
         }
 
+        /** Conservative heap estimate: per write a HashMap node, a boxed key and a Write; per operation ~96 bytes. */
+        long estimatedBytes() {
+            long n = 0, d = 0;
+            for(Map<Long, Write> m : byChunk.values()) n += m.size();
+            for(List<Deferred> l : deferredByChunk.values()) d += l.size();
+            return 256 + (byChunk.size() + deferredByChunk.size()) * 128L + n * 96 + d * 96;
+        }
+
         void into(int cx, int cz, Map<Long, Write> merged, List<Deferred> deferred) {
             Map<Long, Write> w = byChunk.get(key(cx, cz));
             if(w != null) merged.putAll(w);
@@ -461,17 +486,22 @@ public final class OrderIndependentDecorator {
     }
 
     /**
-     * Bounded map of computed-once values (concurrent callers share one computation). Entries can be
-     * reserved for background computation; a cancelled reservation is retried by real callers.
+     * Map of computed-once values bounded by estimated bytes, least recently used first (concurrent
+     * callers share one computation). Entries can be reserved for background computation; a cancelled
+     * reservation is retried by real callers.
      */
     private static final class LruFutures<V> {
-        private final int max;
+        private final long maxBytes;
+        private final java.util.function.ToLongFunction<V> weigher;
         private final ConcurrentHashMap<Long, CompletableFuture<V>> map = new ConcurrentHashMap<>();
-        private final ArrayDeque<Long> order = new ArrayDeque<>();
+        // Completed entries in access order with their weights; guarded by itself.
+        private final java.util.LinkedHashMap<Long, Long> lru = new java.util.LinkedHashMap<>(256, 0.75f, true);
+        private long total;
         private volatile boolean closed;
 
-        LruFutures(int max) {
-            this.max = Math.max(16, max);
+        LruFutures(long maxBytes, java.util.function.ToLongFunction<V> weigher) {
+            this.maxBytes = Math.max(1 << 20, maxBytes);
+            this.weigher = weigher;
         }
 
         boolean contains(long k) {
@@ -480,7 +510,9 @@ public final class OrderIndependentDecorator {
 
         V peek(long k) {
             CompletableFuture<V> f = map.get(k);
-            return f != null && f.isDone() && !f.isCompletedExceptionally() ? f.join() : null;
+            if(f == null || !f.isDone() || f.isCompletedExceptionally()) return null;
+            touch(k);
+            return f.join();
         }
 
         /** Install an empty future for {@code k}; returns it if this call reserved k, else null. */
@@ -495,7 +527,7 @@ public final class OrderIndependentDecorator {
             if(f.isDone() || closed) return;
             try {
                 V v = compute.apply(k);
-                if(f.complete(v)) admitted(k);
+                if(f.complete(v)) admitted(k, f, v);
             } catch(Throwable t) {
                 map.remove(k, f);
                 f.completeExceptionally(t);
@@ -510,8 +542,10 @@ public final class OrderIndependentDecorator {
         /** Store a value computed elsewhere (also completes a pending reservation for k). */
         void put(long k, V v) {
             if(closed) return;
-            CompletableFuture<V> prev = map.putIfAbsent(k, CompletableFuture.completedFuture(v));
-            if(prev == null || prev.complete(v)) admitted(k);
+            CompletableFuture<V> done = CompletableFuture.completedFuture(v);
+            CompletableFuture<V> prev = map.putIfAbsent(k, done);
+            if(prev == null) admitted(k, done, v);
+            else if(prev.complete(v)) admitted(k, prev, v);
         }
 
         V get(long k, Function<Long, V> compute) {
@@ -523,7 +557,7 @@ public final class OrderIndependentDecorator {
                     try {
                         V v = compute.apply(k);
                         mine.complete(v);
-                        admitted(k);
+                        admitted(k, mine, v);
                         return v;
                     } catch(RuntimeException | Error t) {
                         map.remove(k, mine);
@@ -532,17 +566,41 @@ public final class OrderIndependentDecorator {
                     }
                 }
                 try {
-                    return f.join();
+                    V v = f.join();
+                    touch(k);
+                    return v;
                 } catch(java.util.concurrent.CancellationException cancelled) {
                     map.remove(k, f); // a dropped prefetch reservation: compute it here
                 }
             }
         }
 
-        private void admitted(long k) {
-            synchronized(order) {
-                order.addLast(k);
-                while(order.size() > max) map.remove(order.pollFirst());
+        private void touch(long k) {
+            synchronized(lru) {
+                lru.get(k);
+            }
+        }
+
+        private void admitted(long k, CompletableFuture<V> f, V v) {
+            long w = Math.max(1, weigher.applyAsLong(v));
+            synchronized(lru) {
+                if(closed || map.get(k) != f) return; // evicted or replaced meanwhile
+                Long old = lru.put(k, w);
+                total += w - (old == null ? 0 : old);
+                var it = lru.entrySet().iterator();
+                while(total > maxBytes && lru.size() > 1 && it.hasNext()) {
+                    var e = it.next();
+                    if(e.getKey() == k) continue;
+                    total -= e.getValue();
+                    map.remove(e.getKey());
+                    it.remove();
+                }
+            }
+        }
+
+        long weight() {
+            synchronized(lru) {
+                return total;
             }
         }
 
@@ -550,8 +608,9 @@ public final class OrderIndependentDecorator {
             closed = true;
             map.values().forEach(f -> f.cancel(false));
             map.clear();
-            synchronized(order) {
-                order.clear();
+            synchronized(lru) {
+                lru.clear();
+                total = 0;
             }
         }
     }
