@@ -73,7 +73,12 @@ public class BukkitChunkGeneratorWrapper extends org.bukkit.generator.ChunkGener
     /** Close and drop the order-independent decorator of an unloaded world (its caches and prefetch threads). */
     public void retire(java.util.UUID world) {
         var d = decorators.remove(world);
-        if(d != null) d.close();
+        if(d != null) {
+            long[] bytes = d.cacheBytes();
+            d.close();
+            LOGGER.info("Closed order-independent decorator for world {} (released ~{} MB of caches)", world,
+                (bytes[0] + bytes[1]) >> 20);
+        }
     }
 
     public void retireAll() {
