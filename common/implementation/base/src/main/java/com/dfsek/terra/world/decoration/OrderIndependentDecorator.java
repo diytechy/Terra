@@ -515,22 +515,41 @@ public final class OrderIndependentDecorator {
             return f.join();
         }
 
-        /** Install an empty future for {@code k}; returns it if this call reserved k, else null. */
+        /**
+         * A reservation for background computation. Whoever claims it first computes it: the queued
+         * task when it starts, or a caller that needs the value before then. So a caller never waits
+         * for work that is only queued, only for work that is actually running.
+         */
+        static final class Pending<V> extends CompletableFuture<V> {
+            private final java.util.concurrent.atomic.AtomicBoolean claimed = new java.util.concurrent.atomic.AtomicBoolean();
+
+            boolean claim() {
+                return claimed.compareAndSet(false, true);
+            }
+        }
+
+        /** Install a reservation for {@code k}; returns it if this call reserved k, else null. */
         CompletableFuture<V> reserve(long k) {
             if(closed) return null;
-            CompletableFuture<V> mine = new CompletableFuture<>();
+            Pending<V> mine = new Pending<>();
             return map.putIfAbsent(k, mine) == null ? mine : null;
         }
 
-        /** Background completion of a reservation (skipped if it was cancelled or completed meanwhile). */
+        /** Background completion of a reservation (skipped if cancelled, claimed by a caller or done). */
         void completeReserved(long k, CompletableFuture<V> f, Function<Long, V> compute) {
-            if(f.isDone() || closed) return;
+            if(closed || f.isDone() || !(f instanceof Pending<V> p) || !p.claim()) return;
+            computeInto(k, f, compute);
+        }
+
+        private V computeInto(long k, CompletableFuture<V> f, Function<Long, V> compute) {
             try {
                 V v = compute.apply(k);
                 if(f.complete(v)) admitted(k, f, v);
-            } catch(Throwable t) {
+                return v;
+            } catch(RuntimeException | Error t) {
                 map.remove(k, f);
                 f.completeExceptionally(t);
+                throw t;
             }
         }
 
@@ -545,7 +564,10 @@ public final class OrderIndependentDecorator {
             CompletableFuture<V> done = CompletableFuture.completedFuture(v);
             CompletableFuture<V> prev = map.putIfAbsent(k, done);
             if(prev == null) admitted(k, done, v);
-            else if(prev.complete(v)) admitted(k, prev, v);
+            else {
+                if(prev instanceof Pending<V> p) p.claim(); // the queued task needn't compute it any more
+                if(prev.complete(v)) admitted(k, prev, v);
+            }
         }
 
         V get(long k, Function<Long, V> compute) {
@@ -564,6 +586,9 @@ public final class OrderIndependentDecorator {
                         mine.completeExceptionally(t);
                         throw t;
                     }
+                }
+                if(f instanceof Pending<V> p && p.claim()) {
+                    return computeInto(k, f, compute); // queued but not started: do it here instead of waiting
                 }
                 try {
                     V v = f.join();

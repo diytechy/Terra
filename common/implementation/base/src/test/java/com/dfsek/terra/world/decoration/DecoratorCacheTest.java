@@ -181,4 +181,22 @@ public class DecoratorCacheTest {
         AtomicLong n = new AtomicLong(gen.calls.get((5L << 32) ^ 5L).get());
         assertEquals(1, n.get());
     }
+
+    @Test
+    public void aCallerNeverWaitsForPrefetchWorkThatIsOnlyQueued() throws Exception {
+        // One slow prefetch thread and a long queue: most reservations sit in the queue. A caller asking
+        // for such a chunk must compute it itself (claim the reservation), not wait behind the queue.
+        System.setProperty("terra.decoration.prefetchThreads", "1");
+        System.setProperty("terra.decoration.prefetchQueue", "256");
+        CountingGenerator gen = new CountingGenerator(100);
+        OrderIndependentDecorator d = decorator(gen);
+        for(int i = 0; i < 8; i++) d.prefetchAround(i * 10, 0); // 200 chunks, ~20 s of queued work
+        long t0 = System.nanoTime();
+        d.pristine(72, 2); // reserved near the end of the queue
+        long ms = (System.nanoTime() - t0) / 1_000_000;
+        assertTrue(ms < 2_000, "waited " + ms + " ms for queued work");
+        d.close();
+        Thread.sleep(300);
+        assertEquals(1, gen.maxCallsPerChunk()); // the queued task did not compute it again
+    }
 }
